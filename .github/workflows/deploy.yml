@@ -1,0 +1,106 @@
+woenv:
+  DIRECTORY: .output
+  PROJECT_NAME: taborg
+
+name: Deploy
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  Version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      version_changed: ${{ steps.check_version.outputs.version_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for version change
+        id: check_version
+        run: |
+          if git diff --name-only HEAD~1..HEAD | grep -q '^package\.json$'; then
+            VERSION_CHANGED=1
+          else
+            VERSION_CHANGED=0
+          fi
+          echo "version_changed=$VERSION_CHANGED" >> "$GITHUB_OUTPUT"
+      - name: Get version
+        if: ${{ steps.check_version.outputs.version_changed == '1' }}
+        id: get_version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+  Submit:
+    needs: Version
+    if: ${{ needs.Version.outputs.version_changed == '1' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: "latest"
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+      - name: Install dependencies
+        run: pnpm install
+      - name: Zip extensions
+        run: |
+          pnpm run zip &&
+          pnpm run zip:firefox
+      # - name: Submit to Chrome Web Store
+      #   continue-on-error: true
+      #   id: chrome_submit
+      #   run: |
+      #     pnpm wxt submit \
+      #       --chrome-zip ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ needs.Version.outputs.version }}-chrome.zip
+      #   env:
+      #     CHROME_EXTENSION_ID: ${{ secrets.EXTENSION_ID }}
+      #     CHROME_CLIENT_ID: ${{ secrets.CLIENT_ID }}
+      #     CHROME_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      #     CHROME_REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+      # - name: Submit to Firefox Addon Store
+      #   continue-on-error: true
+      #   id: firefox_submit
+      #   run: |
+      #     pnpm wxt submit \
+      #       --firefox-zip ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ needs.Version.outputs.version }}-firefox.zip \
+      #       --firefox-sources-zip ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ needs.Version.outputs.version }}-sources.zip
+      #   env:
+      #     FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
+      #     FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+      #     FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
+      # - name: Check submission results
+      #   run: |
+      #     echo "Chrome submission: ${{ steps.chrome_submit.outcome }}"
+      #     echo "Firefox submission: ${{ steps.firefox_submit.outcome }}"
+      #     if [ "${{ steps.chrome_submit.outcome }}" == "failure" ] && [ "${{ steps.firefox_submit.outcome }}" == "failure" ]; then
+      #       echo "::error::Both store submissions failed"
+      #       exit 1
+      #     elif [ "${{ steps.chrome_submit.outcome }}" == "failure" ]; then
+      #       echo "::warning::Chrome submission failed, but Firefox succeeded"
+      #     elif [ "${{ steps.firefox_submit.outcome }}" == "failure" ]; then
+      #       echo "::warning::Firefox submission failed, but Chrome succeeded"
+      #     else
+      #       echo "::notice::Both submissions succeeded"
+      #     fi
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        with:
+          tag_name: "v${{ needs.Version.outputs.version }}"
+          name: "v${{ needs.Version.outputs.version }}"
+          draft: false
+          prerelease: false
+          files: |
+            ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ needs.Version.outputs.version }}-chrome.zip
+            ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ needs.Version.outputs.version }}-firefox.zip
+            ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ needs.Version.outputs.version }}-sources.zip
