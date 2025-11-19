@@ -47,6 +47,8 @@ jobs:
         with:
           node-version: 24
           cache: "yarn"
+      - name: Enable Corepack
+        run: corepack enable
       - name: Install dependencies
         run: yarn install
       - name: Zip extensions
