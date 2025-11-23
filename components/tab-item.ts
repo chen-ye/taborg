@@ -2,6 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { TabNode, tabStore } from '../services/tab-store';
+import { SignalWatcher } from '@lit-labs/signals';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -12,7 +13,7 @@ import '@shoelace-style/shoelace/dist/components/menu-item/menu-item.js';
 import './group-tag';
 
 @customElement('tab-item')
-export class TabItem extends LitElement {
+export class TabItem extends SignalWatcher(LitElement) {
   static styles = css`
     :host {
       display: flex;
@@ -130,25 +131,12 @@ export class TabItem extends LitElement {
 
   @property({ type: Object }) tab!: TabNode;
 
-  @state()
-  private sortedSuggestedGroups: string[] = [];
 
-  willUpdate(changedProperties: Map<PropertyKey, unknown>) {
-    // Recalculate sorted suggested groups when tab changes or groups change
-    // (sorting depends on which groups exist, not just the suggested groups list)
-    if (this.tab?.suggestedGroups && this.tab.suggestedGroups.length > 0) {
-      this.sortedSuggestedGroups = this.tab.suggestedGroups.toSorted((a, b) => {
-        const aExists = !!tabStore.getGroupByName(a);
-        const bExists = !!tabStore.getGroupByName(b);
-        // Sort new groups (non-existing) first
-        if (!aExists && bExists) return -1;
-        if (aExists && !bExists) return 1;
-        return 0;
-      });
-    }
-  }
+  @state() private hasDropdownOpened = false;
 
   render() {
+    const suggestedGroups = this.tab.url ? tabStore.suggestionsUrlMap.get().get(this.tab.url) : undefined;
+
     return html`
       <div
         class="tab-row ${this.tab.active ? 'active' : ''}"
@@ -165,10 +153,10 @@ export class TabItem extends LitElement {
         </div>
 
         <div class="right">
-          ${this.tab.suggestedGroups && this.tab.suggestedGroups.length > 0 ? html`
+          ${suggestedGroups && suggestedGroups.length > 0 ? html`
             <div class="suggestions">
               ${repeat(
-                this.sortedSuggestedGroups,
+                suggestedGroups,
                 (groupName) => groupName,
                 (groupName) => {
                   const existingGroup = tabStore.getGroupByName(groupName);
@@ -179,6 +167,7 @@ export class TabItem extends LitElement {
                       size="small"
                       pill
                       .color=${existingGroup?.color}
+                      style="order: ${isNew ? 0 : 1}"
                       @click=${(e: Event) => { e.stopPropagation(); this.moveToGroup(groupName); }}
                     >
                       ${isNew ? html`<sl-icon name="plus"></sl-icon>` : ''}
@@ -191,12 +180,12 @@ export class TabItem extends LitElement {
           ` : ''}
 
           <div class="group-dropdown" @click=${(e: Event) => e.stopPropagation()}>
-            <sl-dropdown placement="bottom-end" hoist>
+            <sl-dropdown placement="bottom-end" hoist @sl-show=${this.handleDropdownShow}>
               <group-tag slot="trigger" size="small" pill class="group-trigger">
                 <sl-icon name="folder"></sl-icon>
               </group-tag>
               <sl-menu @sl-select=${this.handleGroupSelect}>
-                ${repeat(
+                ${this.hasDropdownOpened ? repeat(
                   tabStore.getAllGroups(),
                   (group) => group.id,
                   (group) => {
@@ -208,7 +197,7 @@ export class TabItem extends LitElement {
                       </sl-menu-item>
                     `;
                   }
-                )}
+                ) : ''}
               </sl-menu>
             </sl-dropdown>
           </div>
@@ -223,6 +212,10 @@ export class TabItem extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  private handleDropdownShow() {
+    this.hasDropdownOpened = true;
   }
 
 

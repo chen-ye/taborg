@@ -1,4 +1,10 @@
-import { ReactiveController, ReactiveControllerHost } from 'lit';
+import { Signal } from 'signal-polyfill';
+
+// Polyfill Signal for @lit-labs/signals if not present
+if (!(globalThis as any).Signal) {
+  (globalThis as any).Signal = Signal;
+}
+import { geminiService } from './gemini';
 
 export interface TabNode {
   id: number;
@@ -7,9 +13,7 @@ export interface TabNode {
   favIconUrl?: string;
   groupId: number;
   windowId: number;
-  selected: boolean;
   active: boolean;
-  suggestedGroups?: string[];
 }
 
 export interface GroupNode {
@@ -19,101 +23,139 @@ export interface GroupNode {
   windowId: number;
   collapsed: boolean;
   tabs: TabNode[];
-  selected: boolean;
 }
 
 export interface WindowNode {
   id: number;
-  name?: string;
   focused: boolean;
   tabs: TabNode[]; // Ungrouped tabs
   groups: GroupNode[];
-  selected: boolean;
 }
 
 class TabStore {
-  private listeners: (() => void)[] = [];
+  private refreshTimeout: number | null = null;
 
-  windows: WindowNode[] = [];
-  selectedTabIds: Set<number> = new Set();
-  suggestions: Map<number, string[]> = new Map();
-  suggestionsUrlMap: Map<string, string[]> = new Map();
-  groupsByName: Map<string, GroupNode> = new Map();
-  windowNames: Map<number, string> = new Map();
+  windows = new Signal.State<WindowNode[]>([]);
+  selectedTabIds = new Signal.State<Set<number>>(new Set());
+  suggestionsUrlMap = new Signal.State<Map<string, string[]>>(new Map());
+
+  // Batching state for selection updates
+  private pendingSelectionChanges: Set<number> | null = null;
+  private selectionUpdateFrameId: number | null = null;
+  private saveSelectionTimeout: number | null = null;
+  isInitializing = new Signal.State(true);
+   groupsByName = new Signal.Computed(() => {
+    const map = new Map<string, GroupNode>();
+    for (const w of this.windows.get()) {
+      for (const g of w.groups) {
+        if (g.title) {
+          map.set(g.title, g);
+        }
+      }
+    }
+    console.log('Computed groupsByName:', map);
+    return map;
+  });
+
+  selectedTabs = new Signal.Computed(() => {
+    const selected: TabNode[] = [];
+    const selectedIds = this.selectedTabIds.get();
+    for (const w of this.windows.get()) {
+      for (const t of w.tabs) {
+        if (selectedIds.has(t.id)) selected.push(t);
+      }
+      for (const g of w.groups) {
+        for (const t of g.tabs) {
+          if (selectedIds.has(t.id)) selected.push(t);
+        }
+      }
+    }
+    console.log('Computed selectedTabs:', selected);
+    return selected;
+  });
+
+  windowNames = new Signal.State<Map<number, string>>(new Map());
 
   constructor() {
     this.init();
   }
 
   private async init() {
-    await Promise.all([
+    // Load data without triggering re-renders
+    const [suggestionsMap, selectedIds, windowNamesMap] = await Promise.all([
       this.loadSuggestions(),
       this.loadSelection(),
       this.loadWindowNames()
     ]);
+
+    // Batch all signal updates together
+    this.suggestionsUrlMap.set(suggestionsMap);
+    this.selectedTabIds.set(selectedIds);
+    this.windowNames.set(windowNamesMap);
+    console.log('Loaded initial data - suggestions, selection, windowNames');
+
     await this.fetchAll();
+    this.isInitializing.set(false);
     this.setupListeners();
   }
 
-  private async loadSuggestions() {
+  private async loadSuggestions(): Promise<Map<string, string[]>> {
     const result = await chrome.storage.local.get('tab-suggestions');
     const suggestionsByUrl = (result['tab-suggestions'] as Record<string, string[]>) || {};
-    this.suggestionsUrlMap = new Map(Object.entries(suggestionsByUrl));
+    // Sort suggestions alphabetically
+    return new Map(
+      Object.entries(suggestionsByUrl).map(([url, groups]) =>
+        [url, groups.sort((a, b) => a.localeCompare(b))]
+      )
+    );
   }
 
-  private async loadSelection() {
+  private async loadSelection(): Promise<Set<number>> {
     const result = await chrome.storage.local.get('selected-tabs');
     const selected = (result['selected-tabs'] as number[]) || [];
-    this.selectedTabIds = new Set(selected);
+    return new Set(selected);
   }
 
-  private async loadWindowNames() {
+  private async loadWindowNames(): Promise<Map<number, string>> {
     const result = await chrome.storage.local.get('window-names');
     const names = (result['window-names'] as Record<string, string>) || {};
     // Convert string keys back to numbers
-    this.windowNames = new Map(
+    return new Map(
       Object.entries(names).map(([k, v]) => [Number(k), v])
     );
   }
 
   private async saveSelection() {
-    await chrome.storage.local.set({ 'selected-tabs': Array.from(this.selectedTabIds) });
-  }
-
-  subscribe(listener: () => void) {
-    this.listeners.push(listener);
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== listener);
-    };
-  }
-
-  notify() {
-    this.listeners.forEach(l => l());
-  }
-
-  async setSuggestions(map: Map<number, string[]>) {
-    // Update in-memory map for current tabs
-    for (const [key, value] of Array.from(map.entries())) {
-      this.suggestions.set(key, value);
+    // Debounce storage writes
+    if (this.saveSelectionTimeout !== null) {
+      clearTimeout(this.saveSelectionTimeout);
     }
+    this.saveSelectionTimeout = window.setTimeout(async () => {
+      this.saveSelectionTimeout = null;
+      await chrome.storage.local.set({ 'selected-tabs': Array.from(this.selectedTabIds.get()) });
+    }, 500);
+  }
 
-    // Update URL map and storage
-    const tabs = await chrome.tabs.query({});
-    for (const [tabId, suggestions] of Array.from(map.entries())) {
-      const tab = tabs.find(t => t.id === tabId);
-      if (tab?.url) {
-        this.suggestionsUrlMap.set(tab.url, suggestions);
-      }
+
+
+  async setSuggestions(suggestionsByUrl: Map<string, string[]>) {
+    // Update URL map with sorted suggestions
+    const currentUrlMap = this.suggestionsUrlMap.get();
+    for (const [url, suggestions] of suggestionsByUrl.entries()) {
+      // Sort alphabetically
+      const sortedSuggestions = suggestions.sort((a, b) => a.localeCompare(b));
+      currentUrlMap.set(url, sortedSuggestions);
     }
+    this.suggestionsUrlMap.set(new Map(currentUrlMap));
+    console.log('Updated suggestionsUrlMap:', this.suggestionsUrlMap.get());
 
     // Save to storage
-    const suggestionsByUrl = Object.fromEntries(this.suggestionsUrlMap);
-    await chrome.storage.local.set({ 'tab-suggestions': suggestionsByUrl });
-
-    this.fetchAll();
+    const suggestionsByUrlObj = Object.fromEntries(this.suggestionsUrlMap.get());
+    await chrome.storage.local.set({ 'tab-suggestions': suggestionsByUrlObj });
   }
 
   async fetchAll() {
+    console.log('fetch-all')
     const [windows, tabs, groups] = await Promise.all([
       chrome.windows.getAll(),
       chrome.tabs.query({}),
@@ -121,7 +163,6 @@ class TabStore {
     ]);
 
     const groupMap = new Map<number, GroupNode>();
-    this.groupsByName.clear();
 
     groups.forEach(g => {
       const groupNode: GroupNode = {
@@ -130,13 +171,10 @@ class TabStore {
         color: g.color,
         windowId: g.windowId,
         collapsed: g.collapsed,
-        tabs: [],
-        selected: false
+        tabs: []
       };
       groupMap.set(g.id, groupNode);
-      if (g.title) {
-        this.groupsByName.set(g.title, groupNode);
-      }
+      groupMap.set(g.id, groupNode);
     });
 
     const windowMap = new Map<number, WindowNode>();
@@ -144,20 +182,15 @@ class TabStore {
       if (w.id) {
         windowMap.set(w.id, {
           id: w.id,
-          name: this.windowNames.get(w.id),
           focused: w.focused,
           tabs: [],
-          groups: [],
-          selected: false
+          groups: []
         });
       }
     });
 
     for (const t of tabs) {
       if (!t.id || !t.windowId) continue;
-
-      // Use cached suggestions (synchronous)
-      const suggestedGroups = this.suggestions.get(t.id) || (t.url ? this.suggestionsUrlMap.get(t.url) : undefined);
 
       const tabNode: TabNode = {
         id: t.id,
@@ -166,9 +199,7 @@ class TabStore {
         favIconUrl: t.favIconUrl,
         groupId: t.groupId,
         windowId: t.windowId,
-        selected: this.selectedTabIds.has(t.id),
-        active: t.active || false,
-        suggestedGroups
+        active: t.active || false
       };
 
       if (t.groupId > -1 && groupMap.has(t.groupId)) {
@@ -185,76 +216,121 @@ class TabStore {
       }
     });
 
-    this.windows = Array.from(windowMap.values());
-    this.notify();
+    this.windows.set(Array.from(windowMap.values()));
+    console.log('Updated windows:', this.windows.get());
   }
 
+
+
   setupListeners() {
-    const refresh = () => this.fetchAll();
+    // Debounce refresh to batch rapid Chrome API events
+    const debouncedRefresh = () => {
+      if (this.refreshTimeout !== null) {
+        clearTimeout(this.refreshTimeout);
+      }
+      this.refreshTimeout = window.setTimeout(() => {
+        this.refreshTimeout = null;
+        this.fetchAll();
+      }, 50);
+    };
 
-    chrome.tabs.onCreated.addListener(refresh);
-    chrome.tabs.onUpdated.addListener(refresh);
-    chrome.tabs.onActivated.addListener(refresh);
-    chrome.tabs.onMoved.addListener(refresh);
-    chrome.tabs.onRemoved.addListener(refresh);
-    chrome.tabs.onAttached.addListener(refresh);
-    chrome.tabs.onDetached.addListener(refresh);
+    chrome.tabs.onCreated.addListener(debouncedRefresh);
 
-    chrome.tabGroups.onCreated.addListener(refresh);
-    chrome.tabGroups.onUpdated.addListener(refresh);
-    chrome.tabGroups.onMoved.addListener(refresh);
-    chrome.tabGroups.onRemoved.addListener(refresh);
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      debouncedRefresh();
+    });
 
-    chrome.windows.onCreated.addListener(refresh);
-    chrome.windows.onRemoved.addListener(refresh);
-    chrome.windows.onFocusChanged.addListener(refresh);
+    chrome.tabs.onActivated.addListener(debouncedRefresh);
+    // ... other listeners
+    chrome.tabs.onMoved.addListener(debouncedRefresh);
+    chrome.tabs.onRemoved.addListener(debouncedRefresh);
+    chrome.tabs.onAttached.addListener(debouncedRefresh);
+    chrome.tabs.onDetached.addListener(debouncedRefresh);
+
+    chrome.tabGroups.onCreated.addListener(debouncedRefresh);
+    chrome.tabGroups.onUpdated.addListener(debouncedRefresh);
+    chrome.tabGroups.onMoved.addListener(debouncedRefresh);
+    chrome.tabGroups.onRemoved.addListener(debouncedRefresh);
+
+    chrome.windows.onCreated.addListener(debouncedRefresh);
+    chrome.windows.onRemoved.addListener(debouncedRefresh);
+    chrome.windows.onFocusChanged.addListener(debouncedRefresh);
+
+    // Listen for storage changes (e.g. from background script)
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === 'local' && changes['tab-suggestions']) {
+        this.loadSuggestions().then(() => this.fetchAll());
+      }
+      if (areaName === 'local' && changes['window-names']) {
+        this.loadWindowNames().then(() => this.fetchAll());
+      }
+    });
+  }
+
+  private flushSelectionUpdates() {
+    if (this.pendingSelectionChanges !== null) {
+      this.selectedTabIds.set(new Set(this.pendingSelectionChanges));
+      console.log('Flushed batched selectedTabIds:', this.selectedTabIds.get());
+      this.pendingSelectionChanges = null;
+      this.saveSelection();
+    }
+    this.selectionUpdateFrameId = null;
   }
 
   toggleSelection(id: number, type: 'tab' | 'group' | 'window', selected: boolean) {
-    const newSelection = new Set(this.selectedTabIds);
+    // Initialize pending changes with current selection if not already batching
+    if (this.pendingSelectionChanges === null) {
+      this.pendingSelectionChanges = new Set(this.selectedTabIds.get());
+    }
 
     if (type === 'tab') {
-      if (selected) newSelection.add(id);
-      else newSelection.delete(id);
+      if (selected) this.pendingSelectionChanges.add(id);
+      else this.pendingSelectionChanges.delete(id);
     } else if (type === 'group') {
       const group = this.findGroup(id);
       if (group) {
         group.tabs.forEach(t => {
-          if (selected) newSelection.add(t.id);
-          else newSelection.delete(t.id);
+          if (selected) this.pendingSelectionChanges!.add(t.id);
+          else this.pendingSelectionChanges!.delete(t.id);
         });
       }
     } else if (type === 'window') {
-      const win = this.windows.find(w => w.id === id);
+      const win = this.windows.get().find(w => w.id === id);
       if (win) {
         win.tabs.forEach(t => {
-          if (selected) newSelection.add(t.id);
-          else newSelection.delete(t.id);
+          if (selected) this.pendingSelectionChanges!.add(t.id);
+          else this.pendingSelectionChanges!.delete(t.id);
         });
         win.groups.forEach(g => {
           g.tabs.forEach(t => {
-            if (selected) newSelection.add(t.id);
-            else newSelection.delete(t.id);
+            if (selected) this.pendingSelectionChanges!.add(t.id);
+            else this.pendingSelectionChanges!.delete(t.id);
           });
         });
       }
     }
 
-    this.selectedTabIds = newSelection;
-    this.saveSelection();
-    this.notify(); // Immediate UI update
-    this.fetchAll(); // Re-build tree with new selection state
+    // Schedule flush if not already scheduled
+    if (this.selectionUpdateFrameId === null) {
+      this.selectionUpdateFrameId = requestAnimationFrame(() => this.flushSelectionUpdates());
+    }
   }
 
   setSelectedTabs(ids: Set<number>) {
-    this.selectedTabIds = new Set(ids);
+    // Cancel any pending batched update
+    if (this.selectionUpdateFrameId !== null) {
+      cancelAnimationFrame(this.selectionUpdateFrameId);
+      this.selectionUpdateFrameId = null;
+      this.pendingSelectionChanges = null;
+    }
+
+    this.selectedTabIds.set(new Set(ids));
+    console.log('Updated selectedTabIds (set):', this.selectedTabIds.get());
     this.saveSelection();
-    this.notify();
-    this.fetchAll();
   }
 
   findGroup(id: number): GroupNode | undefined {
-    for (const w of this.windows) {
+    for (const w of this.windows.get()) {
       const g = w.groups.find(g => g.id === id);
       if (g) return g;
     }
@@ -307,7 +383,7 @@ class TabStore {
 
   async setAllGroupsCollapsed(collapsed: boolean) {
     const updates: Promise<void>[] = [];
-    this.windows.forEach(w => {
+    this.windows.get().forEach(w => {
       w.groups.forEach(g => {
         if (g.collapsed !== collapsed) {
           updates.push(chrome.tabGroups.update(g.id, { collapsed }) as unknown as Promise<void>);
@@ -320,87 +396,58 @@ class TabStore {
   }
 
   getSelectedTabs(): TabNode[] {
-    const selected: TabNode[] = [];
-    this.windows.forEach(w => {
-      w.tabs.forEach(t => {
-        if (this.selectedTabIds.has(t.id)) selected.push(t);
-      });
-      w.groups.forEach(g => {
-        g.tabs.forEach(t => {
-          if (this.selectedTabIds.has(t.id)) selected.push(t);
-        });
-      });
-    });
-    return selected;
+    return this.selectedTabs.get();
   }
 
   selectUngroupedTabs() {
+    // Cancel any pending batched update
+    if (this.selectionUpdateFrameId !== null) {
+      cancelAnimationFrame(this.selectionUpdateFrameId);
+      this.selectionUpdateFrameId = null;
+      this.pendingSelectionChanges = null;
+    }
+
     const newSelection = new Set<number>();
-    this.windows.forEach(w => {
+    this.windows.get().forEach(w => {
       w.tabs.forEach(t => {
         newSelection.add(t.id);
       });
     });
-    this.selectedTabIds = newSelection;
+    this.selectedTabIds.set(newSelection);
+    console.log('Updated selectedTabIds (ungrouped):', this.selectedTabIds.get());
     this.saveSelection();
-    this.notify();
-    this.fetchAll();
   }
 
-  async clearSuggestions(tabId: number) {
-    if (this.suggestions.has(tabId)) {
-      this.suggestions.delete(tabId);
+  async clearSuggestions(url: string) {
+    if (this.suggestionsUrlMap.get().has(url)) {
+      const currentUrlMap = this.suggestionsUrlMap.get();
+      currentUrlMap.delete(url);
+      this.suggestionsUrlMap.set(new Map(currentUrlMap));
+      console.log('Cleared suggestionsUrlMap for url:', url, this.suggestionsUrlMap.get());
 
-      // Update storage and cache
-      const tabs = await chrome.tabs.query({});
-      const tab = tabs.find(t => t.id === tabId);
-
-      if (tab?.url && this.suggestionsUrlMap.has(tab.url)) {
-        this.suggestionsUrlMap.delete(tab.url);
-        const suggestionsByUrl = Object.fromEntries(this.suggestionsUrlMap);
-        await chrome.storage.local.set({ 'tab-suggestions': suggestionsByUrl });
-      }
-
-      this.fetchAll();
+      const suggestionsByUrl = Object.fromEntries(this.suggestionsUrlMap.get());
+      await chrome.storage.local.set({ 'tab-suggestions': suggestionsByUrl });
     }
   }
 
   getGroupByName(name: string): GroupNode | undefined {
-    return this.groupsByName.get(name);
+    return this.groupsByName.get().get(name);
   }
 
   getAllGroups(): GroupNode[] {
-    return Array.from(this.groupsByName.values());
+    return Array.from(this.groupsByName.get().values());
   }
 
   async setWindowName(windowId: number, name: string) {
-    this.windowNames.set(windowId, name);
+    const currentNames = this.windowNames.get();
+    currentNames.set(windowId, name);
+    this.windowNames.set(new Map(currentNames));
+    console.log('Updated windowNames:', this.windowNames.get());
 
     // Save to storage
-    const namesObj = Object.fromEntries(this.windowNames);
+    const namesObj = Object.fromEntries(this.windowNames.get());
     await chrome.storage.local.set({ 'window-names': namesObj });
-
-    this.fetchAll();
   }
 }
 
 export const tabStore = new TabStore();
-
-export class TabStoreController implements ReactiveController {
-  host: ReactiveControllerHost;
-
-  constructor(host: ReactiveControllerHost) {
-    this.host = host;
-    host.addController(this);
-  }
-
-  hostConnected() {
-    this.unsubscribe = tabStore.subscribe(() => this.host.requestUpdate());
-  }
-
-  hostDisconnected() {
-    this.unsubscribe?.();
-  }
-
-  private unsubscribe?: () => void;
-}

@@ -1,13 +1,16 @@
 import { LitElement, html, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { tabStore, TabStoreController } from '../services/tab-store';
+import { tabStore } from '../services/tab-store';
+import { SignalWatcher } from '@lit-labs/signals';
 import './tab-tree';
 import './selected-pane';
 import './control-bar';
 import './settings-dialog';
+import '@shoelace-style/shoelace/dist/components/split-panel/split-panel.js';
+import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 
 @customElement('app-root')
-export class AppRoot extends LitElement {
+export class AppRoot extends SignalWatcher(LitElement) {
   static styles = css`
     :host {
       display: flex;
@@ -19,40 +22,78 @@ export class AppRoot extends LitElement {
 
     main {
       flex: 1;
-      overflow-y: auto;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
     }
 
+    sl-split-panel {
+      --min: 200px;
+      --max: calc(100% - 200px);
+      height: 100%;
+    }
+
+    sl-split-panel::part(divider) {
+      background-color: var(--sl-color-neutral-200);
+    }
+
     .tree-container {
-      flex: 1;
+      height: 100%;
       overflow-y: auto;
-      padding-bottom: var(--sl-spacing-medium);
     }
 
     .selected-pane-container {
-      border-top: var(--sl-border-width) solid var(--sl-color-neutral-200);
-      max-height: 30vh;
+      height: 100%;
       overflow-y: auto;
-      display: none; /* Hidden by default until selection exists */
+      background-color: var(--sl-color-neutral-50);
     }
 
-    .selected-pane-container.visible {
-      display: block;
+    .loading-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      flex-direction: column;
+      gap: var(--sl-spacing-medium);
     }
   `;
 
-  private store = new TabStoreController(this);
+
 
   render() {
+    console.log('Render');
+
+    if (tabStore.isInitializing.get()) {
+      return html`
+        <main>
+          <div class="loading-container">
+            <sl-spinner style="font-size: 3rem;"></sl-spinner>
+            <div>Loading tabs...</div>
+          </div>
+        </main>
+        <control-bar></control-bar>
+        <settings-dialog></settings-dialog>
+      `;
+    }
+
+    const hasSelection = tabStore.selectedTabIds.get().size > 0;
+
     return html`
       <main>
-        <div class="tree-container">
-          <tab-tree></tab-tree>
-        </div>
-        <div class="selected-pane-container ${tabStore.selectedTabIds.size > 0 ? 'visible' : ''}">
-          <selected-pane></selected-pane>
-        </div>
+        ${hasSelection ? html`
+          <sl-split-panel vertical position="70">
+            <div slot="start" class="tree-container">
+              <tab-tree></tab-tree>
+            </div>
+            <div slot="end" class="selected-pane-container">
+              <selected-pane></selected-pane>
+            </div>
+          </sl-split-panel>
+        ` : html`
+          <div class="tree-container">
+            <tab-tree></tab-tree>
+          </div>
+        `}
       </main>
       <control-bar></control-bar>
       <settings-dialog></settings-dialog>

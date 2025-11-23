@@ -11,4 +11,9 @@ export default defineConfig({
     permissions: ['sidePanel', 'tabs', 'tabGroups', 'storage', 'offscreen'],
     action: {}, // Optional: enables the toolbar icon
   },
+  vite: () => ({
+    build: {
+      sourcemap: true,
+    },
+  }),
 });

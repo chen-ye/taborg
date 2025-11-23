@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { tabStore, TabStoreController } from '../services/tab-store';
+import { tabStore } from '../services/tab-store';
+import { SignalWatcher } from '@lit-labs/signals';
 import { geminiService } from '../services/gemini';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
@@ -8,10 +9,12 @@ import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 @customElement('control-bar')
-export class ControlBar extends LitElement {
+export class ControlBar extends SignalWatcher(LitElement) {
   static styles = css`
     :host {
-      display: block;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
       padding: var(--sl-spacing-x-small) var(--sl-spacing-medium);
       border-top: var(--sl-border-width) solid var(--sl-color-neutral-200);
       background-color: var(--sl-color-neutral-0);
@@ -34,11 +37,11 @@ export class ControlBar extends LitElement {
     }
   `;
 
-  private store = new TabStoreController(this);
+
   @state() private organizing = false;
 
   render() {
-    const hasSelection = tabStore.selectedTabIds.size > 0;
+    const hasSelection = tabStore.selectedTabIds.get().size > 0;
 
     return html`
       <div class="bar">
@@ -116,7 +119,7 @@ export class ControlBar extends LitElement {
     try {
       // 1. Get existing groups
       const existingGroups = new Set<string>();
-      tabStore.windows.forEach(w => w.groups.forEach(g => existingGroups.add(g.title)));
+      tabStore.windows.get().forEach(w => w.groups.forEach(g => existingGroups.add(g.title)));
 
       // 2. Call Gemini
       const suggestions = await geminiService.categorizeTabs(
@@ -124,38 +127,16 @@ export class ControlBar extends LitElement {
         Array.from(existingGroups)
       );
 
-      // 3. Update tabs with suggestions (in memory for now, or apply them?)
-      // The requirement says: "Update the metadata associated with each tab inside the extension to include the suggested tab groups."
-      // We need to update the store.
+      // 3. Convert tab ID suggestions to URL suggestions
+      const suggestionsByUrl = new Map<string, string[]>();
+      for (const [tabId, groups] of suggestions.entries()) {
+        const tab = selectedTabs.find(t => t.id === tabId);
+        if (tab?.url) {
+          suggestionsByUrl.set(tab.url, groups);
+        }
+      }
 
-      // We'll update the store directly. Since TabNode is an interface, we need a way to update the state in TabStore.
-      // Let's add a method to TabStore to update suggestions.
-
-      // Wait, TabStore rebuilds from Chrome API. Suggestions are local state.
-      // We need to store suggestions in TabStore separately or merge them.
-      // Let's assume TabStore keeps a map of suggestions.
-
-      // For now, I'll dispatch an event or call a method on tabStore if I can add it.
-      // I'll need to update TabStore to handle suggestions.
-
-      // Let's assume I can update TabStore. I'll modify TabStore in the next step to handle this if needed,
-      // but for now I'll just assume I can set it.
-
-      // Actually, I should update TabStore to store suggestions.
-      // Let's do a quick update to TabStore after this file.
-
-      // For now, let's just log it.
-      console.log('Suggestions:', suggestions);
-
-      // We need to update the UI.
-      // I'll add a method `setSuggestions(map)` to TabStore.
-      // But I can't call it if it doesn't exist.
-      // I will modify TabStore in the next step.
-
-      // Let's dispatch a custom event that TabStore (or AppRoot) could listen to?
-      // Or better, just import tabStore and call a new method I'm about to add.
-
-      (tabStore as any).setSuggestions(suggestions);
+      tabStore.setSuggestions(suggestionsByUrl);
 
     } catch (e) {
       console.error(e);

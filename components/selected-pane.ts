@@ -1,11 +1,12 @@
 import { LitElement, html, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { TabStoreController, tabStore } from '../services/tab-store';
+import { tabStore } from '../services/tab-store';
+import { SignalWatcher } from '@lit-labs/signals';
 import './tab-item';
 
 @customElement('selected-pane')
-export class SelectedPane extends LitElement {
+export class SelectedPane extends SignalWatcher(LitElement) {
   static styles = css`
     :host {
       display: block;
@@ -24,10 +25,10 @@ export class SelectedPane extends LitElement {
     }
   `;
 
-  private store = new TabStoreController(this);
+
 
   render() {
-    const selectedTabs = tabStore.getSelectedTabs();
+    const selectedTabs = tabStore.selectedTabs.get();
 
     if (selectedTabs.length === 0) {
       return html``;
@@ -42,6 +43,7 @@ export class SelectedPane extends LitElement {
         <tab-item
           .tab=${tab}
           @tab-select=${this.handleTabSelect}
+          @tab-focus=${this.handleTabFocus}
           @tab-close=${this.handleTabClose}
         ></tab-item>
       `)}
@@ -55,6 +57,11 @@ export class SelectedPane extends LitElement {
 
   private handleTabClose(e: CustomEvent) {
     tabStore.closeTab(e.detail.id);
+  }
+
+  private handleTabFocus(e: CustomEvent) {
+    e.stopPropagation();
+    tabStore.focusTab(e.detail.id);
   }
 
   private clearSelection() {

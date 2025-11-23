@@ -61,7 +61,7 @@ export class WindowItem extends LitElement {
 
   render() {
     const tabCount = this.window.tabs.length + this.window.groups.reduce((acc, g) => acc + g.tabs.length, 0);
-    const displayName = this.window.name || `Window ${this.window.id}`;
+    const displayName = tabStore.windowNames.get().get(this.window.id) || `Window ${this.window.id}`;
 
     return html`
       <div class="window-header">

@@ -2,7 +2,8 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { TabStoreController, tabStore, WindowNode } from '../services/tab-store';
+import { tabStore, WindowNode } from '../services/tab-store';
+import { SignalWatcher } from '@lit-labs/signals';
 import './tab-item';
 import './group-item';
 import './window-item';
@@ -11,7 +12,7 @@ import '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree-item/tree-item.js';
 
 @customElement('tab-tree')
-export class TabTree extends LitElement {
+export class TabTree extends SignalWatcher(LitElement) {
   static styles = css`
     :host {
       display: block;
@@ -71,7 +72,7 @@ export class TabTree extends LitElement {
     await chrome.storage.local.set({ 'collapsed-windows': Array.from(this.collapsedWindows) });
   }
 
-  private store = new TabStoreController(this);
+
 
   @property({type: Number})
   currentWindowId: number | undefined;
@@ -85,7 +86,7 @@ export class TabTree extends LitElement {
   willUpdate(changedProperties: Map<PropertyKey, unknown>) {
     // Recalculate sorted windows on every update since TabStoreController
     // triggers renders when the store changes, and we need fresh sorting
-    this.sortedWindows = [...tabStore.windows].sort((a, b) => {
+    this.sortedWindows = [...tabStore.windows.get()].sort((a, b) => {
       if (a.id === this.currentWindowId) return -1;
       if (b.id === this.currentWindowId) return 1;
       return a.id - b.id;
@@ -106,7 +107,7 @@ export class TabTree extends LitElement {
             ${repeat(window.groups, (group) => group.id, (group) => html`
               <sl-tree-item
                 ?expanded=${!group.collapsed}
-                ?selected=${group.selected}
+                ?selected=${group.tabs.every(t => tabStore.selectedTabIds.get().has(t.id))}
                 @sl-expand=${(evt) => this.handleGroupExpand(evt, group.id)}
                 @sl-collapse=${(evt) => this.handleGroupCollapse(evt, group.id)}
                 data-id=${group.id}
@@ -120,7 +121,7 @@ export class TabTree extends LitElement {
 
                 ${repeat(group.tabs, (tab) => tab.id, (tab) => html`
                   <sl-tree-item
-                    ?selected=${tab.selected}
+                    ?selected=${tabStore.selectedTabIds.get().has(tab.id)}
                     data-id=${tab.id}
                     data-type="tab"
                   >
@@ -137,7 +138,7 @@ export class TabTree extends LitElement {
 
             ${repeat(window.tabs, (tab) => tab.id, (tab) => html`
               <sl-tree-item
-                ?selected=${tab.selected}
+                ?selected=${tabStore.selectedTabIds.get().has(tab.id)}
                 data-id=${tab.id}
                 data-type="tab"
               >
@@ -212,7 +213,7 @@ export class TabTree extends LitElement {
     let targetGroupId: number | undefined;
 
     // Simple search for existing group
-    for (const w of tabStore.windows) {
+    for (const w of tabStore.windows.get()) {
       const g = w.groups.find(g => g.title === groupName);
       if (g) {
         targetGroupId = g.id;
@@ -231,7 +232,7 @@ export class TabTree extends LitElement {
 
   private emitSelectionChange() {
     this.dispatchEvent(new CustomEvent('selection-change', {
-      detail: { count: tabStore.selectedTabIds.size },
+      detail: { count: tabStore.selectedTabIds.get().size },
       bubbles: true,
       composed: true
     }));
