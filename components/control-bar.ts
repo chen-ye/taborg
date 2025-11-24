@@ -40,9 +40,11 @@ export class ControlBar extends SignalWatcher(LitElement) {
 
 
   @state() private organizing = false;
+  @state() private findingSimilar = false;
 
   render() {
     const hasSelection = tabStore.selectedTabIds.size > 0;
+    const singleSelection = tabStore.selectedTabIds.size === 1;
 
     return html`
       <div class="bar">
@@ -54,6 +56,16 @@ export class ControlBar extends SignalWatcher(LitElement) {
             @click=${this.handleOrganize}
             ?loading=${this.organizing}
           >Organize Tabs</sl-button>
+
+          <sl-button
+            variant="default"
+            size="small"
+            ?disabled=${!singleSelection || this.findingSimilar}
+            @click=${this.handleSelectSimilar}
+            ?loading=${this.findingSimilar}
+          >
+            Select Similar
+          </sl-button>
 
           <sl-button
             variant="default"
@@ -147,6 +159,47 @@ export class ControlBar extends SignalWatcher(LitElement) {
       toast.error('Failed to organize tabs. Check your API key.');
     } finally {
       this.organizing = false;
+    }
+  }
+
+  private async handleSelectSimilar() {
+    const selectedTabs = tabStore.getSelectedTabs();
+    if (selectedTabs.length !== 1) return;
+
+    const referenceTab = selectedTabs[0];
+    this.findingSimilar = true;
+
+    try {
+      // Get all other tabs
+      const allTabs: { id: number; title: string; url: string }[] = [];
+      tabStore.windows.forEach(w => {
+         w.tabs.forEach(t => {
+           if (t.id !== referenceTab.id) allTabs.push({id: t.id, title: t.title, url: t.url});
+         });
+         w.groups.forEach(g => {
+           g.tabs.forEach(t => {
+             if (t.id !== referenceTab.id) allTabs.push({id: t.id, title: t.title, url: t.url});
+           });
+         });
+      });
+
+      const similarTabIds = await geminiService.findSimilarTabs(
+        { title: referenceTab.title, url: referenceTab.url },
+        allTabs
+      );
+
+      // Select the found tabs (keeping the reference tab selected)
+      const newSelection = new Set(tabStore.selectedTabIds);
+      similarTabIds.forEach(id => newSelection.add(id));
+      tabStore.setSelectedTabs(newSelection);
+
+      toast.success(`Found ${similarTabIds.length} similar tabs.`);
+
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to find similar tabs. Check your API key.');
+    } finally {
+      this.findingSimilar = false;
     }
   }
 

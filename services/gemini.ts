@@ -30,7 +30,7 @@ export class GeminiService {
     const allGroups = Array.from(new Set([...predefinedGroups, ...existingGroups]));
 
     const genAI = new GoogleGenerativeAI(this.apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `
       You are a helpful assistant that organizes browser tabs.
@@ -76,13 +76,62 @@ export class GeminiService {
     }
   }
 
+  async findSimilarTabs(referenceTab: { title: string; url: string }, candidateTabs: { id: number; title: string; url: string }[]): Promise<number[]> {
+    if (!this.apiKey) {
+      throw new Error('API Key not set');
+    }
+
+    const genAI = new GoogleGenerativeAI(this.apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const prompt = `
+      You are a helpful assistant that identifies similar browser tabs.
+
+      Reference Tab:
+      - Title: "${referenceTab.title}"
+      - URL: "${referenceTab.url}"
+
+      Candidate Tabs:
+      ${candidateTabs.map(t => `- ID: ${t.id}, Title: "${t.title}", URL: "${t.url}"`).join('\n')}
+
+      Identify which candidate tabs are similar to the Reference Tab based on:
+      1. Same Domain/Website
+      2. Same Task (e.g., both are about booking a flight, even if different sites)
+      3. Same Topic (e.g., both are about Python programming)
+
+      Return ONLY a JSON array of the IDs of the similar tabs.
+      Example: [123, 456, 789]
+      If no tabs are similar, return [].
+    `;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+
+      // Robust JSON extraction
+      const start = text.indexOf('[');
+      const end = text.lastIndexOf(']');
+      if (start === -1 || end === -1) {
+         // Fallback or empty if not found, but let's try to parse whole text if no brackets found (unlikely given prompt)
+         throw new Error('Invalid JSON response');
+      }
+      const jsonStr = text.substring(start, end + 1);
+
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      console.error('Gemini API Error:', error);
+      throw error;
+    }
+  }
+
   async generateWindowName(tabs: { title: string; url: string }[], groups: string[]): Promise<string> {
     if (!this.apiKey) {
       throw new Error('API Key not set');
     }
 
     const genAI = new GoogleGenerativeAI(this.apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `
       You are a helpful assistant that names browser windows.
