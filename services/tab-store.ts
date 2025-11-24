@@ -447,22 +447,12 @@ class TabStore {
   }
 
   getTabsWithoutSuggestions(): TabNode[] {
-    const tabs: TabNode[] = [];
-    this.windows.forEach((w: WindowNode) => {
-      w.tabs.forEach((t: TabNode) => {
-        if (!t.suggestedGroups || t.suggestedGroups.length === 0) {
-          tabs.push(t);
-        }
-      });
-      w.groups.forEach((g: GroupNode) => {
-        g.tabs.forEach((t: TabNode) => {
-          if (!t.suggestedGroups || t.suggestedGroups.length === 0) {
-            tabs.push(t);
-          }
-        });
-      });
-    });
-    return tabs;
+    return [...this.windows]
+      .flatMap((w: WindowNode) => [
+        ...w.tabs,
+        ...w.groups.flatMap((g: GroupNode) => g.tabs)
+      ])
+      .filter((t: TabNode) => !t.suggestedGroups || t.suggestedGroups.length === 0);
   }
 
   selectUngroupedTabs() {
