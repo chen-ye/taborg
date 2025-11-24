@@ -168,8 +168,7 @@ class TabStore {
   }
 
   async setSuggestions(suggestionsByUrl: Map<string, string[]>) {
-    // Update URL map with sorted suggestions
-    this.suggestionsUrlMap.clear(); // Clear existing before setting new ones
+    // Upsert URL map with sorted suggestions
     for (const [url, suggestions] of suggestionsByUrl.entries()) {
       // Sort alphabetically
       const sortedSuggestions = suggestions.sort((a, b) => a.localeCompare(b));
