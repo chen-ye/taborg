@@ -53,33 +53,14 @@ export class TabTree extends SignalWatcher(LitElement) {
 
   connectedCallback(): void {
     super.connectedCallback();
-    this.init();
   }
-
-  async init() {
-    await this.loadCollapsedWindows();
-  }
-
-  private async loadCollapsedWindows() {
-    const result = await chrome.storage.local.get('collapsed-windows');
-    const collapsed = (result['collapsed-windows'] as number[]) || [];
-    this.collapsedWindows = new Set(collapsed);
-  }
-
-  private async saveCollapsedWindows() {
-    await chrome.storage.local.set({ 'collapsed-windows': Array.from(this.collapsedWindows) });
-  }
-
-
-  @state()
-  collapsedWindows: Set<number> = new Set();
 
   render() {
     return html`
       <sl-tree selection="multiple" @sl-selection-change=${this.handleTreeSelectionChange}>
         ${repeat(tabStore.sortedWindows.get(), (window) => window.id, (window) => html`
           <sl-tree-item
-            ?expanded=${!this.collapsedWindows.has(window.id)}
+            ?expanded=${!tabStore.collapsedWindowIds.has(window.id)}
             @sl-expand=${(evt: CustomEvent) => this.handleWindowExpand(evt, window.id)}
             @sl-collapse=${(evt: CustomEvent) => this.handleWindowCollapse(evt, window.id)}
           >
@@ -221,13 +202,11 @@ export class TabTree extends SignalWatcher(LitElement) {
 
   private handleWindowExpand(evt: CustomEvent, windowId: number) {
     evt.stopPropagation();
-    this.collapsedWindows.delete(windowId);
-    this.saveCollapsedWindows();
+    tabStore.setWindowCollapsed(windowId, false);
   }
 
   private handleWindowCollapse(evt: CustomEvent, windowId: number) {
     evt.stopPropagation();
-    this.collapsedWindows.add(windowId);
-    this.saveCollapsedWindows();
+    tabStore.setWindowCollapsed(windowId, true);
   }
 }

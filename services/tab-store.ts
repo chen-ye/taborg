@@ -44,6 +44,7 @@ class TabStore {
   selectedTabIds = new SignalSet<number>();
   suggestionsUrlMap = new SignalMap<string, string[]>();
   windowNames = new SignalMap<number, string>();
+  collapsedWindowIds = new SignalSet<number>();
 
   // Batching state for selection updates
   private pendingSelectionChanges: Set<number> | null = null;
@@ -100,10 +101,11 @@ class TabStore {
 
   private async init() {
     // Load data without triggering re-renders
-    const [suggestionsMap, selectedIds, windowNamesMap, currentWindow] = await Promise.all([
+    const [suggestionsMap, selectedIds, windowNamesMap, collapsedWindowIdsSet, currentWindow] = await Promise.all([
       this.loadSuggestions(),
       this.loadSelection(),
       this.loadWindowNames(),
+      this.loadCollapsedWindows(),
       chrome.windows.getCurrent()
     ]);
 
@@ -111,8 +113,9 @@ class TabStore {
     for (const [key, value] of suggestionsMap) this.suggestionsUrlMap.set(key, value);
     for (const id of selectedIds) this.selectedTabIds.add(id);
     for (const [key, value] of windowNamesMap) this.windowNames.set(key, value);
+    for (const id of collapsedWindowIdsSet) this.collapsedWindowIds.add(id);
     this.currentWindowId.set(currentWindow.id);
-    console.log('Loaded initial data - suggestions, selection, windowNames, currentWindow');
+    console.log('Loaded initial data - suggestions, selection, windowNames, collapsedWindows, currentWindow');
 
     await this.fetchAll();
     this.isInitializing.set(false);
@@ -143,6 +146,12 @@ class TabStore {
     return new Map(
       Object.entries(names).map(([k, v]) => [Number(k), v])
     );
+  }
+
+  private async loadCollapsedWindows(): Promise<Set<number>> {
+    const result = await chrome.storage.local.get('collapsed-windows');
+    const collapsed = (result['collapsed-windows'] as number[]) || [];
+    return new Set(collapsed);
   }
 
   private async saveSelection() {
@@ -288,6 +297,12 @@ class TabStore {
           this.windowNames.clear();
           for (const [key, value] of map) this.windowNames.set(key, value);
           this.fetchAll();
+        });
+      }
+      if (areaName === 'local' && changes['collapsed-windows']) {
+        this.loadCollapsedWindows().then(set => {
+          this.collapsedWindowIds.clear();
+          for (const id of set) this.collapsedWindowIds.add(id);
         });
       }
     });
@@ -479,6 +494,17 @@ class TabStore {
     await chrome.storage.local.set({ 'window-names': namesObj });
 
     this.fetchAll();
+  }
+
+  async setWindowCollapsed(windowId: number, collapsed: boolean) {
+    if (collapsed) {
+      this.collapsedWindowIds.add(windowId);
+    } else {
+      this.collapsedWindowIds.delete(windowId);
+    }
+    console.log('Updated collapsedWindowIds:', this.collapsedWindowIds);
+
+    await chrome.storage.local.set({ 'collapsed-windows': Array.from(this.collapsedWindowIds.values()) });
   }
 }
 
