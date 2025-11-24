@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export class GeminiService {
   private apiKey: string | null = null;
@@ -29,8 +29,7 @@ export class GeminiService {
     // Merge predefined groups with existing groups (remove duplicates)
     const allGroups = Array.from(new Set([...predefinedGroups, ...existingGroups]));
 
-    const genAI = new GoogleGenerativeAI(this.apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const genAI = new GoogleGenAI({ apiKey: this.apiKey });
 
     const prompt = `
       You are a helpful assistant that organizes browser tabs.
@@ -44,29 +43,46 @@ export class GeminiService {
       For each tab, suggest up to 3 group names.
       Prefer using existing group names if they fit well.
       If no existing group fits, create a new short, descriptive group name (e.g., "Dev", "News", "Social").
-
-      Return the result as a JSON object where keys are Tab IDs and values are arrays of strings (group names).
-      Example:
-      {
-        "123": ["Work", "Project X"],
-        "456": ["Social", "Facebook"]
-      }
-
-      Do not include markdown formatting in the response, just the raw JSON string.
     `;
 
-    try {
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+    const schema = {
+      type: "OBJECT",
+      properties: {
+        suggestions: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              tabId: { type: "INTEGER" },
+              groupNames: {
+                type: "ARRAY",
+                items: { type: "STRING" }
+              }
+            },
+            required: ["tabId", "groupNames"]
+          }
+        }
+      },
+      required: ["suggestions"]
+    };
 
-      // Clean up potential markdown code blocks
-      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const suggestions = JSON.parse(jsonStr);
+    try {
+      const result = await genAI.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: schema
+        }
+      });
+
+      const responseText = result.text;
+      const parsed = JSON.parse(responseText || '{}');
+      const suggestions = parsed.suggestions || [];
 
       const resultMap = new Map<number, string[]>();
-      for (const [id, groups] of Object.entries(suggestions)) {
-        resultMap.set(Number(id), groups as string[]);
+      for (const item of suggestions) {
+        resultMap.set(Number(item.tabId), item.groupNames);
       }
       return resultMap;
 
@@ -81,8 +97,7 @@ export class GeminiService {
       throw new Error('API Key not set');
     }
 
-    const genAI = new GoogleGenerativeAI(this.apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const genAI = new GoogleGenAI({ apiKey: this.apiKey });
 
     const prompt = `
       You are a helpful assistant that identifies similar browser tabs.
@@ -98,27 +113,32 @@ export class GeminiService {
       1. Same Domain/Website
       2. Same Task (e.g., both are about booking a flight, even if different sites)
       3. Same Topic (e.g., both are about Python programming)
-
-      Return ONLY a JSON array of the IDs of the similar tabs.
-      Example: [123, 456, 789]
-      If no tabs are similar, return [].
     `;
 
+    const schema = {
+      type: "OBJECT",
+      properties: {
+        similarTabIds: {
+          type: "ARRAY",
+          items: { type: "INTEGER" }
+        }
+      },
+      required: ["similarTabIds"]
+    };
+
     try {
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const result = await genAI.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: schema
+        }
+      });
 
-      // Robust JSON extraction
-      const start = text.indexOf('[');
-      const end = text.lastIndexOf(']');
-      if (start === -1 || end === -1) {
-         // Fallback or empty if not found, but let's try to parse whole text if no brackets found (unlikely given prompt)
-         throw new Error('Invalid JSON response');
-      }
-      const jsonStr = text.substring(start, end + 1);
-
-      return JSON.parse(jsonStr);
+      const responseText = result.text;
+      const parsed = JSON.parse(responseText || '{}');
+      return parsed.similarTabIds || [];
     } catch (error) {
       console.error('Gemini API Error:', error);
       throw error;
@@ -130,8 +150,7 @@ export class GeminiService {
       throw new Error('API Key not set');
     }
 
-    const genAI = new GoogleGenerativeAI(this.apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const genAI = new GoogleGenAI({ apiKey: this.apiKey });
 
     const prompt = `
       You are a helpful assistant that names browser windows.
@@ -146,14 +165,29 @@ export class GeminiService {
 
       Suggest a short, descriptive name for this window based on its content (e.g., "Work", "Research", "Shopping", "Dev").
       The name should be concise (1-3 words).
-
-      Return ONLY the suggested name as a plain string. Do not include quotes or markdown.
     `;
 
+    const schema = {
+      type: "OBJECT",
+      properties: {
+        windowName: { type: "STRING" }
+      },
+      required: ["windowName"]
+    };
+
     try {
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      return response.text().trim();
+      const result = await genAI.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: schema
+        }
+      });
+
+      const responseText = result.text;
+      const parsed = JSON.parse(responseText || '{}');
+      return parsed.windowName || '';
     } catch (error) {
       console.error('Gemini API Error:', error);
       throw error;
