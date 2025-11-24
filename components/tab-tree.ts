@@ -9,6 +9,9 @@ import './window-item';
 import type SlTree from '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree-item/tree-item.js';
+import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
+import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 
 @customElement('tab-tree')
 export class TabTree extends SignalWatcher(LitElement) {
@@ -20,16 +23,6 @@ export class TabTree extends SignalWatcher(LitElement) {
 
     sl-tree {
       --indent-size: var(--sl-spacing-large);
-    }
-
-    /* Remove default padding/background from tree items to fit our custom components */
-    sl-tree-item::part(label) {
-      padding: 0;
-    }
-
-    /* Remove default padding/background from tree items to fit our custom components */
-    sl-tree-item::part(label) {
-      padding: 0;
     }
 
     sl-tree-item {
@@ -49,7 +42,33 @@ export class TabTree extends SignalWatcher(LitElement) {
           );
         }
       }
+
+    /* Drag and Drop styles */
+    :host([dragging-type]) sl-tree-item[data-temp-expanded] sl-tree-item[data-type="tab"] {
+      display: none;
+    }
+
+    /* :host([dragging-type="tab"]) sl-tree-item[data-type="tab"]:not([dragging]) {
+      display: none;
+    }
+
+    :host([dragging-type="group"]) sl-tree-item[data-type="tab"] {
+      display: none;
+    }
+
+    :host([dragging-type="window"]) sl-tree-item[data-type="tab"],
+    :host([dragging-type="window"]) sl-tree-item[data-type="group"] {
+      display: none;
+    } */
   `;
+
+  @state() private pendingMerge: { type: string, sourceId: number, targetId: number } | null = null;
+
+  @property({ type: String, reflect: true, attribute: 'dragging-type' })
+  draggingType: string | null = null;
+
+  @property({ type: Number, reflect: true, attribute: 'dragging-id' })
+  draggingId: number | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -57,10 +76,19 @@ export class TabTree extends SignalWatcher(LitElement) {
 
   render() {
     return html`
-      <sl-tree selection="multiple" @sl-selection-change=${this.handleTreeSelectionChange}>
+      <sl-tree
+        selection="multiple"
+        @sl-selection-change=${this.handleTreeSelectionChange}
+        @merge-request=${this.handleMergeRequest}
+      >
         ${repeat(tabStore.sortedWindows.get(), (window) => window.id, (window) => html`
           <sl-tree-item
-            ?expanded=${!tabStore.collapsedWindowIds.has(window.id)}
+            ?expanded=${this.draggingType ? true : !tabStore.collapsedWindowIds.has(window.id)}
+            ?data-temp-expanded=${this.draggingType && tabStore.collapsedWindowIds.has(window.id)}
+            data-id=${window.id}
+            data-type="window"
+            item-type="window"
+            ?dragging=${this.draggingType === 'window' && this.draggingId === window.id}
             @sl-expand=${(evt: CustomEvent) => this.handleWindowExpand(evt, window.id)}
             @sl-collapse=${(evt: CustomEvent) => this.handleWindowCollapse(evt, window.id)}
           >
@@ -70,10 +98,11 @@ export class TabTree extends SignalWatcher(LitElement) {
               <sl-tree-item
                 ?expanded=${!group.collapsed}
                 ?selected=${group.tabs.every((t: TabNode) => tabStore.selectedTabIds.has(t.id))}
-                @sl-expand=${(evt: CustomEvent) => this.handleGroupExpand(evt, group.id)}
-                @sl-collapse=${(evt: CustomEvent) => this.handleGroupCollapse(evt, group.id)}
                 data-id=${group.id}
                 data-type="group"
+                ?dragging=${this.draggingType === 'group' && this.draggingId === group.id}
+                @sl-expand=${(evt: CustomEvent) => this.handleGroupExpand(evt, group.id)}
+                @sl-collapse=${(evt: CustomEvent) => this.handleGroupCollapse(evt, group.id)}
               >
                 <group-item
                   .group=${group}
@@ -86,6 +115,7 @@ export class TabTree extends SignalWatcher(LitElement) {
                     ?selected=${tabStore.selectedTabIds.has(tab.id)}
                     data-id=${tab.id}
                     data-type="tab"
+                    ?dragging=${this.draggingType === 'tab' && this.draggingId === tab.id}
                   >
                     <tab-item
                       .tab=${tab}
@@ -103,6 +133,7 @@ export class TabTree extends SignalWatcher(LitElement) {
                 ?selected=${tabStore.selectedTabIds.has(tab.id)}
                 data-id=${tab.id}
                 data-type="tab"
+                ?dragging=${this.draggingType === 'tab' && this.draggingId === tab.id}
               >
                 <tab-item
                   .tab=${tab}
@@ -115,7 +146,50 @@ export class TabTree extends SignalWatcher(LitElement) {
           </sl-tree-item>
         `)}
       </sl-tree>
+
+      <sl-dialog label="Confirm Merge" class="merge-dialog">
+        ${this.pendingMerge ? html`
+          Are you sure you want to merge these ${this.pendingMerge.type === 'merge-groups' ? 'groups' : 'windows'}?
+        ` : ''}
+        <sl-button slot="footer" variant="primary" @click=${this.confirmMerge}>Merge</sl-button>
+        <sl-button slot="footer" variant="default" @click=${this.cancelMerge}>Cancel</sl-button>
+      </sl-dialog>
     `;
+  }
+
+  willUpdate(changedProperties: Map<string, any>) {
+    super.willUpdate(changedProperties);
+    // Sync draggingType and draggingId properties with signal state
+    const dragging = tabStore.draggingState.get();
+    this.draggingType = dragging?.type || null;
+    this.draggingId = dragging?.id ?? null;
+  }
+
+  private handleMergeRequest(e: CustomEvent) {
+    e.stopPropagation();
+    this.pendingMerge = e.detail;
+    const dialog = this.shadowRoot?.querySelector('.merge-dialog') as SlDialog;
+    dialog?.show();
+  }
+
+  private async confirmMerge() {
+    const dialog = this.shadowRoot?.querySelector('.merge-dialog') as SlDialog;
+    dialog?.hide();
+
+    if (this.pendingMerge) {
+      if (this.pendingMerge.type === 'merge-groups') {
+        await tabStore.mergeGroups(this.pendingMerge.sourceId, this.pendingMerge.targetId);
+      } else if (this.pendingMerge.type === 'merge-windows') {
+        await tabStore.mergeWindows(this.pendingMerge.sourceId, this.pendingMerge.targetId);
+      }
+      this.pendingMerge = null;
+    }
+  }
+
+  private cancelMerge() {
+    const dialog = this.shadowRoot?.querySelector('.merge-dialog') as SlDialog;
+    dialog?.hide();
+    this.pendingMerge = null;
   }
 
   private handleTreeSelectionChange(e: CustomEvent) {
@@ -155,11 +229,17 @@ export class TabTree extends SignalWatcher(LitElement) {
 
   private async handleGroupExpand(e: CustomEvent, groupId: number) {
     e.stopPropagation();
+    if (this.draggingType) {
+      return;
+    }
     await tabStore.collapseGroup(groupId, false);
   }
 
   private async handleGroupCollapse(e: CustomEvent, groupId: number) {
     e.stopPropagation();
+    if (this.draggingType) {
+      return;
+    }
     await tabStore.collapseGroup(groupId, true);
   }
 
@@ -202,11 +282,17 @@ export class TabTree extends SignalWatcher(LitElement) {
 
   private handleWindowExpand(evt: CustomEvent, windowId: number) {
     evt.stopPropagation();
+    if (this.draggingType) {
+      return;
+    }
     tabStore.setWindowCollapsed(windowId, false);
   }
 
   private handleWindowCollapse(evt: CustomEvent, windowId: number) {
     evt.stopPropagation();
+    if (this.draggingType) {
+      return;
+    }
     tabStore.setWindowCollapsed(windowId, true);
   }
 }

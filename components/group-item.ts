@@ -1,62 +1,77 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { GroupNode } from '../services/tab-store.js';
+import { GroupNode, tabStore } from '../services/tab-store.js';
+import { dropTargetStyles } from './shared-styles.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import './group-tag';
 
 @customElement('group-item')
 export class GroupItem extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      min-width: 0;
-      flex-grow: 1;
-    }
+  static styles = [
+    dropTargetStyles,
+    css`
+      :host {
+        display: block;
+        min-width: 0;
+        flex-grow: 1;
+        user-select: none;
+      }
 
-    .group-row {
-      display: flex;
-      align-items: center;
-      padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
-      border-radius: var(--sl-border-radius-medium);
-      cursor: pointer;
-      transition: background-color var(--sl-transition-fast);
-    }
+      .group-row {
+        display: flex;
+        align-items: center;
+        padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
+        border-radius: var(--sl-border-radius-medium);
+        cursor: pointer;
+        transition: background-color var(--sl-transition-fast);
+      }
 
-    .group-row:hover {
-      background-color: var(--sl-color-neutral-100);
-    }
+      .group-row:hover {
+        background-color: var(--sl-color-neutral-100);
+      }
 
-    sl-checkbox {
-      margin-right: var(--sl-spacing-x-small);
-    }
+      sl-checkbox {
+        margin-right: var(--sl-spacing-x-small);
+      }
 
-    .controls {
-      display: none;
-      margin-left: auto;
-      gap: var(--sl-spacing-2x-small);
-    }
+      .controls {
+        display: none;
+        margin-left: auto;
+        gap: var(--sl-spacing-2x-small);
+      }
 
-    .group-row:hover .controls {
-      display: flex;
-    }
+      .group-row:hover .controls {
+        display: flex;
+      }
 
-    sl-icon-button {
-      font-size: var(--sl-font-size-medium);
-    }
+      sl-icon-button {
+        font-size: var(--sl-font-size-medium);
+      }
 
-    .count {
-      font-size: var(--sl-font-size-x-small);
-      color: var(--sl-color-neutral-500);
-      margin-left: var(--sl-spacing-x-small);
-    }
-  `;
+      .count {
+        font-size: var(--sl-font-size-x-small);
+        color: var(--sl-color-neutral-500);
+        margin-left: var(--sl-spacing-x-small);
+      }
+    `
+  ];
 
   @property({ type: Object }) group!: GroupNode;
+  @property({ type: Boolean, reflect: true, attribute: 'drop-target' }) dropTarget = false;
 
   render() {
     return html`
-      <div class="group-row">
+      <div
+        class="group-row"
+        draggable="true"
+        @dragstart=${this.handleDragStart}
+        @dragend=${this.handleDragEnd}
+        @dragover=${this.handleDragOver}
+        @drop=${this.handleDrop}
+        @dragenter=${this.handleDragEnter}
+        @dragleave=${this.handleDragLeave}
+      >
         <group-tag
           size="medium"
           pill
@@ -109,5 +124,82 @@ export class GroupItem extends LitElement {
         composed: true
       }));
     }
+  }
+
+  private handleDragStart(e: DragEvent) {
+    console.log('[GroupItem] dragstart:', { groupId: this.group.id });
+    e.stopPropagation();
+    tabStore.draggingState.set({ type: 'group', id: this.group.id });
+
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('application/x-taborg-type', 'group');
+      e.dataTransfer.setData('application/x-taborg-id', String(this.group.id));
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  private handleDragEnd(e: DragEvent) {
+    console.log('[GroupItem] dragend:', { groupId: this.group.id });
+    e.stopPropagation();
+    tabStore.draggingState.set(null);
+    this.dropTarget = false;
+  }
+
+  private handleDragOver(e: DragEvent) {
+    e.stopPropagation();
+    const dragging = tabStore.draggingState.get();
+    if (!dragging) return;
+
+    let valid = false;
+    if (dragging.type === 'tab') valid = true;
+    if (dragging.type === 'group' && dragging.id !== this.group.id) valid = true;
+
+    if (valid) {
+      e.preventDefault(); // Allow drop
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  private handleDragEnter(e: DragEvent) {
+     e.stopPropagation();
+     const dragging = tabStore.draggingState.get();
+     if (!dragging) return;
+
+     let valid = false;
+     if (dragging.type === 'tab') valid = true;
+     if (dragging.type === 'group' && dragging.id !== this.group.id) valid = true;
+
+     console.log('[GroupItem] dragenter:', { groupId: this.group.id, dragging, valid });
+     if (valid) {
+        this.dropTarget = true;
+     }
+  }
+
+  private handleDragLeave(e: DragEvent) {
+     console.log('[GroupItem] dragleave:', { groupId: this.group.id });
+     e.stopPropagation();
+     this.dropTarget = false;
+  }
+
+  private async handleDrop(e: DragEvent) {
+    console.log('[GroupItem] drop:', { groupId: this.group.id, dragging: tabStore.draggingState.get() });
+    e.preventDefault();
+    e.stopPropagation();
+    this.dropTarget = false;
+
+    const dragging = tabStore.draggingState.get();
+    if (!dragging) return;
+
+    if (dragging.type === 'tab') {
+      await tabStore.moveTabToGroup(dragging.id, this.group.id);
+    } else if (dragging.type === 'group') {
+      this.dispatchEvent(new CustomEvent('merge-request', {
+        detail: { type: 'merge-groups', sourceId: dragging.id, targetId: this.group.id },
+        bubbles: true,
+        composed: true
+      }));
+    }
+
+    tabStore.draggingState.set(null); // Clear state
   }
 }

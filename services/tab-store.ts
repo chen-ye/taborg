@@ -46,6 +46,8 @@ class TabStore {
   windowNames = new SignalMap<number, string>();
   collapsedWindowIds = new SignalSet<number>();
 
+  draggingState = new Signal.State<{ type: 'tab' | 'group' | 'window'; id: number } | null>(null);
+
   // Batching state for selection updates
   private pendingSelectionChanges: Set<number> | null = null;
   private selectionUpdateFrameId: number | null = null;
@@ -404,7 +406,17 @@ class TabStore {
 
   async moveTabToGroup(tabId: number, groupId: number) {
     const group = this.findGroup(groupId);
-    const wasCollapsed = group?.collapsed;
+    if (!group) return;
+
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.windowId !== group.windowId) {
+      // Move tab to the same window first
+      await chrome.tabs.move(tabId, { windowId: group.windowId, index: -1 });
+      // Wait for move to complete/propagate? Usually `move` returns the updated tab details.
+      // We use the ID, which shouldn't change, but let's be safe.
+    }
+
+    const wasCollapsed = group.collapsed;
 
     await chrome.tabs.group({ tabIds: tabId, groupId });
 
@@ -514,6 +526,48 @@ class TabStore {
     console.log('Updated collapsedWindowIds:', this.collapsedWindowIds);
 
     await chrome.storage.local.set({ 'collapsed-windows': Array.from(this.collapsedWindowIds.values()) });
+  }
+
+  async moveTabToWindow(tabId: number, windowId: number) {
+    // If we just move it to the window, it might stay in its group if the group is also moving?
+    // No, if we move a single tab, we probably want to ungroup it from its previous group in the old window.
+    // However, chrome.tabs.move removes it from the old window, so it implicitly leaves the old group.
+    await chrome.tabs.move(tabId, { windowId, index: -1 });
+  }
+
+  async moveGroupToWindow(groupId: number, windowId: number) {
+    await chrome.tabGroups.move(groupId, { windowId, index: -1 });
+  }
+
+  async mergeGroups(sourceGroupId: number, targetGroupId: number) {
+    const sourceGroup = this.findGroup(sourceGroupId);
+    const targetGroup = this.findGroup(targetGroupId);
+    if (!sourceGroup || !targetGroup) return;
+
+    if (sourceGroup.windowId !== targetGroup.windowId) {
+      // Move source group to target window first
+      await chrome.tabGroups.move(sourceGroupId, { windowId: targetGroup.windowId, index: -1 });
+    }
+
+    const tabIds = sourceGroup.tabs.map(t => t.id);
+    if (tabIds.length === 0) return;
+    await chrome.tabs.group({ tabIds: tabIds as [number, ...number[]], groupId: targetGroupId });
+  }
+
+  async mergeWindows(sourceWindowId: number, targetWindowId: number) {
+    const sourceWindow = this.windows.find((w: WindowNode) => w.id === sourceWindowId); // Direct access
+    if (!sourceWindow) return;
+
+    // Move all groups
+    for (const group of sourceWindow.groups) {
+      await chrome.tabGroups.move(group.id, { windowId: targetWindowId, index: -1 });
+    }
+
+    // Move all ungrouped tabs
+    const tabIds = sourceWindow.tabs.map((t: TabNode) => t.id);
+    if (tabIds.length > 0) {
+      await chrome.tabs.move(tabIds, { windowId: targetWindowId, index: -1 });
+    }
   }
 }
 

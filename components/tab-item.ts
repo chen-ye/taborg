@@ -127,6 +127,11 @@ export class TabItem extends SignalWatcher(LitElement) {
         padding: 0 6px;
       }
     }
+
+    /* Ensure pointer events work for drag start */
+    :host {
+      user-select: none;
+    }
   `;
 
   @property({ type: Object }) tab!: TabNode;
@@ -142,6 +147,9 @@ export class TabItem extends SignalWatcher(LitElement) {
         class="tab-row ${this.tab.active ? 'active' : ''}"
         @click=${this.focusTab}
         @auxclick=${this.handleAuxClick}
+        draggable="true"
+        @dragstart=${this.handleDragStart}
+        @dragend=${this.handleDragEnd}
       >
         <div class="left">
           ${this.tab.favIconUrl
@@ -263,5 +271,23 @@ export class TabItem extends SignalWatcher(LitElement) {
     const item = e.detail.item;
     const groupName = item.value;
     this.moveToGroup(groupName);
+  }
+
+  private handleDragStart(e: DragEvent) {
+    console.log('[TabItem] dragstart:', { tabId: this.tab.id });
+    e.stopPropagation();
+    tabStore.draggingState.set({ type: 'tab', id: this.tab.id });
+
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('application/x-taborg-type', 'tab');
+      e.dataTransfer.setData('application/x-taborg-id', String(this.tab.id));
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  private handleDragEnd(e: DragEvent) {
+    console.log('[TabItem] dragend:', { tabId: this.tab.id });
+    e.stopPropagation();
+    tabStore.draggingState.set(null);
   }
 }
