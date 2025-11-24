@@ -9,6 +9,9 @@ import './window-item';
 import type SlTree from '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree-item/tree-item.js';
+import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
+import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 
 @customElement('tab-tree')
 export class TabTree extends SignalWatcher(LitElement) {
@@ -102,33 +105,30 @@ export class TabTree extends SignalWatcher(LitElement) {
     }
   `;
 
-  @state() private draggingType: 'tab' | 'group' | 'window' | null = null;
-  @state() private draggingId: number | null = null;
-  @state() private dragOverId: number | null = null;
-  @state() private dragOverType: 'tab' | 'group' | 'window' | null = null;
+  @state() private pendingMerge: { type: string, sourceId: number, targetId: number } | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
   }
 
   render() {
+    const dragging = tabStore.draggingState.get();
+    const draggingType = dragging?.type;
+    const draggingId = dragging?.id;
+
     return html`
-      <sl-tree selection="multiple" @sl-selection-change=${this.handleTreeSelectionChange}>
+      <sl-tree
+        selection="multiple"
+        @sl-selection-change=${this.handleTreeSelectionChange}
+        @merge-request=${this.handleMergeRequest}
+      >
         ${repeat(tabStore.sortedWindows.get(), (window) => window.id, (window) => html`
           <sl-tree-item
-            ?expanded=${this.draggingType ? true : !tabStore.collapsedWindowIds.has(window.id)}
-            draggable="true"
+            ?expanded=${draggingType ? true : !tabStore.collapsedWindowIds.has(window.id)}
             data-id=${window.id}
             data-type="window"
             item-type="window"
-            ?dragging=${this.draggingType === 'window' && this.draggingId === window.id}
-            ?data-drop-target=${this.isDropTarget('window', window.id)}
-            @dragstart=${(e: DragEvent) => this.handleDragStart(e, 'window', window.id)}
-            @dragover=${(e: DragEvent) => this.handleDragOver(e, 'window', window.id)}
-            @drop=${(e: DragEvent) => this.handleDrop(e, 'window', window.id)}
-            @dragend=${this.handleDragEnd}
-            @dragenter=${(e: DragEvent) => this.handleDragEnter(e, 'window', window.id)}
-            @dragleave=${this.handleDragLeave}
+            ?dragging=${draggingType === 'window' && draggingId === window.id}
             @sl-expand=${(evt: CustomEvent) => this.handleWindowExpand(evt, window.id)}
             @sl-collapse=${(evt: CustomEvent) => this.handleWindowCollapse(evt, window.id)}
           >
@@ -136,20 +136,12 @@ export class TabTree extends SignalWatcher(LitElement) {
 
             ${repeat(window.groups, (group: GroupNode) => group.id, (group: GroupNode) => html`
               <sl-tree-item
-                ?expanded=${this.draggingType ? true : !group.collapsed}
+                ?expanded=${draggingType ? true : !group.collapsed}
                 ?selected=${group.tabs.every((t: TabNode) => tabStore.selectedTabIds.has(t.id))}
-                draggable="true"
                 data-id=${group.id}
                 data-type="group"
                 item-type="group"
-                ?dragging=${this.draggingType === 'group' && this.draggingId === group.id}
-                ?data-drop-target=${this.isDropTarget('group', group.id)}
-                @dragstart=${(e: DragEvent) => this.handleDragStart(e, 'group', group.id)}
-                @dragover=${(e: DragEvent) => this.handleDragOver(e, 'group', group.id)}
-                @drop=${(e: DragEvent) => this.handleDrop(e, 'group', group.id)}
-                @dragend=${this.handleDragEnd}
-                @dragenter=${(e: DragEvent) => this.handleDragEnter(e, 'group', group.id)}
-                @dragleave=${this.handleDragLeave}
+                ?dragging=${draggingType === 'group' && draggingId === group.id}
                 @sl-expand=${(evt: CustomEvent) => this.handleGroupExpand(evt, group.id)}
                 @sl-collapse=${(evt: CustomEvent) => this.handleGroupCollapse(evt, group.id)}
               >
@@ -162,13 +154,10 @@ export class TabTree extends SignalWatcher(LitElement) {
                 ${repeat(group.tabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
                   <sl-tree-item
                     ?selected=${tabStore.selectedTabIds.has(tab.id)}
-                    draggable="true"
                     data-id=${tab.id}
                     data-type="tab"
                     item-type="tab"
-                    ?dragging=${this.draggingType === 'tab' && this.draggingId === tab.id}
-                    @dragstart=${(e: DragEvent) => this.handleDragStart(e, 'tab', tab.id)}
-                    @dragend=${this.handleDragEnd}
+                    ?dragging=${draggingType === 'tab' && draggingId === tab.id}
                   >
                     <tab-item
                       .tab=${tab}
@@ -184,13 +173,10 @@ export class TabTree extends SignalWatcher(LitElement) {
             ${repeat(window.tabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
               <sl-tree-item
                 ?selected=${tabStore.selectedTabIds.has(tab.id)}
-                draggable="true"
                 data-id=${tab.id}
                 data-type="tab"
                 item-type="tab"
-                ?dragging=${this.draggingType === 'tab' && this.draggingId === tab.id}
-                @dragstart=${(e: DragEvent) => this.handleDragStart(e, 'tab', tab.id)}
-                @dragend=${this.handleDragEnd}
+                ?dragging=${draggingType === 'tab' && draggingId === tab.id}
               >
                 <tab-item
                   .tab=${tab}
@@ -203,116 +189,52 @@ export class TabTree extends SignalWatcher(LitElement) {
           </sl-tree-item>
         `)}
       </sl-tree>
+
+      <sl-dialog label="Confirm Merge" class="merge-dialog">
+        ${this.pendingMerge ? html`
+          Are you sure you want to merge these ${this.pendingMerge.type === 'merge-groups' ? 'groups' : 'windows'}?
+        ` : ''}
+        <sl-button slot="footer" variant="primary" @click=${this.confirmMerge}>Merge</sl-button>
+        <sl-button slot="footer" variant="default" @click=${this.cancelMerge}>Cancel</sl-button>
+      </sl-dialog>
     `;
   }
 
   updated(changedProperties: Map<string, any>) {
-    if (changedProperties.has('draggingType')) {
-      if (this.draggingType) {
-        this.setAttribute('dragging-type', this.draggingType);
-      } else {
-        this.removeAttribute('dragging-type');
-      }
-    }
-  }
-
-  private isDropTarget(type: 'tab' | 'group' | 'window', id: number) {
-    return this.dragOverType === type && this.dragOverId === id;
-  }
-
-  private handleDragStart(e: DragEvent, type: 'tab' | 'group' | 'window', id: number) {
-    e.stopPropagation();
-    this.draggingType = type;
-    this.draggingId = id;
-
-    if (e.dataTransfer) {
-      e.dataTransfer.setData('application/x-taborg-type', type);
-      e.dataTransfer.setData('application/x-taborg-id', String(id));
-      e.dataTransfer.effectAllowed = 'move';
-    }
-  }
-
-  private handleDragOver(e: DragEvent, type: 'tab' | 'group' | 'window', id: number) {
-    e.preventDefault(); // Necessary to allow dropping
-    e.stopPropagation();
-
-    if (!this.draggingType || !this.draggingId) return;
-
-    // Validate drop target
-    let valid = false;
-
-    if (this.draggingType === 'tab') {
-      // Drop over group or window
-      if (type === 'group' || type === 'window') valid = true;
-    } else if (this.draggingType === 'group') {
-      // Drop over group (merge) or window
-      if ((type === 'group' && id !== this.draggingId) || type === 'window') valid = true;
-    } else if (this.draggingType === 'window') {
-      // Drop over window (merge)
-      if (type === 'window' && id !== this.draggingId) valid = true;
-    }
-
-    if (valid) {
-      this.dragOverType = type;
-      this.dragOverId = id;
-      if (e.dataTransfer) {
-        e.dataTransfer.dropEffect = 'move';
-      }
+    // Update host attribute based on signal state
+    const dragging = tabStore.draggingState.get();
+    if (dragging) {
+      this.setAttribute('dragging-type', dragging.type);
     } else {
-      this.dragOverType = null;
-      this.dragOverId = null;
+      this.removeAttribute('dragging-type');
     }
   }
 
-  private handleDragEnter(e: DragEvent, type: 'tab' | 'group' | 'window', id: number) {
-     // Optional: specific styling on enter
-  }
-
-  private handleDragLeave(e: DragEvent) {
-    // We might want to clear dragOver if we leave the element
-    // But this fires when entering children too, so it's tricky.
-    // simpler to let dragOver handle state setting.
-  }
-
-  private handleDragEnd(e: DragEvent) {
-    this.draggingType = null;
-    this.draggingId = null;
-    this.dragOverType = null;
-    this.dragOverId = null;
-  }
-
-  private async handleDrop(e: DragEvent, type: 'tab' | 'group' | 'window', id: number) {
-    e.preventDefault();
+  private handleMergeRequest(e: CustomEvent) {
     e.stopPropagation();
+    this.pendingMerge = e.detail;
+    const dialog = this.shadowRoot?.querySelector('.merge-dialog') as SlDialog;
+    dialog?.show();
+  }
 
-    const draggedType = this.draggingType;
-    const draggedId = this.draggingId;
+  private async confirmMerge() {
+    const dialog = this.shadowRoot?.querySelector('.merge-dialog') as SlDialog;
+    dialog?.hide();
 
-    this.handleDragEnd(e); // Reset state
-
-    if (!draggedType || !draggedId) return;
-
-    if (draggedType === 'tab') {
-      if (type === 'window') {
-        await tabStore.moveTabToWindow(draggedId, id);
-      } else if (type === 'group') {
-        await tabStore.moveTabToGroup(draggedId, id);
+    if (this.pendingMerge) {
+      if (this.pendingMerge.type === 'merge-groups') {
+        await tabStore.mergeGroups(this.pendingMerge.sourceId, this.pendingMerge.targetId);
+      } else if (this.pendingMerge.type === 'merge-windows') {
+        await tabStore.mergeWindows(this.pendingMerge.sourceId, this.pendingMerge.targetId);
       }
-    } else if (draggedType === 'group') {
-      if (type === 'window') {
-        await tabStore.moveGroupToWindow(draggedId, id);
-      } else if (type === 'group') {
-         if (confirm('Merge these groups?')) {
-           await tabStore.mergeGroups(draggedId, id);
-         }
-      }
-    } else if (draggedType === 'window') {
-      if (type === 'window') {
-        if (confirm('Merge these windows?')) {
-          await tabStore.mergeWindows(draggedId, id);
-        }
-      }
+      this.pendingMerge = null;
     }
+  }
+
+  private cancelMerge() {
+    const dialog = this.shadowRoot?.querySelector('.merge-dialog') as SlDialog;
+    dialog?.hide();
+    this.pendingMerge = null;
   }
 
   private handleTreeSelectionChange(e: CustomEvent) {

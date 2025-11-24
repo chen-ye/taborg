@@ -147,6 +147,9 @@ export class TabItem extends SignalWatcher(LitElement) {
         class="tab-row ${this.tab.active ? 'active' : ''}"
         @click=${this.focusTab}
         @auxclick=${this.handleAuxClick}
+        draggable="true"
+        @dragstart=${this.handleDragStart}
+        @dragend=${this.handleDragEnd}
       >
         <div class="left">
           ${this.tab.favIconUrl
@@ -268,5 +271,21 @@ export class TabItem extends SignalWatcher(LitElement) {
     const item = e.detail.item;
     const groupName = item.value;
     this.moveToGroup(groupName);
+  }
+
+  private handleDragStart(e: DragEvent) {
+    e.stopPropagation();
+    tabStore.draggingState.set({ type: 'tab', id: this.tab.id });
+
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('application/x-taborg-type', 'tab');
+      e.dataTransfer.setData('application/x-taborg-id', String(this.tab.id));
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  private handleDragEnd(e: DragEvent) {
+    e.stopPropagation();
+    tabStore.draggingState.set(null);
   }
 }

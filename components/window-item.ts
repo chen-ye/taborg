@@ -58,13 +58,24 @@ export class WindowItem extends LitElement {
 
   @property({ type: Object }) window!: WindowNode;
   @state() private generatingName = false;
+  @state() private isDropTarget = false;
 
   render() {
     const tabCount = this.window.tabs.length + this.window.groups.reduce((acc: number, g: GroupNode) => acc + g.tabs.length, 0);
     const displayName = tabStore.windowNames.get(this.window.id) || `Window ${this.window.id}`;
 
     return html`
-      <div class="window-header">
+      <div
+        class="window-header"
+        draggable="true"
+        @dragstart=${this.handleDragStart}
+        @dragend=${this.handleDragEnd}
+        @dragover=${this.handleDragOver}
+        @drop=${this.handleDrop}
+        @dragenter=${this.handleDragEnter}
+        @dragleave=${this.handleDragLeave}
+        style="${this.isDropTarget ? 'background-color: var(--sl-color-primary-50); outline: 2px dashed var(--sl-color-primary-500); outline-offset: -2px;' : ''}"
+      >
         <span class="window-name">
           ${displayName} ${this.window.focused ? '(Current)' : ''}
         </span>
@@ -118,5 +129,81 @@ export class WindowItem extends LitElement {
     } finally {
       this.generatingName = false;
     }
+  }
+
+  private handleDragStart(e: DragEvent) {
+    e.stopPropagation();
+    tabStore.draggingState.set({ type: 'window', id: this.window.id });
+
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('application/x-taborg-type', 'window');
+      e.dataTransfer.setData('application/x-taborg-id', String(this.window.id));
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  private handleDragEnd(e: DragEvent) {
+    e.stopPropagation();
+    tabStore.draggingState.set(null);
+    this.isDropTarget = false;
+  }
+
+  private handleDragOver(e: DragEvent) {
+    e.stopPropagation();
+    const dragging = tabStore.draggingState.get();
+    if (!dragging) return;
+
+    let valid = false;
+    if (dragging.type === 'tab') valid = true;
+    if (dragging.type === 'group') valid = true;
+    if (dragging.type === 'window' && dragging.id !== this.window.id) valid = true;
+
+    if (valid) {
+      e.preventDefault(); // Allow drop
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  private handleDragEnter(e: DragEvent) {
+    e.stopPropagation();
+    const dragging = tabStore.draggingState.get();
+    if (!dragging) return;
+
+    let valid = false;
+    if (dragging.type === 'tab') valid = true;
+    if (dragging.type === 'group') valid = true;
+    if (dragging.type === 'window' && dragging.id !== this.window.id) valid = true;
+
+    if (valid) {
+      this.isDropTarget = true;
+    }
+  }
+
+  private handleDragLeave(e: DragEvent) {
+    e.stopPropagation();
+    this.isDropTarget = false;
+  }
+
+  private async handleDrop(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.isDropTarget = false;
+
+    const dragging = tabStore.draggingState.get();
+    if (!dragging) return;
+
+    if (dragging.type === 'tab') {
+      await tabStore.moveTabToWindow(dragging.id, this.window.id);
+    } else if (dragging.type === 'group') {
+      await tabStore.moveGroupToWindow(dragging.id, this.window.id);
+    } else if (dragging.type === 'window') {
+      this.dispatchEvent(new CustomEvent('merge-request', {
+        detail: { type: 'merge-windows', sourceId: dragging.id, targetId: this.window.id },
+        bubbles: true,
+        composed: true
+      }));
+    }
+
+    tabStore.draggingState.set(null); // Clear state
   }
 }

@@ -46,6 +46,8 @@ class TabStore {
   windowNames = new SignalMap<number, string>();
   collapsedWindowIds = new SignalSet<number>();
 
+  draggingState = new Signal.State<{ type: 'tab' | 'group' | 'window'; id: number } | null>(null);
+
   // Batching state for selection updates
   private pendingSelectionChanges: Set<number> | null = null;
   private selectionUpdateFrameId: number | null = null;
