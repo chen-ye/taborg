@@ -195,7 +195,7 @@ class TabStore {
 
     const windowMap = new Map<number, WindowNode>();
     windows.forEach(w => {
-      if (w.id) {
+      if (w.id !== undefined) {
         windowMap.set(w.id, {
           id: w.id,
           focused: w.focused,
@@ -206,7 +206,7 @@ class TabStore {
     });
 
     for (const t of tabs) {
-      if (!t.id || !t.windowId) continue;
+      if (t.id === undefined || t.windowId === undefined) continue;
 
       const suggestedGroups = t.url ? this.suggestionsUrlMap.get(t.url) : undefined;
 
