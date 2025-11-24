@@ -446,6 +446,15 @@ class TabStore {
     return this.selectedTabs.get();
   }
 
+  getTabsWithoutSuggestions(): TabNode[] {
+    return [...this.windows]
+      .flatMap((w: WindowNode) => [
+        ...w.tabs,
+        ...w.groups.flatMap((g: GroupNode) => g.tabs)
+      ])
+      .filter((t: TabNode) => !t.suggestedGroups || t.suggestedGroups.length === 0);
+  }
+
   selectUngroupedTabs() {
     // Cancel any pending batched update
     if (this.selectionUpdateFrameId !== null) {
