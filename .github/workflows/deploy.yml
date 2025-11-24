@@ -44,26 +44,42 @@ jobs:
           fi
 
       - name: Install dependencies
-        if: steps.check_tag.outputs.exists == 'false'
         run: yarn install
 
       - name: Zip extensions
-        if: steps.check_tag.outputs.exists == 'false'
         run: |
           yarn run zip &&
           yarn run zip:firefox
 
+      - name: Build CRX
+        run: |
+          yarn run pack
+          mv ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}.crx ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ steps.get_version.outputs.version }}.crx
+
+      - name: Determine Release Parameters
+        id: release_params
+        run: |
+          if [ "${{ steps.check_tag.outputs.exists }}" == "true" ]; then
+            echo "tag_name=v${{ steps.get_version.outputs.version }}-pre-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "name=Pre-release v${{ steps.get_version.outputs.version }}-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=v${{ steps.get_version.outputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "name=v${{ steps.get_version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create Release
-        if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ steps.get_version.outputs.version }}"
-          name: "v${{ steps.get_version.outputs.version }}"
+          tag_name: ${{ steps.release_params.outputs.tag_name }}
+          name: ${{ steps.release_params.outputs.name }}
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.release_params.outputs.prerelease }}
           files: |
             ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ steps.get_version.outputs.version }}-chrome.zip
             ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ steps.get_version.outputs.version }}-firefox.zip
             ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ steps.get_version.outputs.version }}-sources.zip
+            ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ steps.get_version.outputs.version }}.crx
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
