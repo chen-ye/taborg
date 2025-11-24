@@ -51,12 +51,8 @@ export class ControlBar extends SignalWatcher(LitElement) {
             size="small"
             ?disabled=${this.organizing}
             @click=${this.handleOrganize}
-          >
-            ${this.organizing
-              ? html`<sl-spinner style="font-size: 1rem; --track-width: 2px; margin-right: var(--sl-spacing-x-small);"></sl-spinner> Organizing...`
-              : 'Organize Tabs'
-            }
-          </sl-button>
+            ?loading=${this.organizing}
+          >Organize Tabs</sl-button>
 
           <sl-button
             variant="default"
