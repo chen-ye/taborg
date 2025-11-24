@@ -214,4 +214,81 @@ describe('TabStore', () => {
     expect(groupMoveSpy).toHaveBeenCalledWith(10, { windowId: targetWindowId, index: -1 });
     expect(tabMoveSpy).toHaveBeenCalledWith([101, 102], { windowId: targetWindowId, index: -1 });
   });
+  
+  it('should return tabs without suggestions', async () => {
+    vi.resetModules();
+    fakeBrowser.reset();
+
+    const tabs = (fakeBrowser.tabs as any);
+    tabs.onMoved = mockListeners;
+    tabs.onAttached = mockListeners;
+    tabs.onDetached = mockListeners;
+    const windows = (fakeBrowser.windows as any);
+    windows.onFocusChanged = mockListeners;
+
+    (globalThis as any).chrome = {
+      ...fakeBrowser,
+      tabGroups: mockTabGroups,
+    };
+
+    await fakeBrowser.windows.create({ focused: true });
+
+    // Setup tabs
+    const tabWithSuggestion = {
+        id: 101,
+        windowId: 1,
+        url: 'https://suggested.com',
+        title: 'Suggested',
+        active: false,
+        groupId: -1,
+        pinned: false,
+        highlighted: false,
+        incognito: false,
+        index: 0,
+        selected: false,
+        discarded: false,
+        autoDiscardable: false,
+    };
+
+    const tabWithoutSuggestion = {
+        id: 102,
+        windowId: 1,
+        url: 'https://unsuggested.com',
+        title: 'Unsuggested',
+        active: true,
+        groupId: -1,
+        pinned: false,
+        highlighted: false,
+        incognito: false,
+        index: 1,
+        selected: false,
+        discarded: false,
+        autoDiscardable: false,
+    };
+
+    (globalThis as any).chrome.tabs.query = vi.fn().mockResolvedValue([tabWithSuggestion, tabWithoutSuggestion]);
+
+    // Setup storage with suggestion for the first tab
+    await fakeBrowser.storage.local.set({
+      'tab-suggestions': { 'https://suggested.com': ['Group A'] }
+    });
+
+    const mod = await import('./tab-store');
+    const store = mod.tabStore;
+
+    // Wait for init
+    let retries = 0;
+    while (store.isInitializing.get() && retries < 50) {
+      await new Promise(r => setTimeout(r, 10));
+      retries++;
+    }
+
+    // Force fetch to ensure tabs are loaded
+    await store.fetchAll();
+
+    const result = store.getTabsWithoutSuggestions();
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(102);
+    expect(result[0].url).toBe('https://unsuggested.com');
+  });
 });
