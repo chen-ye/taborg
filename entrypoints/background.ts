@@ -1,6 +1,6 @@
 import { geminiService } from '../services/gemini.js';
 
-export default defineBackground(() => {
+export const main = () => {
   // Create offscreen document to watch for theme changes
   async function setupOffscreenDocument() {
     const existingContexts = await chrome.runtime.getContexts({
@@ -22,12 +22,30 @@ export default defineBackground(() => {
   chrome.runtime.onInstalled.addListener(setupOffscreenDocument);
 
   const processedTabIds = new Set<number>();
+  const newTabIds = new Set<number>();
+
+  const isNewTab = (url?: string) => {
+    return !url || url === 'about:blank' || url === 'chrome://newtab/' || url === 'edge://newtab/' || url.startsWith('chrome://newtab');
+  };
+
+  chrome.tabs.onCreated.addListener((tab) => {
+    if (tab.id && (isNewTab(tab.url) || isNewTab(tab.pendingUrl))) {
+      newTabIds.add(tab.id);
+    }
+  });
 
   chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    if (changeInfo.url && isNewTab(changeInfo.url)) {
+      newTabIds.add(tabId);
+    }
+
     // Auto-suggest logic
     if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
+      const wasNewTab = newTabIds.has(tabId);
+
       // Check if opened from another tab (link) and not yet processed
-      if (tab.openerTabId && !processedTabIds.has(tabId)) {
+      // OR if it was previously on a new tab page
+      if ((tab.openerTabId || wasNewTab) && !processedTabIds.has(tabId)) {
         processedTabIds.add(tabId);
 
         try {
@@ -55,7 +73,17 @@ export default defineBackground(() => {
           console.error('Auto-suggest failed', e);
         }
       }
+
+      // Cleanup newTabIds for this tab as it is now navigated
+      if (wasNewTab) {
+        newTabIds.delete(tabId);
+      }
     }
+  });
+
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    processedTabIds.delete(tabId);
+    newTabIds.delete(tabId);
   });
 
   // Enable opening side panel on action click
@@ -68,4 +96,6 @@ export default defineBackground(() => {
       chrome.action.setIcon({ imageData: message.imageData });
     }
   });
-});
+};
+
+export default defineBackground(main);
