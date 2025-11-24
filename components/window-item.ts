@@ -57,6 +57,10 @@ export class WindowItem extends LitElement {
       sl-icon-button {
         font-size: var(--sl-font-size-medium);
       }
+
+      sl-tooltip {
+        text-transform: none;
+      }
     `
   ];
 
