@@ -21,6 +21,7 @@ export class GroupItem extends LitElement {
 
       .group-row {
         display: flex;
+        justify-content: space-between;
         align-items: center;
         padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
         border-radius: var(--sl-border-radius-medium);
@@ -30,6 +31,13 @@ export class GroupItem extends LitElement {
 
       .group-row:hover {
         background-color: var(--sl-color-neutral-100);
+      }
+
+      .left {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: var(--sl-spacing-x-small);
       }
 
       sl-checkbox {
@@ -61,7 +69,6 @@ export class GroupItem extends LitElement {
       .count {
         font-size: var(--sl-font-size-x-small);
         color: var(--sl-color-neutral-500);
-        margin-left: var(--sl-spacing-x-small);
       }
     `
   ];
@@ -82,33 +89,35 @@ export class GroupItem extends LitElement {
         @dragenter=${this.handleDragEnter}
         @dragleave=${this.handleDragLeave}
       >
-        ${this.isEditing
-          ? html`
-            <sl-input
-              class="name-input"
-              size="small"
-              value=${this.group.title}
-              @keydown=${this.handleInputKeyDown}
-              @sl-blur=${this.saveName}
-              @click=${(e: Event) => e.stopPropagation()}
-              autofocus
-            ></sl-input>
-          `
-          : html`
-            <group-tag
-              size="medium"
-              pill
-              .color=${this.group.color}
-            >
-              ${this.group.title || 'Group'}
-            </group-tag>
+        <div class="left">
+          ${this.isEditing
+            ? html`
+              <sl-input
+                class="name-input"
+                size="small"
+                value=${this.group.title}
+                @keydown=${this.handleInputKeyDown}
+                @sl-blur=${this.saveName}
+                @click=${(e: Event) => e.stopPropagation()}
+                autofocus
+              ></sl-input>
+            `
+            : html`
+              <group-tag
+                size="medium"
+                pill
+                .color=${this.group.color}
+                @dblclick=${this.startEditing}
+              >
+                ${this.group.title || 'Group'}
+              </group-tag>
 
-            <span class="count">
-              (${this.group.tabs.length} tab${this.group.tabs.length === 1 ? '' : 's'})
-            </span>
-          `
-        }
-
+              <span class="count">
+                (${this.group.tabs.length} tab${this.group.tabs.length === 1 ? '' : 's'})
+              </span>
+            `
+          }
+        </div>
         <div class="controls">
           <sl-icon-button
             name="pencil"
@@ -126,6 +135,17 @@ export class GroupItem extends LitElement {
 
       <slot></slot>
     `;
+  }
+
+  updated(changedProperties: Map<string, any>) {
+    if (changedProperties.has('isEditing') && this.isEditing) {
+      // Focus the input when editing starts
+      const input = this.renderRoot.querySelector('.name-input') as HTMLInputElement;
+      if (input) {
+        input.focus();
+        input.select(); // Also select all text for easier editing
+      }
+    }
   }
 
   private startEditing(e: Event) {

@@ -16,16 +16,33 @@ export class WindowItem extends LitElement {
     css`
       :host {
         display: block;
+        min-width: 0;
+        flex-grow: 1;
+        user-select: none;
       }
 
-      .window-header {
+      .window-row {
         display: flex;
+        justify-content: space-between;
         align-items: center;
         padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
+        border-radius: var(--sl-border-radius-medium);
+        cursor: pointer;
+        transition: background-color var(--sl-transition-fast);
         font-weight: bold;
         color: var(--sl-color-neutral-500);
         font-size: var(--sl-font-size-x-small);
-        text-transform: uppercase;
+      }
+
+      .window-row:hover {
+        background-color: var(--sl-color-neutral-100);
+      }
+
+      .left {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: var(--sl-spacing-x-small);
       }
 
       .window-name {
@@ -33,6 +50,7 @@ export class WindowItem extends LitElement {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        text-transform: uppercase;
         margin-right: var(--sl-spacing-x-small);
       }
 
@@ -45,25 +63,29 @@ export class WindowItem extends LitElement {
         font-weight: normal;
         font-size: var(--sl-font-size-x-small);
         color: var(--sl-color-neutral-500);
-        margin-left: var(--sl-spacing-x-small);
         text-transform: none;
         white-space: nowrap;
       }
 
-      .actions {
+      .controls {
         display: flex;
-        align-items: center;
+        margin-left: auto;
+        gap: var(--sl-spacing-2x-small);
         opacity: 0;
         transition: opacity var(--sl-transition-fast);
       }
 
-      .window-header:hover .actions,
-      .window-header:focus-within .actions {
+      .window-row:hover .controls,
+      .window-row:focus-within .controls {
         opacity: 1;
       }
 
       sl-icon-button {
         font-size: var(--sl-font-size-medium);
+      }
+
+      sl-tooltip {
+        text-transform: none;
       }
     `
   ];
@@ -79,7 +101,7 @@ export class WindowItem extends LitElement {
 
     return html`
       <div
-        class="window-header"
+        class="window-row"
         draggable="true"
         @dragstart=${this.handleDragStart}
         @dragend=${this.handleDragEnd}
@@ -88,30 +110,32 @@ export class WindowItem extends LitElement {
         @dragenter=${this.handleDragEnter}
         @dragleave=${this.handleDragLeave}
       >
-        ${this.isEditing
-          ? html`
-            <sl-input
-              class="name-input"
-              size="small"
-              value=${displayName}
-              @keydown=${this.handleInputKeyDown}
-              @sl-blur=${this.saveName}
-              @click=${(e: Event) => e.stopPropagation()}
-              autofocus
-            ></sl-input>
-          `
-          : html`
-            <span class="window-name">
-              ${displayName} ${this.window.focused ? '(Current)' : ''}
-            </span>
-          `
-        }
+        <div class="left">
+          ${this.isEditing
+            ? html`
+              <sl-input
+                class="name-input"
+                size="small"
+                value=${displayName}
+                @keydown=${this.handleInputKeyDown}
+                @sl-blur=${this.saveName}
+                @click=${(e: Event) => e.stopPropagation()}
+                autofocus
+              ></sl-input>
+            `
+            : html`
+              <span class="window-name" @dblclick=${this.startEditing}>
+                ${displayName} ${this.window.focused ? '(Current)' : ''}
+              </span>
+            `
+          }
 
-        <span class="count">
-          (${tabCount} tabs)
-        </span>
+          <span class="count">
+            (${tabCount} tabs)
+          </span>
+        </div>
 
-        <div class="actions">
+        <div class="controls">
           ${this.generatingName
             ? html`<sl-spinner style="font-size: var(--sl-font-size-medium); --track-width: 2px;"></sl-spinner>`
             : html`
@@ -134,6 +158,17 @@ export class WindowItem extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  updated(changedProperties: Map<string, any>) {
+    if (changedProperties.has('isEditing') && this.isEditing) {
+      // Focus the input when editing starts
+      const input = this.renderRoot.querySelector('.name-input') as HTMLInputElement;
+      if (input) {
+        input.focus();
+        input.select(); // Also select all text for easier editing
+      }
+    }
   }
 
   private startEditing(e: Event) {
