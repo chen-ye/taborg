@@ -1,9 +1,10 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { GroupNode, tabStore } from '../services/tab-store.js';
 import { dropTargetStyles } from './shared-styles.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
+import '@shoelace-style/shoelace/dist/components/input/input.js';
 import './group-tag';
 
 @customElement('group-item')
@@ -36,13 +37,21 @@ export class GroupItem extends LitElement {
       }
 
       .controls {
-        display: none;
+        display: flex;
         margin-left: auto;
         gap: var(--sl-spacing-2x-small);
+        opacity: 0;
+        transition: opacity var(--sl-transition-fast);
       }
 
-      .group-row:hover .controls {
-        display: flex;
+      .group-row:hover .controls,
+      .group-row:focus-within .controls {
+        opacity: 1;
+      }
+
+      .name-input {
+        flex-grow: 1;
+        margin-right: var(--sl-spacing-x-small);
       }
 
       sl-icon-button {
@@ -59,6 +68,7 @@ export class GroupItem extends LitElement {
 
   @property({ type: Object }) group!: GroupNode;
   @property({ type: Boolean, reflect: true, attribute: 'drop-target' }) dropTarget = false;
+  @state() private isEditing = false;
 
   render() {
     return html`
@@ -72,23 +82,38 @@ export class GroupItem extends LitElement {
         @dragenter=${this.handleDragEnter}
         @dragleave=${this.handleDragLeave}
       >
-        <group-tag
-          size="medium"
-          pill
-          .color=${this.group.color}
-        >
-          ${this.group.title || 'Group'}
-        </group-tag>
+        ${this.isEditing
+          ? html`
+            <sl-input
+              class="name-input"
+              size="small"
+              value=${this.group.title}
+              @keydown=${this.handleInputKeyDown}
+              @sl-blur=${this.saveName}
+              @click=${(e: Event) => e.stopPropagation()}
+              autofocus
+            ></sl-input>
+          `
+          : html`
+            <group-tag
+              size="medium"
+              pill
+              .color=${this.group.color}
+            >
+              ${this.group.title || 'Group'}
+            </group-tag>
 
-        <span class="count">
-          (${this.group.tabs.length} tab${this.group.tabs.length === 1 ? '' : 's'})
-        </span>
+            <span class="count">
+              (${this.group.tabs.length} tab${this.group.tabs.length === 1 ? '' : 's'})
+            </span>
+          `
+        }
 
         <div class="controls">
           <sl-icon-button
             name="pencil"
             label="Rename"
-            @click=${this.renameGroup}
+            @click=${this.startEditing}
           ></sl-icon-button>
 
           <sl-icon-button
@@ -103,16 +128,34 @@ export class GroupItem extends LitElement {
     `;
   }
 
-  private renameGroup(e: Event) {
+  private startEditing(e: Event) {
     e.stopPropagation();
-    const newTitle = prompt('Enter new group name:', this.group.title);
-    if (newTitle !== null) {
+    this.isEditing = true;
+  }
+
+  private handleInputKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.stopPropagation();
+      (e.target as HTMLElement).blur(); // Triggers saveName via sl-blur
+    } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      this.isEditing = false;
+    }
+  }
+
+  private saveName(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const newTitle = input.value.trim();
+
+    if (newTitle && newTitle !== this.group.title) {
       this.dispatchEvent(new CustomEvent('group-rename', {
         detail: { id: this.group.id, title: newTitle },
         bubbles: true,
         composed: true
       }));
     }
+
+    this.isEditing = false;
   }
 
   private closeGroup(e: Event) {
