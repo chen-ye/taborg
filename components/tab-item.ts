@@ -274,6 +274,7 @@ export class TabItem extends SignalWatcher(LitElement) {
   }
 
   private handleDragStart(e: DragEvent) {
+    console.log('[TabItem] dragstart:', { tabId: this.tab.id });
     e.stopPropagation();
     tabStore.draggingState.set({ type: 'tab', id: this.tab.id });
 
@@ -285,6 +286,7 @@ export class TabItem extends SignalWatcher(LitElement) {
   }
 
   private handleDragEnd(e: DragEvent) {
+    console.log('[TabItem] dragend:', { tabId: this.tab.id });
     e.stopPropagation();
     tabStore.draggingState.set(null);
   }

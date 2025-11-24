@@ -79,7 +79,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
         </div>
 
         <div class="right-actions">
-          <sl-tooltip content="Expand All Groups">
+          <sl-tooltip content="Expand All">
             <sl-icon-button
               name="arrows-expand"
               label="Expand All"
@@ -87,7 +87,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
             ></sl-icon-button>
           </sl-tooltip>
 
-          <sl-tooltip content="Collapse All Groups">
+          <sl-tooltip content="Collapse All">
             <sl-icon-button
               name="arrows-collapse"
               label="Collapse All"
@@ -159,9 +159,53 @@ export class ControlBar extends SignalWatcher(LitElement) {
 
   private expandAll() {
     tabStore.setAllGroupsCollapsed(false);
+    // Expand all windows
+    for (const w of tabStore.windows) {
+      tabStore.setWindowCollapsed(w.id, false);
+    }
   }
 
-  private collapseAll() {
-    tabStore.setAllGroupsCollapsed(true);
+  private async collapseAll() {
+    const currentWindowId = tabStore.currentWindowId.get();
+
+    // Find the current active tab and its group
+    let currentGroupId: number | undefined;
+    for (const w of tabStore.windows) {
+      if (w.id === currentWindowId) {
+        // Find active tab in current window
+        for (const tab of w.tabs) {
+          if (tab.active && tab.groupId > -1) {
+            currentGroupId = tab.groupId;
+            break;
+          }
+        }
+        for (const group of w.groups) {
+          for (const tab of group.tabs) {
+            if (tab.active) {
+              currentGroupId = group.id;
+              break;
+            }
+          }
+          if (currentGroupId) break;
+        }
+        break;
+      }
+    }
+
+    // Collapse all groups except current group
+    for (const w of tabStore.windows) {
+      for (const g of w.groups) {
+        if (g.id !== currentGroupId) {
+          await chrome.tabGroups.update(g.id, { collapsed: true });
+        }
+      }
+    }
+
+    // Collapse all windows except current window
+    for (const w of tabStore.windows) {
+      if (w.id !== currentWindowId) {
+        tabStore.setWindowCollapsed(w.id, true);
+      }
+    }
   }
 }

@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { tabStore } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import './tab-tree';
@@ -40,11 +40,13 @@ export class AppRoot extends SignalWatcher(LitElement) {
     .tree-container {
       height: 100%;
       overflow-y: auto;
+      scrollbar-gutter: stable;
     }
 
     .selected-pane-container {
       height: 100%;
       overflow-y: auto;
+      scrollbar-gutter: stable;
       background-color: var(--sl-color-neutral-50);
     }
 
@@ -56,7 +58,28 @@ export class AppRoot extends SignalWatcher(LitElement) {
       flex-direction: column;
       gap: var(--sl-spacing-medium);
     }
+
+    :host(:not([has-selection])) .selected-pane-container {
+      display: none;
+    }
+
+    :host(:not([has-selection])) .tree-container {
+      grid-row: 1 / -1;
+    }
+
+    :host(:not([has-selection])) sl-split-panel::part(divider) {
+      display: none;
+    }
   `;
+
+  @property({ type: Boolean, reflect: true, attribute: 'has-selection' })
+  hasSelection = false;
+
+  willUpdate(changedProperties: Map<string, any>) {
+    super.willUpdate(changedProperties);
+    // Sync hasSelection property with signal state
+    this.hasSelection = tabStore.selectedTabIds.size > 0;
+  }
 
 
 
@@ -76,24 +99,16 @@ export class AppRoot extends SignalWatcher(LitElement) {
       `;
     }
 
-    const hasSelection = tabStore.selectedTabIds.size > 0;
-
     return html`
       <main>
-        ${hasSelection ? html`
-          <sl-split-panel vertical position="70">
-            <div slot="start" class="tree-container">
-              <tab-tree></tab-tree>
-            </div>
-            <div slot="end" class="selected-pane-container">
-              <selected-pane></selected-pane>
-            </div>
-          </sl-split-panel>
-        ` : html`
-          <div class="tree-container">
+        <sl-split-panel vertical position="70">
+          <div slot="start" class="tree-container">
             <tab-tree></tab-tree>
           </div>
-        `}
+          <div slot="end" class="selected-pane-container">
+            <selected-pane></selected-pane>
+          </div>
+        </sl-split-panel>
       </main>
       <control-bar></control-bar>
       <settings-dialog></settings-dialog>

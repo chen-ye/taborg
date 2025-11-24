@@ -177,11 +177,9 @@ describe('TabStore', () => {
     const sourceGroupId = 10;
     const targetGroupId = 20;
 
-    vi.spyOn(tabStore, 'findGroup').mockImplementation((id: number) => {
-      if (id === sourceGroupId) return { id: sourceGroupId, windowId: 1, tabs: [{ id: 101 }] };
-      if (id === targetGroupId) return { id: targetGroupId, windowId: 2, tabs: [] };
-      return undefined;
-    });
+    const findGroupSpy = vi.spyOn(tabStore, 'findGroup');
+    findGroupSpy.mockReturnValueOnce({ id: sourceGroupId, windowId: 1, tabs: [{ id: 101 }] } as any);
+    findGroupSpy.mockReturnValueOnce({ id: targetGroupId, windowId: 2, tabs: [] } as any);
 
     const moveGroupSpy = vi.spyOn(mockTabGroups, 'move').mockResolvedValue(undefined as any);
     const groupSpy = vi.spyOn(fakeBrowser.tabs, 'group').mockResolvedValue(undefined as any);

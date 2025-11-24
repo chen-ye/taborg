@@ -541,7 +541,8 @@ class TabStore {
     }
 
     const tabIds = sourceGroup.tabs.map(t => t.id);
-    await chrome.tabs.group({ tabIds, groupId: targetGroupId });
+    if (tabIds.length === 0) return;
+    await chrome.tabs.group({ tabIds: tabIds as [number, ...number[]], groupId: targetGroupId });
   }
 
   async mergeWindows(sourceWindowId: number, targetWindowId: number) {

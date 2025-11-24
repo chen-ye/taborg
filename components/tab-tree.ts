@@ -25,16 +25,6 @@ export class TabTree extends SignalWatcher(LitElement) {
       --indent-size: var(--sl-spacing-large);
     }
 
-    /* Remove default padding/background from tree items to fit our custom components */
-    sl-tree-item::part(label) {
-      padding: 0;
-    }
-
-    /* Remove default padding/background from tree items to fit our custom components */
-    sl-tree-item::part(label) {
-      padding: 0;
-    }
-
     sl-tree-item {
         &::part(label) {
           min-width: 0;
@@ -54,68 +44,37 @@ export class TabTree extends SignalWatcher(LitElement) {
       }
 
     /* Drag and Drop styles */
-    sl-tree-item[data-drop-target] {
-      outline: 2px dashed var(--sl-color-primary-500);
-      outline-offset: -2px;
-      border-radius: var(--sl-border-radius-medium);
-      background-color: var(--sl-color-primary-50);
-    }
-
-    sl-tree-item.drag-hidden {
+    :host([dragging-type]) sl-tree-item[data-temp-expanded] sl-tree-item[data-type="tab"] {
       display: none;
     }
 
-    /* Drag hiding logic using CSS attribute selectors */
-    :host([dragging-type="tab"]) sl-tree-item[item-type="tab"] {
-      /* Hide other tabs, but we need to keep the dragging one?
-         The CSS approach requested is simple "display: none".
-         However, typically we want to exclude the dragged item if possible, or maybe hiding it is intended.
-         If I hide the dragged item, the drag might end.
-         Let's assume we want to hide ALL tabs for now based on the simplistic request.
-         Wait, if I hide the dragged element, the drag event might get cancelled or 'dragend' fired immediately.
-         But let's stick to the request.
-         Actually, usually you hide "potential drop targets" that are invalid.
-         If I am dragging a tab, I can drop on group or window.
-         So tabs are invalid drop targets. So hiding them makes sense to reduce clutter.
-         The dragged item is already being dragged.
-      */
-       display: none;
-    }
-
-    /* Exceptions for the dragged item itself?
-       If we hide the dragged item, we might lose the drag.
-       We can try to exclude the dragged item using a class or attribute if we had the ID in CSS.
-       But we don't have dynamic ID in CSS.
-       However, the prompt asks to implement it using CSS selectors.
-       I will use the `class="drag-hidden"` logic removal and replace with this.
-       I will ensure the dragged item is NOT hidden by adding a class to it like 'dragging' and excluding it?
-       Or maybe the user implies simply:
-    */
-    :host([dragging-type="tab"]) sl-tree-item[item-type="tab"]:not([dragging]) {
+    /* :host([dragging-type="tab"]) sl-tree-item[data-type="tab"]:not([dragging]) {
       display: none;
     }
 
-    :host([dragging-type="group"]) sl-tree-item[item-type="tab"] {
+    :host([dragging-type="group"]) sl-tree-item[data-type="tab"] {
       display: none;
     }
 
-    :host([dragging-type="window"]) sl-tree-item[item-type="tab"],
-    :host([dragging-type="window"]) sl-tree-item[item-type="group"] {
+    :host([dragging-type="window"]) sl-tree-item[data-type="tab"],
+    :host([dragging-type="window"]) sl-tree-item[data-type="group"] {
       display: none;
-    }
+    } */
   `;
 
   @state() private pendingMerge: { type: string, sourceId: number, targetId: number } | null = null;
+
+  @property({ type: String, reflect: true, attribute: 'dragging-type' })
+  draggingType: string | null = null;
+
+  @property({ type: Number, reflect: true, attribute: 'dragging-id' })
+  draggingId: number | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
   }
 
   render() {
-    const dragging = tabStore.draggingState.get();
-    const draggingType = dragging?.type;
-    const draggingId = dragging?.id;
-
     return html`
       <sl-tree
         selection="multiple"
@@ -124,11 +83,12 @@ export class TabTree extends SignalWatcher(LitElement) {
       >
         ${repeat(tabStore.sortedWindows.get(), (window) => window.id, (window) => html`
           <sl-tree-item
-            ?expanded=${draggingType ? true : !tabStore.collapsedWindowIds.has(window.id)}
+            ?expanded=${this.draggingType ? true : !tabStore.collapsedWindowIds.has(window.id)}
+            ?data-temp-expanded=${this.draggingType && tabStore.collapsedWindowIds.has(window.id)}
             data-id=${window.id}
             data-type="window"
             item-type="window"
-            ?dragging=${draggingType === 'window' && draggingId === window.id}
+            ?dragging=${this.draggingType === 'window' && this.draggingId === window.id}
             @sl-expand=${(evt: CustomEvent) => this.handleWindowExpand(evt, window.id)}
             @sl-collapse=${(evt: CustomEvent) => this.handleWindowCollapse(evt, window.id)}
           >
@@ -136,12 +96,11 @@ export class TabTree extends SignalWatcher(LitElement) {
 
             ${repeat(window.groups, (group: GroupNode) => group.id, (group: GroupNode) => html`
               <sl-tree-item
-                ?expanded=${draggingType ? true : !group.collapsed}
+                ?expanded=${!group.collapsed}
                 ?selected=${group.tabs.every((t: TabNode) => tabStore.selectedTabIds.has(t.id))}
                 data-id=${group.id}
                 data-type="group"
-                item-type="group"
-                ?dragging=${draggingType === 'group' && draggingId === group.id}
+                ?dragging=${this.draggingType === 'group' && this.draggingId === group.id}
                 @sl-expand=${(evt: CustomEvent) => this.handleGroupExpand(evt, group.id)}
                 @sl-collapse=${(evt: CustomEvent) => this.handleGroupCollapse(evt, group.id)}
               >
@@ -156,8 +115,7 @@ export class TabTree extends SignalWatcher(LitElement) {
                     ?selected=${tabStore.selectedTabIds.has(tab.id)}
                     data-id=${tab.id}
                     data-type="tab"
-                    item-type="tab"
-                    ?dragging=${draggingType === 'tab' && draggingId === tab.id}
+                    ?dragging=${this.draggingType === 'tab' && this.draggingId === tab.id}
                   >
                     <tab-item
                       .tab=${tab}
@@ -175,8 +133,7 @@ export class TabTree extends SignalWatcher(LitElement) {
                 ?selected=${tabStore.selectedTabIds.has(tab.id)}
                 data-id=${tab.id}
                 data-type="tab"
-                item-type="tab"
-                ?dragging=${draggingType === 'tab' && draggingId === tab.id}
+                ?dragging=${this.draggingType === 'tab' && this.draggingId === tab.id}
               >
                 <tab-item
                   .tab=${tab}
@@ -200,14 +157,12 @@ export class TabTree extends SignalWatcher(LitElement) {
     `;
   }
 
-  updated(changedProperties: Map<string, any>) {
-    // Update host attribute based on signal state
+  willUpdate(changedProperties: Map<string, any>) {
+    super.willUpdate(changedProperties);
+    // Sync draggingType and draggingId properties with signal state
     const dragging = tabStore.draggingState.get();
-    if (dragging) {
-      this.setAttribute('dragging-type', dragging.type);
-    } else {
-      this.removeAttribute('dragging-type');
-    }
+    this.draggingType = dragging?.type || null;
+    this.draggingId = dragging?.id ?? null;
   }
 
   private handleMergeRequest(e: CustomEvent) {
@@ -274,11 +229,17 @@ export class TabTree extends SignalWatcher(LitElement) {
 
   private async handleGroupExpand(e: CustomEvent, groupId: number) {
     e.stopPropagation();
+    if (this.draggingType) {
+      return;
+    }
     await tabStore.collapseGroup(groupId, false);
   }
 
   private async handleGroupCollapse(e: CustomEvent, groupId: number) {
     e.stopPropagation();
+    if (this.draggingType) {
+      return;
+    }
     await tabStore.collapseGroup(groupId, true);
   }
 
@@ -321,11 +282,17 @@ export class TabTree extends SignalWatcher(LitElement) {
 
   private handleWindowExpand(evt: CustomEvent, windowId: number) {
     evt.stopPropagation();
+    if (this.draggingType) {
+      return;
+    }
     tabStore.setWindowCollapsed(windowId, false);
   }
 
   private handleWindowCollapse(evt: CustomEvent, windowId: number) {
     evt.stopPropagation();
+    if (this.draggingType) {
+      return;
+    }
     tabStore.setWindowCollapsed(windowId, true);
   }
 }

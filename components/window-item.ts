@@ -1,64 +1,68 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { WindowNode, GroupNode, tabStore } from '../services/tab-store.js';
 import { geminiService } from '../services/gemini.js';
+import { dropTargetStyles } from './shared-styles.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 @customElement('window-item')
 export class WindowItem extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-    }
+  static styles = [
+    dropTargetStyles,
+    css`
+      :host {
+        display: block;
+      }
 
-    .window-header {
-      display: flex;
-      align-items: center;
-      padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
-      font-weight: bold;
-      color: var(--sl-color-neutral-500);
-      font-size: var(--sl-font-size-x-small);
-      text-transform: uppercase;
-    }
+      .window-header {
+        display: flex;
+        align-items: center;
+        padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
+        font-weight: bold;
+        color: var(--sl-color-neutral-500);
+        font-size: var(--sl-font-size-x-small);
+        text-transform: uppercase;
+      }
 
-    .window-name {
-      flex-grow: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-right: var(--sl-spacing-x-small);
-    }
+      .window-name {
+        flex-grow: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-right: var(--sl-spacing-x-small);
+      }
 
-    .count {
-      font-weight: normal;
-      font-size: var(--sl-font-size-x-small);
-      color: var(--sl-color-neutral-500);
-      margin-left: var(--sl-spacing-x-small);
-      text-transform: none;
-      white-space: nowrap;
-    }
+      .count {
+        font-weight: normal;
+        font-size: var(--sl-font-size-x-small);
+        color: var(--sl-color-neutral-500);
+        margin-left: var(--sl-spacing-x-small);
+        text-transform: none;
+        white-space: nowrap;
+      }
 
-    .actions {
-      display: flex;
-      align-items: center;
-      opacity: 0;
-      transition: opacity var(--sl-transition-fast);
-    }
+      .actions {
+        display: flex;
+        align-items: center;
+        opacity: 0;
+        transition: opacity var(--sl-transition-fast);
+      }
 
-    .window-header:hover .actions {
-      opacity: 1;
-    }
+      .window-header:hover .actions {
+        opacity: 1;
+      }
 
-    sl-icon-button {
-      font-size: var(--sl-font-size-medium);
-    }
-  `;
+      sl-icon-button {
+        font-size: var(--sl-font-size-medium);
+      }
+    `
+  ];
 
   @property({ type: Object }) window!: WindowNode;
-  @state() private generatingName = false;
-  @state() private isDropTarget = false;
+  @property({ type: Boolean }) private generatingName = false;
+  @property({ type: Boolean, reflect: true, attribute: 'drop-target' }) dropTarget = false;
 
   render() {
     const tabCount = this.window.tabs.length + this.window.groups.reduce((acc: number, g: GroupNode) => acc + g.tabs.length, 0);
@@ -74,7 +78,6 @@ export class WindowItem extends LitElement {
         @drop=${this.handleDrop}
         @dragenter=${this.handleDragEnter}
         @dragleave=${this.handleDragLeave}
-        style="${this.isDropTarget ? 'background-color: var(--sl-color-primary-50); outline: 2px dashed var(--sl-color-primary-500); outline-offset: -2px;' : ''}"
       >
         <span class="window-name">
           ${displayName} ${this.window.focused ? '(Current)' : ''}
@@ -132,6 +135,7 @@ export class WindowItem extends LitElement {
   }
 
   private handleDragStart(e: DragEvent) {
+    console.log('[WindowItem] dragstart:', { windowId: this.window.id });
     e.stopPropagation();
     tabStore.draggingState.set({ type: 'window', id: this.window.id });
 
@@ -143,9 +147,10 @@ export class WindowItem extends LitElement {
   }
 
   private handleDragEnd(e: DragEvent) {
+    console.log('[WindowItem] dragend:', { windowId: this.window.id });
     e.stopPropagation();
     tabStore.draggingState.set(null);
-    this.isDropTarget = false;
+    this.dropTarget = false;
   }
 
   private handleDragOver(e: DragEvent) {
@@ -174,20 +179,23 @@ export class WindowItem extends LitElement {
     if (dragging.type === 'group') valid = true;
     if (dragging.type === 'window' && dragging.id !== this.window.id) valid = true;
 
+    console.log('[WindowItem] dragenter:', { windowId: this.window.id, dragging, valid });
     if (valid) {
-      this.isDropTarget = true;
+      this.dropTarget = true;
     }
   }
 
   private handleDragLeave(e: DragEvent) {
+    console.log('[WindowItem] dragleave:', { windowId: this.window.id });
     e.stopPropagation();
-    this.isDropTarget = false;
+    this.dropTarget = false;
   }
 
   private async handleDrop(e: DragEvent) {
+    console.log('[WindowItem] drop:', { windowId: this.window.id, dragging: tabStore.draggingState.get() });
     e.preventDefault();
     e.stopPropagation();
-    this.isDropTarget = false;
+    this.dropTarget = false;
 
     const dragging = tabStore.draggingState.get();
     if (!dragging) return;
