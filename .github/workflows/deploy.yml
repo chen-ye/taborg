@@ -53,7 +53,7 @@ jobs:
 
       - name: Build CRX
         run: |
-          npx --yes crx pack .output/chrome-mv3 -o ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ steps.get_version.outputs.version }}.crx
+          yarn run crx pack .output/chrome-mv3 -o ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ steps.get_version.outputs.version }}.crx
 
       - name: Determine Release Parameters
         id: release_params

@@ -12,12 +12,14 @@
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
+    "pack": "crx pack .output/chrome-mv3 -o .output/taborg.crx",
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.30",
     "@wxt-dev/auto-icons": "^1.1.0",
+    "crx": "^5.0.1",
     "typescript": "^5.9.3",
     "wxt": "^0.20.11"
   },
