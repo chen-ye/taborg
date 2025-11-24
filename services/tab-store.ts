@@ -446,6 +446,25 @@ class TabStore {
     return this.selectedTabs.get();
   }
 
+  getTabsWithoutSuggestions(): TabNode[] {
+    const tabs: TabNode[] = [];
+    this.windows.forEach((w: WindowNode) => {
+      w.tabs.forEach((t: TabNode) => {
+        if (!t.suggestedGroups || t.suggestedGroups.length === 0) {
+          tabs.push(t);
+        }
+      });
+      w.groups.forEach((g: GroupNode) => {
+        g.tabs.forEach((t: TabNode) => {
+          if (!t.suggestedGroups || t.suggestedGroups.length === 0) {
+            tabs.push(t);
+          }
+        });
+      });
+    });
+    return tabs;
+  }
+
   selectUngroupedTabs() {
     // Cancel any pending batched update
     if (this.selectionUpdateFrameId !== null) {

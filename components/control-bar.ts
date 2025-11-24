@@ -49,7 +49,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
           <sl-button
             variant="primary"
             size="small"
-            ?disabled=${!hasSelection || this.organizing}
+            ?disabled=${this.organizing}
             @click=${this.handleOrganize}
           >
             ${this.organizing
@@ -112,8 +112,12 @@ export class ControlBar extends SignalWatcher(LitElement) {
   }
 
   private async handleOrganize() {
-    const selectedTabs = tabStore.getSelectedTabs();
-    if (selectedTabs.length === 0) return;
+    let tabsToOrganize = tabStore.getSelectedTabs();
+    if (tabsToOrganize.length === 0) {
+      tabsToOrganize = tabStore.getTabsWithoutSuggestions();
+    }
+
+    if (tabsToOrganize.length === 0) return;
 
     this.organizing = true;
     try {
@@ -126,14 +130,14 @@ export class ControlBar extends SignalWatcher(LitElement) {
       });
       // 2. Call Gemini
       const suggestions = await geminiService.categorizeTabs(
-        selectedTabs.map(t => ({ id: t.id, title: t.title, url: t.url })),
+        tabsToOrganize.map(t => ({ id: t.id, title: t.title, url: t.url })),
         Array.from(allGroupNames)
       );
 
       // 3. Convert tab ID suggestions to URL suggestions
       const suggestionsByUrl = new Map<string, string[]>();
       for (const [tabId, groups] of suggestions.entries()) {
-        const tab = selectedTabs.find(t => t.id === tabId);
+        const tab = tabsToOrganize.find(t => t.id === tabId);
         if (tab?.url) {
           suggestionsByUrl.set(tab.url, groups);
         }
