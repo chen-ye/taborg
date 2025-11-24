@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { tabStore, WindowNode, GroupNode } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { geminiService } from '../services/gemini.js';
+import { toast } from '../services/toast.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
@@ -143,7 +144,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
 
     } catch (e) {
       console.error(e);
-      alert('Failed to organize tabs. Check your API key.');
+      toast.error('Failed to organize tabs. Check your API key.');
     } finally {
       this.organizing = false;
     }

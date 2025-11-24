@@ -1,9 +1,11 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { WindowNode, GroupNode, tabStore } from '../services/tab-store.js';
 import { geminiService } from '../services/gemini.js';
+import { toast } from '../services/toast.js';
 import { dropTargetStyles } from './shared-styles.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
+import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
@@ -14,16 +16,33 @@ export class WindowItem extends LitElement {
     css`
       :host {
         display: block;
+        min-width: 0;
+        flex-grow: 1;
+        user-select: none;
       }
 
-      .window-header {
+      .window-row {
         display: flex;
+        justify-content: space-between;
         align-items: center;
         padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
+        border-radius: var(--sl-border-radius-medium);
+        cursor: pointer;
+        transition: background-color var(--sl-transition-fast);
         font-weight: bold;
         color: var(--sl-color-neutral-500);
         font-size: var(--sl-font-size-x-small);
-        text-transform: uppercase;
+      }
+
+      .window-row:hover {
+        background-color: var(--sl-color-neutral-100);
+      }
+
+      .left {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: var(--sl-spacing-x-small);
       }
 
       .window-name {
@@ -31,6 +50,12 @@ export class WindowItem extends LitElement {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        text-transform: uppercase;
+        margin-right: var(--sl-spacing-x-small);
+      }
+
+      .name-input {
+        flex-grow: 1;
         margin-right: var(--sl-spacing-x-small);
       }
 
@@ -38,19 +63,20 @@ export class WindowItem extends LitElement {
         font-weight: normal;
         font-size: var(--sl-font-size-x-small);
         color: var(--sl-color-neutral-500);
-        margin-left: var(--sl-spacing-x-small);
         text-transform: none;
         white-space: nowrap;
       }
 
-      .actions {
+      .controls {
         display: flex;
-        align-items: center;
+        margin-left: auto;
+        gap: var(--sl-spacing-2x-small);
         opacity: 0;
         transition: opacity var(--sl-transition-fast);
       }
 
-      .window-header:hover .actions {
+      .window-row:hover .controls,
+      .window-row:focus-within .controls {
         opacity: 1;
       }
 
@@ -67,6 +93,7 @@ export class WindowItem extends LitElement {
   @property({ type: Object }) window!: WindowNode;
   @property({ type: Boolean }) private generatingName = false;
   @property({ type: Boolean, reflect: true, attribute: 'drop-target' }) dropTarget = false;
+  @state() private isEditing = false;
 
   render() {
     const tabCount = this.window.tabs.length + this.window.groups.reduce((acc: number, g: GroupNode) => acc + g.tabs.length, 0);
@@ -74,7 +101,7 @@ export class WindowItem extends LitElement {
 
     return html`
       <div
-        class="window-header"
+        class="window-row"
         draggable="true"
         @dragstart=${this.handleDragStart}
         @dragend=${this.handleDragEnd}
@@ -83,18 +110,42 @@ export class WindowItem extends LitElement {
         @dragenter=${this.handleDragEnter}
         @dragleave=${this.handleDragLeave}
       >
-        <span class="window-name">
-          ${displayName} ${this.window.focused ? '(Current)' : ''}
-        </span>
+        <div class="left">
+          ${this.isEditing
+            ? html`
+              <sl-input
+                class="name-input"
+                size="small"
+                value=${displayName}
+                @keydown=${this.handleInputKeyDown}
+                @sl-blur=${this.saveName}
+                @click=${(e: Event) => e.stopPropagation()}
+                autofocus
+              ></sl-input>
+            `
+            : html`
+              <span class="window-name" @dblclick=${this.startEditing}>
+                ${displayName} ${this.window.focused ? '(Current)' : ''}
+              </span>
+            `
+          }
 
-        <span class="count">
-          (${tabCount} tabs)
-        </span>
+          <span class="count">
+            (${tabCount} tabs)
+          </span>
+        </div>
 
-        <div class="actions">
+        <div class="controls">
           ${this.generatingName
             ? html`<sl-spinner style="font-size: var(--sl-font-size-medium); --track-width: 2px;"></sl-spinner>`
             : html`
+              <sl-tooltip content="Rename Window">
+                <sl-icon-button
+                  name="pencil"
+                  label="Rename"
+                  @click=${this.startEditing}
+                ></sl-icon-button>
+              </sl-tooltip>
               <sl-tooltip content="Auto-name Window">
                 <sl-icon-button
                   name="stars"
@@ -107,6 +158,44 @@ export class WindowItem extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  updated(changedProperties: Map<string, any>) {
+    if (changedProperties.has('isEditing') && this.isEditing) {
+      // Focus the input when editing starts
+      const input = this.renderRoot.querySelector('.name-input') as HTMLInputElement;
+      if (input) {
+        input.focus();
+        input.select(); // Also select all text for easier editing
+      }
+    }
+  }
+
+  private startEditing(e: Event) {
+    e.stopPropagation();
+    this.isEditing = true;
+  }
+
+  private handleInputKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.stopPropagation();
+      (e.target as HTMLElement).blur(); // Triggers saveName via sl-blur
+    } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      this.isEditing = false;
+    }
+  }
+
+  private async saveName(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const newName = input.value.trim();
+    const currentName = tabStore.windowNames.get(this.window.id) || `Window ${this.window.id}`;
+
+    if (newName && newName !== currentName) {
+      await tabStore.setWindowName(this.window.id, newName);
+    }
+
+    this.isEditing = false;
   }
 
   private async handleAutoName(e: Event) {
@@ -132,7 +221,7 @@ export class WindowItem extends LitElement {
       }
     } catch (err) {
       console.error('Failed to auto-name window:', err);
-      alert('Failed to generate name. Check API key.');
+      toast.error('Failed to generate name. Check API key.');
     } finally {
       this.generatingName = false;
     }
