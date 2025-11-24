@@ -15,6 +15,7 @@ const mockTabGroups = {
   onMoved: mockListeners,
   onRemoved: mockListeners,
   update: vi.fn().mockResolvedValue(undefined),
+  move: vi.fn().mockResolvedValue(undefined),
 };
 
 describe('TabStore', () => {
@@ -31,6 +32,10 @@ describe('TabStore', () => {
 
     const windows = (fakeBrowser.windows as any);
     windows.onFocusChanged = mockListeners;
+
+    // Add missing mocks to fakeBrowser.tabs
+    (fakeBrowser.tabs as any).group = vi.fn().mockResolvedValue(1);
+    (fakeBrowser.tabs as any).move = vi.fn().mockResolvedValue(undefined);
 
     (globalThis as any).chrome = {
       ...fakeBrowser,
@@ -130,5 +135,85 @@ describe('TabStore', () => {
 
     expect(tabStore.selectedTabIds.has(mockTab.id)).toBe(true);
     expect(tabStore.selectedTabIds.size).toBe(1);
+  });
+
+  it('should move tab to window', async () => {
+    const moveSpy = vi.spyOn(fakeBrowser.tabs, 'move').mockResolvedValue(undefined as any);
+    await tabStore.moveTabToWindow(1, 2);
+    expect(moveSpy).toHaveBeenCalledWith(1, { windowId: 2, index: -1 });
+  });
+
+  it('should move group to window', async () => {
+    const moveSpy = vi.spyOn(mockTabGroups, 'move').mockResolvedValue(undefined as any);
+    await tabStore.moveGroupToWindow(10, 2);
+    expect(moveSpy).toHaveBeenCalledWith(10, { windowId: 2, index: -1 });
+  });
+
+  it('should merge groups', async () => {
+    // Setup source group with tabs
+    const windows = await fakeBrowser.windows.getAll();
+    const sourceGroupId = 10;
+    const targetGroupId = 20;
+
+    // Create a group in the store manually or mock it
+    // Using simple mock since we just need findGroup to return something
+    vi.spyOn(tabStore, 'findGroup').mockReturnValue({
+      id: sourceGroupId,
+      tabs: [{ id: 101 }, { id: 102 }]
+    } as any);
+
+    const groupSpy = vi.spyOn(fakeBrowser.tabs, 'group').mockResolvedValue(undefined as any);
+
+    await tabStore.mergeGroups(sourceGroupId, targetGroupId);
+
+    expect(groupSpy).toHaveBeenCalledWith({
+      tabIds: [101, 102],
+      groupId: targetGroupId
+    });
+  });
+
+  it('should merge groups across windows', async () => {
+    // Setup source group in window 1, target in window 2
+    const sourceGroupId = 10;
+    const targetGroupId = 20;
+
+    vi.spyOn(tabStore, 'findGroup').mockImplementation((id: number) => {
+      if (id === sourceGroupId) return { id: sourceGroupId, windowId: 1, tabs: [{ id: 101 }] };
+      if (id === targetGroupId) return { id: targetGroupId, windowId: 2, tabs: [] };
+      return undefined;
+    });
+
+    const moveGroupSpy = vi.spyOn(mockTabGroups, 'move').mockResolvedValue(undefined as any);
+    const groupSpy = vi.spyOn(fakeBrowser.tabs, 'group').mockResolvedValue(undefined as any);
+
+    await tabStore.mergeGroups(sourceGroupId, targetGroupId);
+
+    expect(moveGroupSpy).toHaveBeenCalledWith(sourceGroupId, { windowId: 2, index: -1 });
+    expect(groupSpy).toHaveBeenCalledWith({
+      tabIds: [101],
+      groupId: targetGroupId
+    });
+  });
+
+  it('should merge windows', async () => {
+    const sourceWindowId = 1;
+    const targetWindowId = 2;
+
+    // Mock windows in store
+    tabStore.windows = [
+      {
+        id: sourceWindowId,
+        groups: [{ id: 10, tabs: [] }],
+        tabs: [{ id: 101 }, { id: 102 }]
+      }
+    ] as any;
+
+    const groupMoveSpy = vi.spyOn(mockTabGroups, 'move').mockResolvedValue(undefined as any);
+    const tabMoveSpy = vi.spyOn(fakeBrowser.tabs, 'move').mockResolvedValue(undefined as any);
+
+    await tabStore.mergeWindows(sourceWindowId, targetWindowId);
+
+    expect(groupMoveSpy).toHaveBeenCalledWith(10, { windowId: targetWindowId, index: -1 });
+    expect(tabMoveSpy).toHaveBeenCalledWith([101, 102], { windowId: targetWindowId, index: -1 });
   });
 });

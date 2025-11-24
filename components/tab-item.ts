@@ -127,6 +127,11 @@ export class TabItem extends SignalWatcher(LitElement) {
         padding: 0 6px;
       }
     }
+
+    /* Ensure pointer events work for drag start */
+    :host {
+      user-select: none;
+    }
   `;
 
   @property({ type: Object }) tab!: TabNode;
