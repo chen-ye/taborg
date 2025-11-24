@@ -1,8 +1,7 @@
-
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { tabStore, WindowNode } from '../services/tab-store';
+import { tabStore, WindowNode, GroupNode, TabNode } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import './tab-item';
 import './group-item';
@@ -58,7 +57,6 @@ export class TabTree extends SignalWatcher(LitElement) {
   }
 
   async init() {
-    this.currentWindowId = (await chrome.windows.getCurrent()).id;
     await this.loadCollapsedWindows();
   }
 
@@ -73,43 +71,26 @@ export class TabTree extends SignalWatcher(LitElement) {
   }
 
 
-
-  @property({type: Number})
-  currentWindowId: number | undefined;
-
   @state()
   collapsedWindows: Set<number> = new Set();
-
-  @state()
-  private sortedWindows: WindowNode[] = [];
-
-  willUpdate(changedProperties: Map<PropertyKey, unknown>) {
-    // Recalculate sorted windows on every update since TabStoreController
-    // triggers renders when the store changes, and we need fresh sorting
-    this.sortedWindows = [...tabStore.windows.get()].sort((a, b) => {
-      if (a.id === this.currentWindowId) return -1;
-      if (b.id === this.currentWindowId) return 1;
-      return a.id - b.id;
-    });
-  }
 
   render() {
     return html`
       <sl-tree selection="multiple" @sl-selection-change=${this.handleTreeSelectionChange}>
-        ${repeat(this.sortedWindows, (window) => window.id, (window) => html`
+        ${repeat(tabStore.sortedWindows.get(), (window) => window.id, (window) => html`
           <sl-tree-item
             ?expanded=${!this.collapsedWindows.has(window.id)}
-            @sl-expand=${(evt) => this.handleWindowExpand(evt, window.id)}
-            @sl-collapse=${(evt) => this.handleWindowCollapse(evt, window.id)}
+            @sl-expand=${(evt: CustomEvent) => this.handleWindowExpand(evt, window.id)}
+            @sl-collapse=${(evt: CustomEvent) => this.handleWindowCollapse(evt, window.id)}
           >
             <window-item .window=${window}></window-item>
 
-            ${repeat(window.groups, (group) => group.id, (group) => html`
+            ${repeat(window.groups, (group: GroupNode) => group.id, (group: GroupNode) => html`
               <sl-tree-item
                 ?expanded=${!group.collapsed}
-                ?selected=${group.tabs.every(t => tabStore.selectedTabIds.get().has(t.id))}
-                @sl-expand=${(evt) => this.handleGroupExpand(evt, group.id)}
-                @sl-collapse=${(evt) => this.handleGroupCollapse(evt, group.id)}
+                ?selected=${group.tabs.every((t: TabNode) => tabStore.selectedTabIds.has(t.id))}
+                @sl-expand=${(evt: CustomEvent) => this.handleGroupExpand(evt, group.id)}
+                @sl-collapse=${(evt: CustomEvent) => this.handleGroupCollapse(evt, group.id)}
                 data-id=${group.id}
                 data-type="group"
               >
@@ -119,9 +100,9 @@ export class TabTree extends SignalWatcher(LitElement) {
                   @group-close=${this.handleGroupClose}
                 ></group-item>
 
-                ${repeat(group.tabs, (tab) => tab.id, (tab) => html`
+                ${repeat(group.tabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
                   <sl-tree-item
-                    ?selected=${tabStore.selectedTabIds.get().has(tab.id)}
+                    ?selected=${tabStore.selectedTabIds.has(tab.id)}
                     data-id=${tab.id}
                     data-type="tab"
                   >
@@ -136,9 +117,9 @@ export class TabTree extends SignalWatcher(LitElement) {
               </sl-tree-item>
             `)}
 
-            ${repeat(window.tabs, (tab) => tab.id, (tab) => html`
+            ${repeat(window.tabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
               <sl-tree-item
-                ?selected=${tabStore.selectedTabIds.get().has(tab.id)}
+                ?selected=${tabStore.selectedTabIds.has(tab.id)}
                 data-id=${tab.id}
                 data-type="tab"
               >
@@ -213,8 +194,8 @@ export class TabTree extends SignalWatcher(LitElement) {
     let targetGroupId: number | undefined;
 
     // Simple search for existing group
-    for (const w of tabStore.windows.get()) {
-      const g = w.groups.find(g => g.title === groupName);
+    for (const w of tabStore.windows) {
+      const g = w.groups.find((g: GroupNode) => g.title === groupName);
       if (g) {
         targetGroupId = g.id;
         break;
@@ -232,7 +213,7 @@ export class TabTree extends SignalWatcher(LitElement) {
 
   private emitSelectionChange() {
     this.dispatchEvent(new CustomEvent('selection-change', {
-      detail: { count: tabStore.selectedTabIds.get().size },
+      detail: { count: tabStore.selectedTabIds.size },
       bubbles: true,
       composed: true
     }));

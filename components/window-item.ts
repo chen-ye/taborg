@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { WindowNode, tabStore } from '../services/tab-store';
-import { geminiService } from '../services/gemini';
+import { WindowNode, GroupNode, tabStore } from '../services/tab-store.js';
+import { geminiService } from '../services/gemini.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
@@ -60,8 +60,8 @@ export class WindowItem extends LitElement {
   @state() private generatingName = false;
 
   render() {
-    const tabCount = this.window.tabs.length + this.window.groups.reduce((acc, g) => acc + g.tabs.length, 0);
-    const displayName = tabStore.windowNames.get().get(this.window.id) || `Window ${this.window.id}`;
+    const tabCount = this.window.tabs.length + this.window.groups.reduce((acc: number, g: GroupNode) => acc + g.tabs.length, 0);
+    const displayName = tabStore.windowNames.get(this.window.id) || `Window ${this.window.id}`;
 
     return html`
       <div class="window-header">
@@ -99,10 +99,10 @@ export class WindowItem extends LitElement {
       // Collect all tabs and groups in this window
       const allTabs = [
         ...this.window.tabs,
-        ...this.window.groups.flatMap(g => g.tabs)
+        ...this.window.groups.flatMap((g: GroupNode) => g.tabs)
       ];
 
-      const groupNames = this.window.groups.map(g => g.title).filter(Boolean);
+      const groupNames = this.window.groups.map((g: GroupNode) => g.title).filter(Boolean);
 
       const name = await geminiService.generateWindowName(
         allTabs.map(t => ({ title: t.title, url: t.url })),

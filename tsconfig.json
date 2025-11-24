@@ -2,7 +2,9 @@
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
     "target": "ESNext",
-    // "module": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "useDefineForClassFields": false,
     "experimentalDecorators": true
   }

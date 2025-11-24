@@ -1,8 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { tabStore } from '../services/tab-store';
+import { tabStore, WindowNode, GroupNode } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
-import { geminiService } from '../services/gemini';
+import { geminiService } from '../services/gemini.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
@@ -41,7 +41,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
   @state() private organizing = false;
 
   render() {
-    const hasSelection = tabStore.selectedTabIds.get().size > 0;
+    const hasSelection = tabStore.selectedTabIds.size > 0;
 
     return html`
       <div class="bar">
@@ -117,14 +117,17 @@ export class ControlBar extends SignalWatcher(LitElement) {
 
     this.organizing = true;
     try {
-      // 1. Get existing groups
-      const existingGroups = new Set<string>();
-      tabStore.windows.get().forEach(w => w.groups.forEach(g => existingGroups.add(g.title)));
-
+      // Collect all group names for context
+      const allGroupNames = new Set<string>();
+      tabStore.windows.forEach((w: WindowNode) => {
+        w.groups.forEach((g: GroupNode) => {
+          if (g.title) allGroupNames.add(g.title);
+        });
+      });
       // 2. Call Gemini
       const suggestions = await geminiService.categorizeTabs(
         selectedTabs.map(t => ({ id: t.id, title: t.title, url: t.url })),
-        Array.from(existingGroups)
+        Array.from(allGroupNames)
       );
 
       // 3. Convert tab ID suggestions to URL suggestions

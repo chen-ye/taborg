@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { TabNode, tabStore } from '../services/tab-store';
+import { TabNode, tabStore } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
@@ -135,7 +135,7 @@ export class TabItem extends SignalWatcher(LitElement) {
   @state() private hasDropdownOpened = false;
 
   render() {
-    const suggestedGroups = this.tab.url ? tabStore.suggestionsUrlMap.get().get(this.tab.url) : undefined;
+    const suggestedGroups = this.tab.url ? tabStore.suggestionsUrlMap.get(this.tab.url) : undefined;
 
     return html`
       <div
@@ -157,8 +157,8 @@ export class TabItem extends SignalWatcher(LitElement) {
             <div class="suggestions">
               ${repeat(
                 suggestedGroups,
-                (groupName) => groupName,
-                (groupName) => {
+                (groupName: string) => groupName,
+                (groupName: string) => {
                   const existingGroup = tabStore.getGroupByName(groupName);
                   const isNew = !existingGroup;
 

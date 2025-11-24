@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { tabStore } from '../services/tab-store';
+import { tabStore, TabNode } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import './tab-item';
 
@@ -39,7 +39,7 @@ export class SelectedPane extends SignalWatcher(LitElement) {
         <span>Selected (${selectedTabs.length})</span>
         <sl-button size="small" variant="text" @click=${this.clearSelection}>Clear</sl-button>
       </div>
-      ${repeat(selectedTabs, (tab) => tab.id, (tab) => html`
+      ${repeat(selectedTabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
         <tab-item
           .tab=${tab}
           @tab-select=${this.handleTabSelect}
@@ -50,16 +50,16 @@ export class SelectedPane extends SignalWatcher(LitElement) {
     `;
   }
 
-  private handleTabSelect(e: CustomEvent) {
+  private handleTabSelect(e: CustomEvent<{ id: number; selected: boolean }>) {
     // Deselecting from here
     tabStore.toggleSelection(e.detail.id, 'tab', e.detail.selected);
   }
 
-  private handleTabClose(e: CustomEvent) {
+  private handleTabClose(e: CustomEvent<{ id: number }>) {
     tabStore.closeTab(e.detail.id);
   }
 
-  private handleTabFocus(e: CustomEvent) {
+  private handleTabFocus(e: CustomEvent<{ id: number }>) {
     e.stopPropagation();
     tabStore.focusTab(e.detail.id);
   }

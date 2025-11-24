@@ -1,4 +1,4 @@
-import { geminiService } from '../services/gemini';
+import { geminiService } from '../services/gemini.js';
 
 export default defineBackground(() => {
   // Create offscreen document to watch for theme changes

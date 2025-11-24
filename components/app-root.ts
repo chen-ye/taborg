@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { tabStore } from '../services/tab-store';
+import { tabStore } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import './tab-tree';
 import './selected-pane';
@@ -76,7 +76,7 @@ export class AppRoot extends SignalWatcher(LitElement) {
       `;
     }
 
-    const hasSelection = tabStore.selectedTabIds.get().size > 0;
+    const hasSelection = tabStore.selectedTabIds.size > 0;
 
     return html`
       <main>
