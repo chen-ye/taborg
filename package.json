@@ -3,7 +3,7 @@
   "packageManager": "yarn@4.10.3",
   "description": "manifest.json description",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "scripts": {
     "dev": "wxt",
