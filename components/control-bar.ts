@@ -70,6 +70,14 @@ export class ControlBar extends SignalWatcher(LitElement) {
           <sl-button
             variant="default"
             size="small"
+            @click=${this.handleSelectDuplicates}
+          >
+            Select Duplicates
+          </sl-button>
+
+          <sl-button
+            variant="default"
+            size="small"
             @click=${this.handleSelectUngrouped}
           >
             Select Ungrouped
@@ -205,6 +213,11 @@ export class ControlBar extends SignalWatcher(LitElement) {
 
   private handleSelectUngrouped() {
     tabStore.selectUngroupedTabs();
+  }
+
+  private handleSelectDuplicates() {
+    tabStore.selectDuplicateTabs();
+    toast.success('Duplicate tabs selected.');
   }
 
   private handleDeselectAll() {

@@ -291,4 +291,23 @@ describe('TabStore', () => {
     expect(result[0].id).toBe(102);
     expect(result[0].url).toBe('https://unsuggested.com');
   });
+
+  it('should select duplicate tabs', async () => {
+    // Setup tabs with duplicates
+    const tab1 = { id: 101, url: 'https://dup.com', windowId: 1, groupId: -1 };
+    const tab2 = { id: 102, url: 'https://dup.com', windowId: 1, groupId: -1 };
+    const tab3 = { id: 103, url: 'https://unique.com', windowId: 1, groupId: -1 };
+
+    tabStore.windows = [{
+      id: 1,
+      tabs: [tab1, tab2, tab3],
+      groups: []
+    }] as any;
+
+    tabStore.selectDuplicateTabs();
+
+    expect(tabStore.selectedTabIds.has(101)).toBe(true);
+    expect(tabStore.selectedTabIds.has(102)).toBe(true);
+    expect(tabStore.selectedTabIds.has(103)).toBe(false);
+  });
 });
