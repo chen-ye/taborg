@@ -97,6 +97,11 @@ class TabStore {
     return selected;
   });
 
+  sortedSelectedTabs = new Signal.Computed(() => {
+    const selected = this.selectedTabs.get();
+    return selected.toSorted((a, b) => a.url.localeCompare(b.url, undefined, { numeric: true }));
+  });
+
   constructor() {
     this.init();
   }

@@ -28,7 +28,7 @@ export class SelectedPane extends SignalWatcher(LitElement) {
 
 
   render() {
-    const selectedTabs = tabStore.selectedTabs.get();
+    const selectedTabs = tabStore.sortedSelectedTabs.get();
 
     if (selectedTabs.length === 0) {
       return html``;

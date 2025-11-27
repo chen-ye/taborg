@@ -16,6 +16,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
       display: flex;
       justify-content: space-between;
       flex-wrap: wrap;
+      gap: var(--sl-spacing-x-small);
       padding: var(--sl-spacing-x-small) var(--sl-spacing-medium);
       border-top: var(--sl-border-width) solid var(--sl-color-neutral-200);
       background-color: var(--sl-color-neutral-0);
@@ -29,6 +30,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
 
     .actions {
       display: flex;
+      flex-wrap: wrap;
       gap: var(--sl-spacing-x-small);
     }
 
@@ -55,7 +57,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
             ?disabled=${this.organizing}
             @click=${this.handleOrganize}
             ?loading=${this.organizing}
-          >Organize Tabs</sl-button>
+          >Autosuggest</sl-button>
 
           <sl-button
             variant="default"
@@ -72,7 +74,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
             size="small"
             @click=${this.handleSelectDuplicates}
           >
-            Select Duplicates
+            Select Dupes
           </sl-button>
 
           <sl-button
