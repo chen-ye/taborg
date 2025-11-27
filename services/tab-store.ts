@@ -484,6 +484,57 @@ class TabStore {
     this.saveSelection();
   }
 
+  selectDuplicateTabs() {
+    // Cancel any pending batched update
+    if (this.selectionUpdateFrameId !== null) {
+      cancelAnimationFrame(this.selectionUpdateFrameId);
+      this.selectionUpdateFrameId = null;
+      this.pendingSelectionChanges = null;
+    }
+
+    const urlCounts = new Map<string, number>();
+    const allTabs: TabNode[] = [];
+
+    // 1. Collect all tabs and count URLs
+    const collectTabs = (tabs: TabNode[]) => {
+      for (const t of tabs) {
+        if (!t.url) continue;
+        allTabs.push(t);
+        urlCounts.set(t.url, (urlCounts.get(t.url) || 0) + 1);
+      }
+    };
+
+    for (const w of this.windows) { // Direct access
+      collectTabs(w.tabs);
+      for (const g of w.groups) {
+        collectTabs(g.tabs);
+      }
+    }
+
+    // 2. Identify duplicate URLs
+    const duplicateUrls = new Set<string>();
+    for (const [url, count] of urlCounts) {
+      if (count > 1) {
+        duplicateUrls.add(url);
+      }
+    }
+
+    // 3. Select tabs with duplicate URLs
+    this.selectedTabIds.clear();
+    for (const t of allTabs) {
+      if (t.url && duplicateUrls.has(t.url)) {
+        this.selectedTabIds.add(t.id);
+      }
+    }
+
+    console.log('Selected duplicate tabs:', this.selectedTabIds);
+    this.saveSelection();
+  }
+
+  async closeTabs(ids: number[]) {
+    await chrome.tabs.remove(ids);
+  }
+
   async clearSuggestions(tabId: number) {
     // Update storage and cache
     const tabs = await chrome.tabs.query({});
