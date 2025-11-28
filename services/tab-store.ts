@@ -390,6 +390,64 @@ class TabStore {
     return undefined;
   }
 
+  findTabNode(id: number): TabNode | undefined {
+    for (const w of this.windows) {
+      const t = w.tabs.find(t => t.id === id);
+      if (t) return t;
+      for (const g of w.groups) {
+        const t2 = g.tabs.find(t => t.id === id);
+        if (t2) return t2;
+      }
+    }
+    return undefined;
+  }
+
+  async moveTabsToGroup(tabIds: number[], groupName: string) {
+    const group = this.getGroupByName(groupName);
+
+    if (group) {
+      const targetWindowId = group.windowId;
+      const tabsToMoveToWindow: number[] = [];
+
+      for (const tabId of tabIds) {
+        const tab = this.findTabNode(tabId);
+        if (tab && tab.windowId !== targetWindowId) {
+          tabsToMoveToWindow.push(tabId);
+        }
+      }
+
+      if (tabsToMoveToWindow.length > 0) {
+        await chrome.tabs.move(tabsToMoveToWindow, { windowId: targetWindowId, index: -1 });
+      }
+
+      await chrome.tabs.group({ tabIds, groupId: group.id });
+    } else {
+      if (tabIds.length === 0) return;
+
+      const firstTab = this.findTabNode(tabIds[0]);
+      if (!firstTab) return;
+
+      const targetWindowId = firstTab.windowId;
+      const tabsToMoveToWindow: number[] = [];
+
+      for (const tabId of tabIds) {
+        const tab = this.findTabNode(tabId);
+        if (tab && tab.windowId !== targetWindowId) {
+          tabsToMoveToWindow.push(tabId);
+        }
+      }
+
+      if (tabsToMoveToWindow.length > 0) {
+        await chrome.tabs.move(tabsToMoveToWindow, { windowId: targetWindowId, index: -1 });
+      }
+
+      const groupId = await chrome.tabs.group({ tabIds });
+      await chrome.tabGroups.update(groupId, { title: groupName });
+    }
+
+    await Promise.all(tabIds.map(id => this.clearSuggestions(id)));
+  }
+
   async closeTab(id: number) {
     await chrome.tabs.remove(id);
   }
