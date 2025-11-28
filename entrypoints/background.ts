@@ -1,23 +1,39 @@
 import { geminiService } from '../services/gemini.js';
 
 export const main = () => {
+  let creatingOffscreen = false;
+
   // Create offscreen document to watch for theme changes
   async function setupOffscreenDocument() {
-    const existingContexts = await chrome.runtime.getContexts({
-      contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
-    });
+    if (creatingOffscreen) return;
+    creatingOffscreen = true;
 
-    if (existingContexts.length > 0) {
-      return;
+    try {
+      const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
+      });
+
+      if (existingContexts.length > 0) {
+        return;
+      }
+
+      await chrome.offscreen.createDocument({
+        url: 'offscreen.html',
+        reasons: [chrome.offscreen.Reason.DOM_PARSER],
+        justification: 'Detect system theme changes for icon switching',
+      });
+    } catch (error) {
+      // Ignore error if document was created concurrently
+      if (!String(error).includes('Only one offscreen document may be active at a time')) {
+        console.error('Failed to create offscreen document:', error);
+      }
+    } finally {
+      creatingOffscreen = false;
     }
-
-    await chrome.offscreen.createDocument({
-      url: 'offscreen.html',
-      reasons: [chrome.offscreen.Reason.DOM_PARSER],
-      justification: 'Detect system theme changes for icon switching',
-    });
   }
 
+  // Initialize offscreen document
+  setupOffscreenDocument();
   chrome.runtime.onStartup.addListener(setupOffscreenDocument);
   chrome.runtime.onInstalled.addListener(setupOffscreenDocument);
 

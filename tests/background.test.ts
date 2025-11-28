@@ -39,6 +39,9 @@ describe('Background Script', () => {
         onInstalled: createMockListener('onInstalled'),
         onMessage: createMockListener('onMessage'),
         getContexts: vi.fn().mockResolvedValue([]),
+        ContextType: {
+          OFFSCREEN_DOCUMENT: 'OFFSCREEN_DOCUMENT',
+        },
       },
       tabs: {
         ...fakeBrowser.tabs,
