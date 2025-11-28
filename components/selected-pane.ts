@@ -62,7 +62,7 @@ export class SelectedPane extends SignalWatcher(LitElement) {
             <sl-dropdown placement="bottom-end" hoist @sl-show=${this.handleDropdownShow}>
               <group-tag slot="trigger" size="small" pill class="group-trigger">
                 <sl-icon name="folder"></sl-icon>
-                <span style="margin-left: 4px">Group</span>
+                <span style="margin-left: 4px">Group All</span>
               </group-tag>
               <sl-menu @sl-select=${this.handleGroupSelect}>
                 ${this.hasDropdownOpened ? repeat(
