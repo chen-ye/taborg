@@ -6,19 +6,23 @@ async function updateIcon(isDark: boolean) {
 
   try {
     const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch icon: ${response.statusText}`);
+
     const blob = await response.blob();
     const bitmap = await createImageBitmap(blob, { resizeWidth: 128, resizeHeight: 128 });
 
-    const canvas = new OffscreenCanvas(128, 128);
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) throw new Error('Failed to get canvas context');
 
     ctx.drawImage(bitmap, 0, 0);
     const imageData = ctx.getImageData(0, 0, 128, 128);
 
     chrome.runtime.sendMessage({
       type: 'UPDATE_ICON',
-      imageData: imageData
+      imageData: { '128': imageData }
     });
   } catch (error) {
     console.error('Failed to generate icon:', error);
