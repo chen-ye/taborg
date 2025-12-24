@@ -246,17 +246,16 @@ class TabStore {
       }
     }
 
-    const finalGroupMap = new Map<number, GroupNode>();
-
     // Assign groups to windows
-    groupMap.forEach(g => {
+    groupMap.forEach((g, id) => {
       if (windowMap.has(g.windowId)) {
         windowMap.get(g.windowId)!.groups.push(g);
-        finalGroupMap.set(g.id, g);
+      } else {
+        groupMap.delete(id);
       }
     });
 
-    this.groupIdMap = finalGroupMap;
+    this.groupIdMap = groupMap;
 
     this.windows.splice(0, this.windows.length, ...Array.from(windowMap.values())); // Mutate SignalArray
     console.log('Updated windows:', this.windows);
