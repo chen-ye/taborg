@@ -80,7 +80,7 @@ class TabStore {
   });
 
   allTabsById = new Signal.Computed(() => {
-    const map = new SignalMap<number, TabNode>();
+    const map = new Map<number, TabNode>();
     for (const w of this.windows) { // Direct access
       for (const t of w.tabs) {
         map.set(t.id, t);
