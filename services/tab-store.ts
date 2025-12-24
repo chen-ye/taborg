@@ -46,7 +46,7 @@ class TabStore {
   windowNames = new SignalMap<number, string>();
   collapsedWindowIds = new SignalSet<number>();
 
-  private groupIdMap = new Map<number, GroupNode>();
+  private groupIdMap = new Signal.State(new Map<number, GroupNode>());
 
   draggingState = new Signal.State<{ type: 'tab' | 'group' | 'window'; id: number } | null>(null);
 
@@ -255,7 +255,7 @@ class TabStore {
       }
     });
 
-    this.groupIdMap = groupMap;
+    this.groupIdMap.set(groupMap);
 
     this.windows.splice(0, this.windows.length, ...Array.from(windowMap.values())); // Mutate SignalArray
     console.log('Updated windows:', this.windows);
@@ -389,7 +389,7 @@ class TabStore {
   }
 
   findGroup(id: number): GroupNode | undefined {
-    return this.groupIdMap.get(id);
+    return this.groupIdMap.get().get(id);
   }
 
   async closeTab(id: number) {
