@@ -209,7 +209,12 @@ export class WindowItem extends LitElement {
         ...this.window.groups.flatMap((g: GroupNode) => g.tabs)
       ];
 
-      const groupNames = this.window.groups.map((g: GroupNode) => g.title).filter(Boolean);
+      const groupNames = this.window.groups.reduce((acc: string[], g: GroupNode) => {
+        if (g.title) {
+          acc.push(g.title);
+        }
+        return acc;
+      }, []);
 
       const name = await geminiService.generateWindowName(
         allTabs.map(t => ({ title: t.title, url: t.url })),
