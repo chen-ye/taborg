@@ -79,21 +79,30 @@ class TabStore {
     });
   });
 
-  selectedTabs = new Signal.Computed(() => {
-    const selected: TabNode[] = [];
-    const selectedIds = this.selectedTabIds; // Direct access
-
+  allTabsById = new Signal.Computed(() => {
+    const map = new Map<number, TabNode>();
     for (const w of this.windows) { // Direct access
       for (const t of w.tabs) {
-        if (selectedIds.has(t.id)) selected.push(t);
+        map.set(t.id, t);
       }
       for (const g of w.groups) {
         for (const t of g.tabs) {
-          if (selectedIds.has(t.id)) selected.push(t);
+          map.set(t.id, t);
         }
       }
     }
-    console.log('Computed selectedTabs:', selected);
+    return map;
+  });
+
+  selectedTabs = new Signal.Computed(() => {
+    const selected: TabNode[] = [];
+    const selectedIds = this.selectedTabIds; // Direct access
+    const allTabs = this.allTabsById.get();
+
+    for (const id of selectedIds) {
+      const tab = allTabs.get(id);
+      if (tab) selected.push(tab);
+    }
     return selected;
   });
 
