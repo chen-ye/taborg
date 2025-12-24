@@ -46,6 +46,8 @@ class TabStore {
   windowNames = new SignalMap<number, string>();
   collapsedWindowIds = new SignalSet<number>();
 
+  private groupIdMap = new Signal.State(new Map<number, GroupNode>());
+
   draggingState = new Signal.State<{ type: 'tab' | 'group' | 'window'; id: number } | null>(null);
 
   // Batching state for selection updates
@@ -254,11 +256,15 @@ class TabStore {
     }
 
     // Assign groups to windows
-    groupMap.forEach(g => {
+    groupMap.forEach((g, id) => {
       if (windowMap.has(g.windowId)) {
         windowMap.get(g.windowId)!.groups.push(g);
+      } else {
+        groupMap.delete(id);
       }
     });
+
+    this.groupIdMap.set(groupMap);
 
     this.windows.splice(0, this.windows.length, ...Array.from(windowMap.values())); // Mutate SignalArray
     console.log('Updated windows:', this.windows);
@@ -392,11 +398,7 @@ class TabStore {
   }
 
   findGroup(id: number): GroupNode | undefined {
-    for (const w of this.windows) { // Direct access
-      const g = w.groups.find(g => g.id === id);
-      if (g) return g;
-    }
-    return undefined;
+    return this.groupIdMap.get().get(id);
   }
 
   async closeTab(id: number) {
