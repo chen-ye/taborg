@@ -79,7 +79,7 @@ export class SettingsDialog extends LitElement {
     return html`
       <sl-dialog label="Settings" ?open=${this.open} @sl-after-hide=${() => this.open = false}>
         <div class="content">
-          <p>Enter your Gemini API Key to enable auto-organization features.</p>
+          <p>Enter your <a href="https://aistudio.google.com/app/api-keys">Gemini API Key</a> to enable auto-organization features.</p>
           <sl-input
             id="api-key-input"
             label="API Key"

@@ -68,7 +68,7 @@ export class GeminiService {
 
     try {
       const result = await genAI.models.generateContent({
-        model: 'gemini-2.5-flash-lite',
+        model: 'gemini-robotics-er-1.5-preview',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
@@ -128,7 +128,7 @@ export class GeminiService {
 
     try {
       const result = await genAI.models.generateContent({
-        model: 'gemini-2.5-flash-lite',
+        model: 'gemini-robotics-er-1.5-preview',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
@@ -177,7 +177,7 @@ export class GeminiService {
 
     try {
       const result = await genAI.models.generateContent({
-        model: 'gemini-2.5-flash-lite',
+        model: 'gemini-robotics-er-1.5-preview',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
