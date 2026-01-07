@@ -98,6 +98,15 @@ export class ControlBar extends SignalWatcher(LitElement) {
         </div>
 
         <div class="right-actions">
+          <sl-tooltip content="Follow Me">
+            <sl-icon-button
+              name="crosshair"
+              label="Follow Me Mode"
+              variant=${tabStore.followMode.get() ? 'primary' : 'default'}
+              @click=${this.toggleFollowMode}
+            ></sl-icon-button>
+          </sl-tooltip>
+
           <sl-tooltip content="Expand All">
             <sl-icon-button
               name="arrows-expand"
@@ -276,5 +285,8 @@ export class ControlBar extends SignalWatcher(LitElement) {
         tabStore.setWindowCollapsed(w.id, true);
       }
     }
+  }
+  private toggleFollowMode() {
+    tabStore.toggleFollowMode();
   }
 }

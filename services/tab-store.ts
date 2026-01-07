@@ -49,6 +49,7 @@ class TabStore {
   private groupIdMap = new Signal.State(new Map<number, GroupNode>());
 
   draggingState = new Signal.State<{ type: 'tab' | 'group' | 'window'; id: number } | null>(null);
+  followMode = new Signal.State(false); // Added for Follow Me mode
 
   // Batching state for selection updates
   private pendingSelectionChanges: Set<number> | null = null;
@@ -111,6 +112,52 @@ class TabStore {
   sortedSelectedTabs = new Signal.Computed(() => {
     const selected = this.selectedTabs.get();
     return selected.toSorted((a, b) => a.url.localeCompare(b.url, undefined, { numeric: true }));
+  });
+
+  activeTabId = new Signal.Computed(() => {
+    // Determine the active tab ID based on the current window and its tabs
+    // Note: We might want the global active tab, or the active tab in the current window.
+    // Given the requirement "scroll to the focused tab", it implies the one the user is looking at.
+    // If the window is focused, it's the active tab in that window.
+    // If we just want the active tab of the current window (as defined by `currentWindowId`):
+
+    // Let's iterate find the active tab in the current window first, or fall back to any active tab if specific behavior is needed.
+    // But usually 'focused tab' means the one with `active: true` in the `focused: true` window.
+
+    // Let's look for the globally focused tab first.
+    let focusedWindow: WindowNode | undefined;
+    for (const w of this.windows) {
+      if (w.focused) {
+        focusedWindow = w;
+        break;
+      }
+    }
+
+    if (focusedWindow) {
+      // Find active tab in this window
+      // Check ungrouped tabs
+      for (const t of focusedWindow.tabs) {
+        if (t.active) return t.id;
+      }
+      // Check grouped tabs
+      for (const g of focusedWindow.groups) {
+        for (const t of g.tabs) {
+          if (t.active) return t.id;
+        }
+      }
+    }
+
+    // Fallback: Check 'active' tab in the current window, if window focus is not strict or we want to follow 'current' selection in UI
+    const currentId = this.currentWindowId.get();
+    if (currentId && (!focusedWindow || focusedWindow.id !== currentId)) {
+       const cw = this.windows.find(w => w.id === currentId);
+       if (cw) {
+         for (const t of cw.tabs) if (t.active) return t.id;
+         for (const g of cw.groups) for (const t of g.tabs) if (t.active) return t.id;
+       }
+    }
+
+    return undefined;
   });
 
   constructor() {
@@ -634,6 +681,10 @@ class TabStore {
     if (tabIds.length > 0) {
       await chrome.tabs.move(tabIds, { windowId: targetWindowId, index: -1 });
     }
+  }
+
+  toggleFollowMode() {
+    this.followMode.set(!this.followMode.get());
   }
 }
 

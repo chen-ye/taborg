@@ -1,0 +1,4 @@
+if ! yarn build; then
+  echo "Build failed. Commit aborted."
+  exit 1
+fi

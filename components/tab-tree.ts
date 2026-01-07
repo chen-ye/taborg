@@ -165,6 +165,21 @@ export class TabTree extends SignalWatcher(LitElement) {
     this.draggingId = dragging?.id ?? null;
   }
 
+  updated(changedProperties: Map<string, any>) {
+    super.updated(changedProperties);
+
+    if (tabStore.followMode.get()) {
+      const activeTabId = tabStore.activeTabId.get();
+      if (activeTabId) {
+        // Find the tree item for the active tab
+        const treeItem = this.shadowRoot?.querySelector(`sl-tree-item[data-id="${activeTabId}"][data-type="tab"]`);
+        if (treeItem) {
+           treeItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+      }
+    }
+  }
+
   private handleMergeRequest(e: CustomEvent) {
     e.stopPropagation();
     this.pendingMerge = e.detail;
