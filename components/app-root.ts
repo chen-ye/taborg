@@ -4,9 +4,10 @@ import { tabStore } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import './tab-tree';
 import './selected-pane';
+import './similar-pane';
 import './control-bar';
 import './settings-dialog';
-import '@shoelace-style/shoelace/dist/components/split-panel/split-panel.js';
+import '@shoelace-style/shoelace/dist/components/details/details.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 
 @customElement('app-root')
@@ -27,27 +28,51 @@ export class AppRoot extends SignalWatcher(LitElement) {
       flex-direction: column;
     }
 
-    sl-split-panel {
-      --min: 200px;
-      --max: calc(100% - 200px);
-      height: 100%;
-    }
-
-    sl-split-panel::part(divider) {
-      background-color: var(--sl-color-neutral-200);
-    }
-
     .tree-container {
-      height: 100%;
+      flex: 1;
       overflow-y: auto;
       scrollbar-gutter: stable;
     }
 
-    .selected-pane-container {
-      height: 100%;
+    .bottom-panels {
+      background-color: var(--sl-color-neutral-50);
+      border-top: 1px solid var(--sl-color-neutral-200);
+    }
+
+    /* Hide the container if no panels are visible to avoid double borders or empty space logic?
+       Actually sl-details handles itself. If both are hidden, the container is empty.
+       We might want to hide the border-top if empty. */
+    .bottom-panels:empty {
+      display: none;
+      border-top: none;
+    }
+
+    sl-details {
+      border: none;
+      border-bottom: 1px solid var(--sl-color-neutral-200);
+    }
+
+    sl-details:last-of-type {
+      border-bottom: none;
+    }
+
+    sl-details::part(base) {
+      border: none;
+    }
+
+    sl-details::part(header) {
+      padding: var(--sl-spacing-x-small) var(--sl-spacing-small);
+      font-size: var(--sl-font-size-small);
+      font-weight: var(--sl-font-weight-semibold);
+      background-color: var(--sl-color-neutral-100);
+    }
+
+    sl-details::part(content) {
+      padding: 0;
+      /* Max height for content as requested */
+      max-height: 20vh;
       overflow-y: auto;
       scrollbar-gutter: stable;
-      background-color: var(--sl-color-neutral-50);
     }
 
     .loading-container {
@@ -58,30 +83,7 @@ export class AppRoot extends SignalWatcher(LitElement) {
       flex-direction: column;
       gap: var(--sl-spacing-medium);
     }
-
-    :host(:not([has-selection])) .selected-pane-container {
-      display: none;
-    }
-
-    :host(:not([has-selection])) .tree-container {
-      grid-row: 1 / -1;
-    }
-
-    :host(:not([has-selection])) sl-split-panel::part(divider) {
-      display: none;
-    }
   `;
-
-  @property({ type: Boolean, reflect: true, attribute: 'has-selection' })
-  hasSelection = false;
-
-  willUpdate(changedProperties: Map<string, any>) {
-    super.willUpdate(changedProperties);
-    // Sync hasSelection property with signal state
-    this.hasSelection = tabStore.selectedTabIds.size > 0;
-  }
-
-
 
   render() {
     console.log('Render');
@@ -99,16 +101,31 @@ export class AppRoot extends SignalWatcher(LitElement) {
       `;
     }
 
+    const selectedCount = tabStore.selectedTabIds.size;
+    const similarCount = tabStore.similarTabs.get().length;
+
     return html`
       <main>
-        <sl-split-panel vertical position="70">
-          <div slot="start" class="tree-container">
-            <tab-tree></tab-tree>
-          </div>
-          <div slot="end" class="selected-pane-container">
+        <div class="tree-container">
+          <tab-tree></tab-tree>
+        </div>
+
+        <div class="bottom-panels">
+          <sl-details
+            summary="Similar (${similarCount})"
+            .duration=${250}
+            .easing=${'cubic-bezier(0.175, 0.885, 0.32, 1.275)'}
+          >
+            <similar-pane></similar-pane>
+          </sl-details>
+          <sl-details
+            summary="Selected (${selectedCount})"
+            .duration=${250}
+            .easing=${'cubic-bezier(0.175, 0.885, 0.32, 1.275)'}
+          >
             <selected-pane></selected-pane>
-          </div>
-        </sl-split-panel>
+          </sl-details>
+        </div>
       </main>
       <control-bar></control-bar>
       <settings-dialog></settings-dialog>

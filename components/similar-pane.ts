@@ -5,37 +5,25 @@ import { tabStore, TabNode } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import './tab-item';
 
-@customElement('selected-pane')
-export class SelectedPane extends SignalWatcher(LitElement) {
+@customElement('similar-pane')
+export class SimilarPane extends SignalWatcher(LitElement) {
   static styles = css`
     :host {
       display: block;
       background-color: var(--sl-color-neutral-50);
       padding: var(--sl-spacing-x-small);
     }
-
-    .header {
-      font-size: var(--sl-font-size-x-small);
-      font-weight: bold;
-      color: var(--sl-color-neutral-500);
-      margin-bottom: var(--sl-spacing-x-small);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
   `;
 
-
-
   render() {
-    const selectedTabs = tabStore.sortedSelectedTabs.get();
+    const similarTabs = tabStore.similarTabs.get();
 
-    if (selectedTabs.length === 0) {
-      return html``;
+    if (similarTabs.length === 0) {
+      return html`<div style="padding: var(--sl-spacing-medium); text-align: center; color: var(--sl-color-neutral-500);">No similar tabs found</div>`;
     }
 
     return html`
-      ${repeat(selectedTabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
+      ${repeat(similarTabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
         <tab-item
           .tab=${tab}
           @tab-select=${this.handleTabSelect}
@@ -47,7 +35,6 @@ export class SelectedPane extends SignalWatcher(LitElement) {
   }
 
   private handleTabSelect(e: CustomEvent<{ id: number; selected: boolean }>) {
-    // Deselecting from here
     tabStore.toggleSelection(e.detail.id, 'tab', e.detail.selected);
   }
 
@@ -58,20 +45,5 @@ export class SelectedPane extends SignalWatcher(LitElement) {
   private handleTabFocus(e: CustomEvent<{ id: number }>) {
     e.stopPropagation();
     tabStore.focusTab(e.detail.id);
-  }
-
-  private async closeAllSelected() {
-    const selectedTabs = tabStore.selectedTabs.get();
-    const ids = selectedTabs.map(t => t.id);
-    if (ids.length === 0) return;
-
-    if (confirm(`Are you sure you want to close ${ids.length} tabs?`)) {
-       await tabStore.closeTabs(ids);
-       tabStore.setSelectedTabs(new Set());
-    }
-  }
-
-  private clearSelection() {
-    tabStore.setSelectedTabs(new Set());
   }
 }

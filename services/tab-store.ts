@@ -2,6 +2,7 @@ import { Signal } from 'signal-polyfill';
 import { SignalArray } from 'signal-utils/array';
 import { SignalSet } from 'signal-utils/set';
 import { SignalMap } from 'signal-utils/map';
+import Fuse from 'fuse.js';
 
 // Polyfill Signal for @lit-labs/signals if not present
 if (!(globalThis as any).Signal) {
@@ -36,7 +37,7 @@ export interface WindowNode {
   groups: GroupNode[];
 }
 
-class TabStore {
+export class TabStore {
   private refreshTimeout: number | null = null;
 
   // State
@@ -116,15 +117,6 @@ class TabStore {
 
   activeTabId = new Signal.Computed(() => {
     // Determine the active tab ID based on the current window and its tabs
-    // Note: We might want the global active tab, or the active tab in the current window.
-    // Given the requirement "scroll to the focused tab", it implies the one the user is looking at.
-    // If the window is focused, it's the active tab in that window.
-    // If we just want the active tab of the current window (as defined by `currentWindowId`):
-
-    // Let's iterate find the active tab in the current window first, or fall back to any active tab if specific behavior is needed.
-    // But usually 'focused tab' means the one with `active: true` in the `focused: true` window.
-
-    // Let's look for the globally focused tab first.
     let focusedWindow: WindowNode | undefined;
     for (const w of this.windows) {
       if (w.focused) {
@@ -134,12 +126,9 @@ class TabStore {
     }
 
     if (focusedWindow) {
-      // Find active tab in this window
-      // Check ungrouped tabs
       for (const t of focusedWindow.tabs) {
         if (t.active) return t.id;
       }
-      // Check grouped tabs
       for (const g of focusedWindow.groups) {
         for (const t of g.tabs) {
           if (t.active) return t.id;
@@ -147,7 +136,6 @@ class TabStore {
       }
     }
 
-    // Fallback: Check 'active' tab in the current window, if window focus is not strict or we want to follow 'current' selection in UI
     const currentId = this.currentWindowId.get();
     if (currentId && (!focusedWindow || focusedWindow.id !== currentId)) {
        const cw = this.windows.find(w => w.id === currentId);
@@ -160,31 +148,96 @@ class TabStore {
     return undefined;
   });
 
+  activeTab = new Signal.Computed(() => {
+    // Find the active tab in the focused window, or current window.
+    // We can reuse the logic from `activeTabId` but return the node.
+    const id = this.activeTabId.get();
+    if (id === undefined) return undefined;
+
+    // We need to look it up from allTabsById
+    return this.allTabsById.get().get(id);
+  });
+
+  similarTabs = new Signal.Computed(() => {
+    const active = this.activeTab.get();
+    if (!active || !active.url) return [];
+
+    let hostname = '';
+    try {
+      hostname = new URL(active.url).hostname;
+    } catch {
+      // Invalid URL or empty
+    }
+
+    const allTabs = Array.from(this.allTabsById.get().values());
+    const candidates = allTabs.filter(t => t.id !== active.id && t.url);
+
+    // 1. Domain match
+    const domainMatches = new Set<TabNode>();
+    if (hostname) {
+      for (const t of candidates) {
+        try {
+          if (new URL(t.url).hostname === hostname) {
+            domainMatches.add(t);
+          }
+        } catch {}
+      }
+    }
+
+    // 2. Fuzzy match title using Fuse.js
+    let fuzzyMatches: TabNode[] = [];
+    if (active.title) {
+        const options = {
+            keys: ['title'],
+            threshold: 0.6, // Match sensitivity
+        };
+        const fuse = new Fuse(candidates, options);
+        // Limit results to avoid noise?
+        const results = fuse.search(active.title, { limit: 10 });
+        fuzzyMatches = results.map(r => r.item);
+    }
+
+    // Merge: Domain matches first, then fuzzy matches. Deduplicate.
+    const result = domainMatches.union(new Set(fuzzyMatches));
+
+    return Array.from(result);
+  });
+
   constructor() {
-    this.init();
+    if (typeof chrome !== 'undefined' && chrome.windows) {
+      this.init();
+    }
   }
 
   private async init() {
-    // Load data without triggering re-renders
-    const [suggestionsMap, selectedIds, windowNamesMap, collapsedWindowIdsSet, currentWindow] = await Promise.all([
-      this.loadSuggestions(),
-      this.loadSelection(),
-      this.loadWindowNames(),
-      this.loadCollapsedWindows(),
-      chrome.windows.getCurrent()
-    ]);
+    try {
+      // Load data without triggering re-renders
+      const [suggestionsMap, selectedIds, windowNamesMap, collapsedWindowIdsSet, currentWindow] = await Promise.all([
+        this.loadSuggestions(),
+        this.loadSelection(),
+        this.loadWindowNames(),
+        this.loadCollapsedWindows(),
+        chrome.windows.getCurrent()
+      ]);
 
-    // Batch all signal updates together
-    for (const [key, value] of suggestionsMap) this.suggestionsUrlMap.set(key, value);
-    for (const id of selectedIds) this.selectedTabIds.add(id);
-    for (const [key, value] of windowNamesMap) this.windowNames.set(key, value);
-    for (const id of collapsedWindowIdsSet) this.collapsedWindowIds.add(id);
-    this.currentWindowId.set(currentWindow.id);
-    console.log('Loaded initial data - suggestions, selection, windowNames, collapsedWindows, currentWindow');
+      // Batch all signal updates together
+      for (const [key, value] of suggestionsMap) this.suggestionsUrlMap.set(key, value);
+      for (const id of selectedIds) this.selectedTabIds.add(id);
+      for (const [key, value] of windowNamesMap) this.windowNames.set(key, value);
+      for (const id of collapsedWindowIdsSet) this.collapsedWindowIds.add(id);
 
-    await this.fetchAll();
-    this.isInitializing.set(false);
-    this.setupListeners();
+      if (currentWindow && currentWindow.id) {
+        this.currentWindowId.set(currentWindow.id);
+      }
+
+      console.log('Loaded initial data - suggestions, selection, windowNames, collapsedWindows, currentWindow');
+
+      await this.fetchAll();
+      this.isInitializing.set(false);
+      this.setupListeners();
+    } catch (e) {
+      console.error('TabStore init failed:', e);
+    }
   }
 
   private async loadSuggestions(): Promise<Map<string, string[]>> {

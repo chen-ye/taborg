@@ -96,6 +96,16 @@ export const main = () => {
       chrome.action.setIcon({ imageData: message.imageData });
     }
   });
+
+  const updateBadge = async () => {
+    const tabs = await chrome.tabs.query({});
+    await chrome.action.setBadgeText({ text: tabs.length.toString() });
+    await chrome.action.setBadgeBackgroundColor({ color: '#777' });
+  };
+
+  chrome.tabs.onCreated.addListener(() => updateBadge());
+  chrome.tabs.onRemoved.addListener(() => updateBadge());
+  updateBadge();
 };
 
 export default defineBackground(main);
