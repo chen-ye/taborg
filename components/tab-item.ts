@@ -10,6 +10,9 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@shoelace-style/shoelace/dist/components/dropdown/dropdown.js';
 import '@shoelace-style/shoelace/dist/components/menu/menu.js';
 import '@shoelace-style/shoelace/dist/components/menu-item/menu-item.js';
+import '@shoelace-style/shoelace/dist/components/menu-item/menu-item.js';
+import '@shoelace-style/shoelace/dist/components/button-group/button-group.js';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import './group-tag';
 
 @customElement('tab-item')
@@ -91,16 +94,14 @@ export class TabItem extends SignalWatcher(LitElement) {
     .controls {
       display: none;
       position: absolute;
-      right: var(--sl-spacing-2x-small);
+      left: var(--sl-spacing-2x-small);
       height: 100%;
-      background: linear-gradient(to right, transparent, var(--sl-color-neutral-100) 20%);
       padding-left: 2px;
     }
 
     .tab-row:hover .controls {
       display: flex;
       align-items: center;
-      gap: var(--sl-spacing-2x-small);
     }
 
     .right {
@@ -108,11 +109,10 @@ export class TabItem extends SignalWatcher(LitElement) {
       align-items: center;
       gap: var(--sl-spacing-2x-small);
       margin-left: auto;
-      margin-right: var(--sl-spacing-large);
     }
 
     sl-icon-button {
-      font-size: var(--sl-font-size-medium);
+      font-size: var(--sl-font-size-small);
     }
 
 
@@ -212,11 +212,24 @@ export class TabItem extends SignalWatcher(LitElement) {
         </div>
 
         <div class="controls">
-          <sl-icon-button
-            name="x"
-            label="Close Tab"
-            @click=${this.closeTab}
-          ></sl-icon-button>
+          <sl-button-group>
+            <sl-button
+              pill
+              size="small"
+              @click=${this.closeTab}
+            >
+              <sl-icon slot="prefix" name="x" label="Close Tab"></sl-icon>
+            </sl-button>
+            ${!this.tab.active ? html`
+              <sl-button
+                pill
+                size="small"
+                @click=${this.moveTabAfterActive}
+              >
+                <sl-icon slot="prefix" name="arrow-down" label="Move after active tab"></sl-icon>
+              </sl-button>
+            ` : ''}
+          </sl-button-group>
         </div>
       </div>
     `;
@@ -255,6 +268,11 @@ export class TabItem extends SignalWatcher(LitElement) {
       bubbles: true,
       composed: true
     }));
+  }
+
+  private moveTabAfterActive(e: Event) {
+    e.stopPropagation();
+    tabStore.moveTabAfterActive(this.tab.id);
   }
 
   private moveToGroup(groupName: string) {

@@ -519,6 +519,16 @@ export class TabStore {
     }
   }
 
+  async moveTabAfterActive(tabId: number) {
+    const activeTabId = this.activeTabId.get();
+    if (!activeTabId) return;
+
+    const activeTab = await chrome.tabs.get(activeTabId);
+
+    // Move to the same window as active tab, right after it
+    await chrome.tabs.move(tabId, { windowId: activeTab.windowId, index: activeTab.index + 1 });
+  }
+
   async moveTabToGroup(tabId: number, groupId: number) {
     const group = this.findGroup(groupId);
     if (!group) return;

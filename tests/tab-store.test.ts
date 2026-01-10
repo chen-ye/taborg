@@ -30,6 +30,8 @@ describe('TabStore', () => {
         onRemoved: { addListener: vi.fn() },
         onAttached: { addListener: vi.fn() },
         onDetached: { addListener: vi.fn() },
+        get: vi.fn(),
+        move: vi.fn(),
       },
       tabGroups: {
         query: vi.fn().mockResolvedValue([]),
@@ -100,5 +102,22 @@ describe('TabStore', () => {
     const similar = store.similarTabs.get();
     expect(similar.length).toBe(1);
     expect(similar[0].id).toBe(2);
+  });
+
+  it('should move tab after active tab', async () => {
+    const tabs = [
+      { id: 1, title: 'Active Tab', url: 'https://example.com', active: true, windowId: 1, index: 5 },
+      { id: 2, title: 'Other Tab', url: 'https://example.com/other', windowId: 1, index: 10 },
+    ];
+    await setupStore(tabs);
+
+    // Mock chrome.tabs.get needed for the operation
+    (chrome.tabs.get as any).mockResolvedValue(tabs[0]);
+    // Mock chrome.tabs.move
+    (chrome.tabs.move as any).mockResolvedValue({});
+
+    await store.moveTabAfterActive(2);
+
+    expect(chrome.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 6 });
   });
 });
