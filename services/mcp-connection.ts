@@ -1,4 +1,11 @@
-import type { CallToolResult, Prompt, Resource, Tool } from '@modelcontextprotocol/sdk/types.js';
+import type {
+  CallToolResult,
+  Prompt,
+  Resource,
+  Tool,
+  JSONRPCMessage,
+  JSONRPCRequest,
+} from '@modelcontextprotocol/sdk/types.js';
 import { Signal } from 'signal-polyfill';
 
 // A resource content item returned when reading a resource
@@ -178,9 +185,7 @@ class McpConnectionService {
     this.stopKeepAlive();
     // specific interval to keep Chrome service worker alive (every 20s is safe, limit is ~30s)
     this.keepAliveInterval = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'ping' }));
-      }
+      this.sendMessage({ jsonrpc: '2.0', method: 'ping' });
     }, 20000);
   }
 
@@ -204,9 +209,16 @@ class McpConnectionService {
     }, delay);
   }
 
-  private async handleMessage(message: { id?: string | number; method: string; params: unknown }) {
+  private async handleMessage(message: JSONRPCMessage) {
+    if (!('method' in message)) {
+      return;
+    }
+
+    // Safely check for id to distinguish Request vs Notification
+    const hasId = 'id' in message;
+    const id = hasId ? (message as JSONRPCRequest).id : undefined;
+
     if (message.method === 'initialize') {
-      const id = message.id;
       if (id !== undefined) {
         this.sendMessage({
           jsonrpc: '2.0',
@@ -234,9 +246,7 @@ class McpConnectionService {
       }
     } else if (message.method === 'notifications/initialized') {
       // Client has acknowledged initialization
-      // We can send initial list updates now if needed, but we do that on connect mostly.
     } else if (message.method === 'tools/list') {
-      const id = message.id;
       if (id !== undefined) {
         const toolsList = Array.from(this.tools.values()).map((t) => t.tool);
         this.sendMessage({
@@ -245,12 +255,12 @@ class McpConnectionService {
           result: { tools: toolsList },
         });
       }
-    } else if (message.method === 'tools/call' && message.id !== undefined) {
-      await this.handleToolCall(
-        message as { id: string | number; params: { name: string; arguments?: Record<string, unknown> } },
-      );
+    } else if (message.method === 'tools/call' && id !== undefined) {
+      // safe cast params as we know it's a request
+      const request = message as JSONRPCRequest;
+      const params = (request.params as { name: string; arguments?: Record<string, unknown> }) || { name: '' };
+      await this.handleToolCall({ id, params });
     } else if (message.method === 'resources/list') {
-      const id = message.id;
       if (id !== undefined) {
         const resourcesList = Array.from(this.resources.values()).map((r) => r.resource);
         this.sendMessage({
@@ -259,10 +269,11 @@ class McpConnectionService {
           result: { resources: resourcesList },
         });
       }
-    } else if (message.method === 'resources/read') {
-      await this.handleReadResource(message as { id: string; params: { uri: string } });
+    } else if (message.method === 'resources/read' && id !== undefined) {
+      const request = message as JSONRPCRequest;
+      const params = (request.params as { uri: string }) || { uri: '' };
+      await this.handleReadResource({ id: String(id), params });
     } else if (message.method === 'prompts/list') {
-      const id = message.id;
       if (id !== undefined) {
         const promptsList = Array.from(this.prompts.values()).map((p) => p.prompt);
         this.sendMessage({
@@ -271,10 +282,10 @@ class McpConnectionService {
           result: { prompts: promptsList },
         });
       }
-    } else if (message.method === 'prompts/get') {
-      await this.handleGetPrompt(
-        message as { id: string; params: { name: string; arguments?: Record<string, string> } },
-      );
+    } else if (message.method === 'prompts/get' && id !== undefined) {
+      const request = message as JSONRPCRequest;
+      const params = (request.params as { name: string; arguments?: Record<string, string> }) || { name: '' };
+      await this.handleGetPrompt({ id: String(id), params });
     }
   }
 
@@ -393,7 +404,7 @@ class McpConnectionService {
     }
   }
 
-  private sendMessage(msg: Record<string, unknown>) {
+  private sendMessage(msg: JSONRPCMessage) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     }
