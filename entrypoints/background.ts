@@ -285,7 +285,8 @@ function initializeMcpTools() {
   mcpService.registerTool(
     {
       name: 'group_tabs',
-      description: 'Group specific tabs together',
+      description:
+        'Group specific tabs together. Since the tool operates on tab IDs and group IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -335,7 +336,8 @@ function initializeMcpTools() {
   mcpService.registerTool(
     {
       name: 'ungroup_tabs',
-      description: 'Ungroup specific tabs',
+      description:
+        'Ungroup specific tabs. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -361,7 +363,8 @@ function initializeMcpTools() {
   mcpService.registerTool(
     {
       name: 'move_tabs_relative',
-      description: 'Move tabs relative to another tab',
+      description:
+        'Move tabs relative to another tab. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -395,7 +398,8 @@ function initializeMcpTools() {
   mcpService.registerTool(
     {
       name: 'close_tabs',
-      description: 'Close specific tabs',
+      description:
+        'Close specific tabs. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -421,7 +425,8 @@ function initializeMcpTools() {
   mcpService.registerTool(
     {
       name: 'update_suggestions',
-      description: 'Update category suggestions for a specific tab',
+      description:
+        'Update category suggestions for a specific tab. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
         type: 'object',
         properties: {
