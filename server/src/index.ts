@@ -1,5 +1,5 @@
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { type JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
+import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import express from 'express';
 import { createServer } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
@@ -36,10 +36,6 @@ class McpProxyServer {
   // ID Management for routing responses
   // Map<ProxyID, { SessionID, ClientID }>
   private responseMap = new Map<number | string, { sessionId: string; originalId: number | string }>();
-
-  constructor() {
-    // No local MCP Server instance needed - we are just a pipe
-  }
 
   async start() {
     // Check if ports are already in use (another instance running)
@@ -221,7 +217,11 @@ class McpProxyServer {
         }
       }
     } else {
-      // Notification - broadcast to all
+      // Notification
+      if ('method' in message && message.method === 'ping') {
+        // Internal keepalive, do not broadcast
+        return;
+      }
       this.broadcastToAll(message);
     }
   }

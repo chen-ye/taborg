@@ -179,7 +179,7 @@ class McpConnectionService {
     // specific interval to keep Chrome service worker alive (every 20s is safe, limit is ~30s)
     this.keepAliveInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ method: 'ping' }));
+        this.ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'ping' }));
       }
     }, 20000);
   }
