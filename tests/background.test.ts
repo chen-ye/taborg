@@ -75,18 +75,18 @@ describe('Background Script', () => {
   });
 
   const triggerOnCreated = (tab: any) => {
-    listeners['onCreated']?.forEach((cb) => {
+    listeners.onCreated?.forEach((cb) => {
       cb(tab);
     });
   };
 
   const triggerOnUpdated = async (tabId: number, changeInfo: any, tab: any) => {
     // onUpdated is async in background.ts
-    await Promise.all(listeners['onUpdated']?.map((cb) => cb(tabId, changeInfo, tab)) || []);
+    await Promise.all(listeners.onUpdated?.map((cb) => cb(tabId, changeInfo, tab)) || []);
   };
 
   const _triggerOnRemoved = (tabId: number) => {
-    listeners['onRemoved']?.forEach((cb) => {
+    listeners.onRemoved?.forEach((cb) => {
       cb(tabId);
     });
   };
