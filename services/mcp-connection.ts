@@ -121,10 +121,13 @@ class McpConnectionService {
         this.setStatus('connected');
         this.attempt = 0;
         this.setError(null);
-        // Send lists immediately
-        this.sendToolsList();
-        this.sendResourcesList();
-        this.sendPromptsList();
+
+        // Notifications only if we have tools, but connected client should ask
+        // Sending notifications immediately might be racey if client isn't listening yet,
+        // but it doesn't hurt to announce we have changed (from init state)
+        this.sendToolNotification();
+        this.sendResourceNotification();
+        this.sendPromptNotification();
 
         // Start keepalive
         this.startKeepAlive();
@@ -202,46 +205,97 @@ class McpConnectionService {
   }
 
   private async handleMessage(message: { id?: string | number; method: string; params: unknown }) {
-    if (message.method === 'listTools') {
-      this.sendToolsList();
-    } else if (message.method === 'callTool' && message.id !== undefined) {
+    if (message.method === 'initialize') {
+      const id = message.id;
+      if (id !== undefined) {
+        this.sendMessage({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            protocolVersion: '2024-11-05',
+            capabilities: {
+              tools: {
+                listChanged: true,
+              },
+              resources: {
+                listChanged: true,
+                subscribe: false,
+              },
+              prompts: {
+                listChanged: true,
+              },
+            },
+            serverInfo: {
+              name: 'TabOrg',
+              version: '0.1.0',
+            },
+          },
+        });
+      }
+    } else if (message.method === 'notifications/initialized') {
+      // Client has acknowledged initialization
+      // We can send initial list updates now if needed, but we do that on connect mostly.
+    } else if (message.method === 'tools/list') {
+      const id = message.id;
+      if (id !== undefined) {
+        const toolsList = Array.from(this.tools.values()).map((t) => t.tool);
+        this.sendMessage({
+          jsonrpc: '2.0',
+          id,
+          result: { tools: toolsList },
+        });
+      }
+    } else if (message.method === 'tools/call' && message.id !== undefined) {
       await this.handleToolCall(
         message as { id: string | number; params: { name: string; arguments?: Record<string, unknown> } },
       );
-    } else if (message.method === 'listResources') {
-      this.sendResourcesList();
-    } else if (message.method === 'readResource') {
+    } else if (message.method === 'resources/list') {
+      const id = message.id;
+      if (id !== undefined) {
+        const resourcesList = Array.from(this.resources.values()).map((r) => r.resource);
+        this.sendMessage({
+          jsonrpc: '2.0',
+          id,
+          result: { resources: resourcesList },
+        });
+      }
+    } else if (message.method === 'resources/read') {
       await this.handleReadResource(message as { id: string; params: { uri: string } });
-    } else if (message.method === 'listPrompts') {
-      this.sendPromptsList();
-    } else if (message.method === 'getPrompt') {
+    } else if (message.method === 'prompts/list') {
+      const id = message.id;
+      if (id !== undefined) {
+        const promptsList = Array.from(this.prompts.values()).map((p) => p.prompt);
+        this.sendMessage({
+          jsonrpc: '2.0',
+          id,
+          result: { prompts: promptsList },
+        });
+      }
+    } else if (message.method === 'prompts/get') {
       await this.handleGetPrompt(
         message as { id: string; params: { name: string; arguments?: Record<string, string> } },
       );
     }
   }
 
-  private sendToolsList() {
-    const toolsList = Array.from(this.tools.values()).map((t) => t.tool);
+  private sendToolNotification() {
     this.sendMessage({
-      method: 'toolsList',
-      params: { tools: toolsList },
+      jsonrpc: '2.0',
+      method: 'notifications/tools/list_changed',
     });
   }
 
-  private sendResourcesList() {
-    const resourcesList = Array.from(this.resources.values()).map((r) => r.resource);
+  private sendResourceNotification() {
     this.sendMessage({
-      method: 'resourcesList',
-      params: { resources: resourcesList },
+      jsonrpc: '2.0',
+      method: 'notifications/resources/list_changed',
     });
   }
 
-  private sendPromptsList() {
-    const promptsList = Array.from(this.prompts.values()).map((p) => p.prompt);
+  private sendPromptNotification() {
     this.sendMessage({
-      method: 'promptsList',
-      params: { prompts: promptsList },
+      jsonrpc: '2.0',
+      method: 'notifications/prompts/list_changed',
     });
   }
 
@@ -251,8 +305,9 @@ class McpConnectionService {
 
     if (!promptEntry) {
       this.sendMessage({
+        jsonrpc: '2.0',
         id,
-        error: `Prompt ${params.name} not found`,
+        error: { code: -32601, message: `Prompt ${params.name} not found` },
       });
       return;
     }
@@ -260,14 +315,16 @@ class McpConnectionService {
     try {
       const result = await promptEntry.handler(params.arguments);
       this.sendMessage({
+        jsonrpc: '2.0',
         id,
         result,
       });
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Unknown error';
       this.sendMessage({
+        jsonrpc: '2.0',
         id,
-        error: errorMessage,
+        error: { code: -32000, message: errorMessage },
       });
     }
   }
@@ -278,8 +335,9 @@ class McpConnectionService {
 
     if (!resourceEntry) {
       this.sendMessage({
+        jsonrpc: '2.0',
         id,
-        error: `Resource ${params.uri} not found`,
+        error: { code: -32601, message: `Resource ${params.uri} not found` },
       });
       return;
     }
@@ -287,14 +345,16 @@ class McpConnectionService {
     try {
       const contents = await resourceEntry.handler();
       this.sendMessage({
+        jsonrpc: '2.0',
         id,
         result: { contents },
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Unknown error';
       this.sendMessage({
+        jsonrpc: '2.0',
         id,
-        error: message,
+        error: { code: -32000, message },
       });
     }
   }
@@ -308,8 +368,9 @@ class McpConnectionService {
 
     if (!toolEntry) {
       this.sendMessage({
+        jsonrpc: '2.0',
         id,
-        error: `Tool ${params.name} not found`,
+        error: { code: -32601, message: `Tool ${params.name} not found` },
       });
       return;
     }
@@ -318,14 +379,16 @@ class McpConnectionService {
       const result = await toolEntry.handler(params.arguments || {});
 
       this.sendMessage({
+        jsonrpc: '2.0',
         id,
         result,
       });
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Unknown error';
       this.sendMessage({
+        jsonrpc: '2.0',
         id,
-        error: errorMessage,
+        error: { code: -32000, message: errorMessage },
       });
     }
   }
@@ -338,24 +401,22 @@ class McpConnectionService {
 
   public registerTool(tool: Tool, handler: (args: Record<string, unknown>) => Promise<CallToolResult>) {
     this.tools.set(tool.name, { tool, handler });
-    // If connected, push update? For now, we rely on the server asking for list on connect.
-    // If we register tools dynamically after connect, we might want to push an update.
     if (this.status.get() === 'connected') {
-      this.sendToolsList();
+      this.sendToolNotification();
     }
   }
 
   public registerResource(resource: Resource, handler: () => Promise<ResourceContent[]>) {
     this.resources.set(resource.uri, { resource, handler });
     if (this.status.get() === 'connected') {
-      this.sendResourcesList();
+      this.sendResourceNotification();
     }
   }
 
   public registerPrompt(prompt: Prompt, handler: (args?: Record<string, string>) => Promise<GetPromptResult>) {
     this.prompts.set(prompt.name, { prompt, handler });
     if (this.status.get() === 'connected') {
-      this.sendPromptsList();
+      this.sendPromptNotification();
     }
   }
 }

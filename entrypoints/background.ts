@@ -162,7 +162,7 @@ After reading the resources, analyze the tabs and:
 2. Prefer using existing group names if they fit well
 3. If no existing group fits, create a new short, descriptive group name (e.g., "Dev", "News", "Social")
 
-Then use the 'group_tabs' tool to organize tabs, or 'update_suggestions' to provide suggestions to the user.`;
+Then use the 'taborg_group_tabs' tool to organize tabs, or 'taborg_update_suggestions' to provide suggestions to the user.`;
 
       return {
         description: 'Instructions for organizing browser tabs into groups',
@@ -233,8 +233,9 @@ function initializeMcpResources() {
 function initializeMcpTools() {
   mcpService.registerTool(
     {
-      name: 'list_tabs',
+      name: 'taborg_list_tabs',
       description: 'List all open tabs, optionally filtered by window or group',
+      annotations: { readOnlyHint: true },
       inputSchema: {
         type: 'object',
         properties: {
@@ -269,8 +270,9 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
-      name: 'list_groups',
+      name: 'taborg_list_groups',
       description: 'List all tab groups',
+      annotations: { readOnlyHint: true },
       inputSchema: {
         type: 'object',
         properties: {
@@ -297,7 +299,7 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
-      name: 'group_tabs',
+      name: 'taborg_group_tabs',
       description:
         'Group specific tabs together. Since the tool operates on tab IDs and group IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
@@ -348,7 +350,7 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
-      name: 'ungroup_tabs',
+      name: 'taborg_ungroup_tabs',
       description:
         'Ungroup specific tabs. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
@@ -375,7 +377,7 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
-      name: 'move_tabs_relative',
+      name: 'taborg_move_tabs_relative',
       description:
         'Move tabs relative to another tab. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
@@ -410,7 +412,8 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
-      name: 'close_tabs',
+      name: 'taborg_close_tabs',
+      annotations: { destructiveHint: true },
       description:
         'Close specific tabs. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
@@ -437,7 +440,7 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
-      name: 'update_suggestions',
+      name: 'taborg_update_suggestions',
       description:
         'Update category suggestions for a specific tab. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
@@ -474,7 +477,8 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
-      name: 'get_suggestions',
+      name: 'taborg_get_suggestions',
+      annotations: { readOnlyHint: true },
       description: 'Get existing category suggestions for a specific tab',
       inputSchema: {
         type: 'object',
@@ -522,7 +526,8 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
-      name: 'list_windows',
+      name: 'taborg_list_windows',
+      annotations: { readOnlyHint: true },
       description: 'List all open browser windows',
       inputSchema: {
         type: 'object',
@@ -544,7 +549,7 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
-      name: 'move_tab_group',
+      name: 'taborg_move_tab_group',
       description: 'Move a tab group to a specific window and optional index.',
       inputSchema: {
         type: 'object',

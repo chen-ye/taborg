@@ -1,22 +1,8 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import {
-  CallToolRequestSchema,
-  type CallToolResult,
-  GetPromptRequestSchema,
-  type GetPromptResult,
-  ListPromptsRequestSchema,
-  ListResourcesRequestSchema,
-  ListToolsRequestSchema,
-  type Prompt,
-  ReadResourceRequestSchema,
-  type ReadResourceResult,
-  type Resource,
-  type Tool,
-} from '@modelcontextprotocol/sdk/types.js';
+import { type JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import express from 'express';
 import { createServer } from 'node:net';
-import { type WebSocket, WebSocketServer } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 
 const HTTP_PORT = 3000;
 const WS_PORT = 3003;
@@ -41,67 +27,18 @@ function isPortInUse(port: number): Promise<boolean> {
 }
 
 class McpProxyServer {
-  private mcpServer: Server;
   private wss: WebSocketServer | null = null;
   private activeConnection: WebSocket | null = null;
-
-  // We store the tools list as provided by the extension
-  private availableTools: Tool[] = [];
-  private toolsPromise: Promise<void> | null = null;
-  private resolveTools: (() => void) | null = null;
-
-  // Store resources list provided by the extension
-  private availableResources: Resource[] = [];
-  private resourcesPromise: Promise<void> | null = null;
-  private resolveResources: (() => void) | null = null;
-
-  // Store prompts list provided by the extension
-  private availablePrompts: Prompt[] = [];
-  private promptsPromise: Promise<void> | null = null;
-  private resolvePrompts: (() => void) | null = null;
 
   // HTTP transports by session ID
   private transports: Map<string, StreamableHTTPServerTransport> = new Map();
 
+  // ID Management for routing responses
+  // Map<ProxyID, { SessionID, ClientID }>
+  private responseMap = new Map<number | string, { sessionId: string; originalId: number | string }>();
+
   constructor() {
-    this.mcpServer = new Server(
-      {
-        name: 'taborg-mcp-server',
-        version: '0.1.0',
-      },
-      {
-        capabilities: {
-          tools: {},
-          resources: {},
-          prompts: {},
-        },
-      },
-    );
-
-    // Initialize promises
-    this.resetToolsPromise();
-    this.resetResourcesPromise();
-    this.resetPromptsPromise();
-
-    this.setupMcpHandlers();
-  }
-
-  private resetToolsPromise() {
-    this.toolsPromise = new Promise((resolve) => {
-      this.resolveTools = resolve;
-    });
-  }
-
-  private resetResourcesPromise() {
-    this.resourcesPromise = new Promise((resolve) => {
-      this.resolveResources = resolve;
-    });
-  }
-
-  private resetPromptsPromise() {
-    this.promptsPromise = new Promise((resolve) => {
-      this.resolvePrompts = resolve;
-    });
+    // No local MCP Server instance needed - we are just a pipe
   }
 
   async start() {
@@ -131,16 +68,16 @@ class McpProxyServer {
     app.use(express.json());
 
     // Handle all MCP requests at /mcp endpoint
+    // Handle all MCP requests at /mcp endpoint
     app.all('/mcp', async (req, res) => {
+      console.log(
+        `[HTTP] ${req.method} ${req.originalUrl || req.url} - Session: ${req.headers['mcp-session-id'] || 'None'}`,
+      );
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
       // Handle GET for SSE streams
       if (req.method === 'GET') {
-        if (!sessionId || !this.transports.has(sessionId)) {
-          res.status(400).json({ error: 'Invalid or missing session ID' });
-          return;
-        }
-        const transport = this.transports.get(sessionId)!;
+        const transport = this.getOrCreateTransport(sessionId);
         await transport.handleRequest(req, res, req.body);
         return;
       }
@@ -158,40 +95,21 @@ class McpProxyServer {
 
       // Handle POST for new sessions or existing sessions
       if (req.method === 'POST') {
-        // Check if this is an existing session
-        if (sessionId && this.transports.has(sessionId)) {
-          const transport = this.transports.get(sessionId)!;
-          await transport.handleRequest(req, res, req.body);
-          return;
+        const transport = this.getOrCreateTransport(sessionId);
+
+        // Ensure transport is set up to handle incoming messages from Client
+        if (!transport.onmessage) {
+          transport.onmessage = (message: JSONRPCMessage) => {
+            this.forwardToExtension(message, transport.sessionId!);
+          };
         }
-
-        // New session - create transport
-        const transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => crypto.randomUUID(),
-          onsessioninitialized: (newSessionId) => {
-            this.transports.set(newSessionId, transport);
-            console.error(`New MCP session: ${newSessionId}`);
-          },
-        });
-
-        // Clean up on close
-        transport.onclose = () => {
-          const sid = transport.sessionId;
-          if (sid && this.transports.has(sid)) {
-            this.transports.delete(sid);
-            console.error(`MCP session closed: ${sid}`);
-          }
-        };
-
-        // Connect the MCP server to this transport
-        await this.mcpServer.connect(transport);
 
         // Handle the request
         await transport.handleRequest(req, res, req.body);
         return;
       }
-
       res.status(405).json({ error: 'Method not allowed' });
+      console.error(`[HTTP] Method not allowed: ${req.method}`);
     });
 
     app.listen(HTTP_PORT, () => {
@@ -199,327 +117,123 @@ class McpProxyServer {
     });
   }
 
+  // Helper to deduplicate transport creation logic
+  private getOrCreateTransport(sessionId?: string): StreamableHTTPServerTransport {
+    if (sessionId && this.transports.has(sessionId)) {
+      return this.transports.get(sessionId)!;
+    }
+
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => crypto.randomUUID(),
+      onsessioninitialized: (newSessionId) => {
+        this.transports.set(newSessionId, transport);
+        console.log(`[Session] Created new session: ${newSessionId}`);
+      },
+    });
+
+    transport.onclose = () => {
+      const sid = transport.sessionId;
+      if (sid && this.transports.has(sid)) {
+        this.transports.delete(sid);
+        console.log(`[Session] Closed session: ${sid}`);
+      }
+    };
+
+    return transport;
+  }
+
   private setupWebSocket() {
     if (!this.wss) return;
     this.wss.on('connection', (ws) => {
-      console.error('Extension connected');
+      console.log('[WS] Extension connected');
       this.activeConnection = ws;
 
       ws.on('message', (data) => {
         try {
-          const message = JSON.parse(data.toString());
-          this.handleExtensionMessage(message);
+          const message = JSON.parse(data.toString()) as JSONRPCMessage;
+          this.broadcastToClients(message);
         } catch (e) {
           console.error('Failed to parse extension message', e);
         }
       });
 
       ws.on('close', () => {
-        console.error('Extension disconnected');
+        console.log('[WS] Extension disconnected');
         this.activeConnection = null;
-        this.availableTools = [];
-        this.availableResources = [];
-        this.availablePrompts = [];
-        this.resetToolsPromise();
-        this.resetResourcesPromise();
-        this.resetPromptsPromise();
       });
 
-      // Request lists immediately on connection
-      this.requestToolList();
-      this.requestResourceList();
-      this.requestPromptList();
+      ws.on('error', (err) => {
+        console.error('[WS] Connection error:', err);
+      });
     });
   }
 
-  private requestToolList() {
-    if (this.activeConnection) {
-      this.activeConnection.send(JSON.stringify({ method: 'listTools' }));
+  private forwardToExtension(message: JSONRPCMessage, sessionId: string) {
+    if (this.activeConnection && this.activeConnection.readyState === WebSocket.OPEN) {
+      if ('id' in message && message.id !== undefined) {
+        // It's a Request (or Response? Client shouldn't send Response to Server usually, but safe to handle)
+        // We rewrite the ID to ensure uniqueness across all clients
+        const proxyId = crypto.randomUUID();
+        this.responseMap.set(proxyId, { sessionId, originalId: message.id });
+
+        // Clone message to avoid mutating original if passed by ref (though parsed JSON is fresh)
+        const rewrittenMessage = { ...message, id: proxyId };
+        this.activeConnection.send(JSON.stringify(rewrittenMessage));
+      } else {
+        // Notification - just forward
+        this.activeConnection.send(JSON.stringify(message));
+      }
+    } else {
+      console.error('Dropping message to extension (not connected):', message);
     }
   }
 
-  private requestResourceList() {
-    if (this.activeConnection) {
-      this.activeConnection.send(JSON.stringify({ method: 'listResources' }));
-    }
-  }
+  private broadcastToClients(message: JSONRPCMessage) {
+    if ('id' in message && message.id !== undefined) {
+      // It's a Response (from Extension)
+      // Look up who asked for it
+      const context = this.responseMap.get(message.id);
+      if (context) {
+        const { sessionId, originalId } = context;
+        this.responseMap.delete(message.id);
 
-  private requestPromptList() {
-    if (this.activeConnection) {
-      this.activeConnection.send(JSON.stringify({ method: 'listPrompts' }));
-    }
-  }
-
-  private handleExtensionMessage(message: Record<string, unknown>) {
-    if (message.method === 'toolsList') {
-      const params = message.params as { tools: Tool[] };
-      this.availableTools = params.tools;
-      console.error(
-        'Updated tools list from extension:',
-        this.availableTools.map((t) => t.name),
-      );
-
-      if (this.resolveTools) {
-        this.resolveTools();
-      }
-    } else if (message.method === 'resourcesList') {
-      const params = message.params as { resources: Resource[] };
-      this.availableResources = params.resources;
-      console.error(
-        'Updated resources list from extension:',
-        this.availableResources.map((r) => r.name),
-      );
-
-      if (this.resolveResources) {
-        this.resolveResources();
-      }
-    } else if (message.method === 'promptsList') {
-      const params = message.params as { prompts: Prompt[] };
-      this.availablePrompts = params.prompts;
-      console.error(
-        'Updated prompts list from extension:',
-        this.availablePrompts.map((p) => p.name),
-      );
-
-      if (this.resolvePrompts) {
-        this.resolvePrompts();
-      }
-    }
-  }
-
-  private async waitForTools(timeoutMs: number = 60000): Promise<void> {
-    if (this.availableTools.length > 0) return;
-
-    console.error('Waiting for tools...');
-
-    let timeoutHandle: NodeJS.Timeout;
-    const timeoutPromise = new Promise<void>((_, reject) => {
-      timeoutHandle = setTimeout(() => reject(new Error('Timeout waiting for tools')), timeoutMs);
-    });
-
-    try {
-      await Promise.race([this.toolsPromise, timeoutPromise]);
-    } finally {
-      clearTimeout(timeoutHandle!);
-    }
-  }
-
-  private async waitForResources(timeoutMs: number = 60000): Promise<void> {
-    if (this.availableResources.length > 0) return;
-
-    console.error('Waiting for resources...');
-
-    let timeoutHandle: NodeJS.Timeout;
-    const timeoutPromise = new Promise<void>((_, reject) => {
-      timeoutHandle = setTimeout(() => reject(new Error('Timeout waiting for resources')), timeoutMs);
-    });
-
-    try {
-      await Promise.race([this.resourcesPromise, timeoutPromise]);
-    } finally {
-      clearTimeout(timeoutHandle!);
-    }
-  }
-
-  private async waitForPrompts(timeoutMs: number = 60000): Promise<void> {
-    if (this.availablePrompts.length > 0) return;
-
-    console.error('Waiting for prompts...');
-
-    let timeoutHandle: NodeJS.Timeout;
-    const timeoutPromise = new Promise<void>((_, reject) => {
-      timeoutHandle = setTimeout(() => reject(new Error('Timeout waiting for prompts')), timeoutMs);
-    });
-
-    try {
-      await Promise.race([this.promptsPromise, timeoutPromise]);
-    } finally {
-      clearTimeout(timeoutHandle!);
-    }
-  }
-
-  private setupMcpHandlers() {
-    this.mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-      try {
-        await this.waitForTools();
-      } catch (e) {
-        console.error('Failed to wait for tools:', e);
-      }
-
-      return {
-        tools: this.availableTools,
-      };
-    });
-
-    this.mcpServer.setRequestHandler(ListResourcesRequestSchema, async () => {
-      try {
-        await this.waitForResources();
-      } catch (e) {
-        console.error('Failed to wait for resources:', e);
-      }
-
-      return {
-        resources: this.availableResources,
-      };
-    });
-
-    this.mcpServer.setRequestHandler(ListPromptsRequestSchema, async () => {
-      try {
-        await this.waitForPrompts();
-      } catch (e) {
-        console.error('Failed to wait for prompts:', e);
-      }
-
-      return {
-        prompts: this.availablePrompts,
-      };
-    });
-
-    this.mcpServer.setRequestHandler(GetPromptRequestSchema, async (request) => {
-      if (!this.activeConnection) {
-        throw new Error('Extension not connected');
-      }
-
-      return new Promise<GetPromptResult>((resolve, reject) => {
-        const id = Math.random().toString(36).substring(7);
-
-        const timeout = setTimeout(() => {
-          this.activeConnection?.removeListener('message', handleResponse);
-          reject(new Error('Get prompt timed out'));
-        }, 30000);
-
-        const handleResponse = (data: Buffer | ArrayBuffer | Buffer[]) => {
+        const transport = this.transports.get(sessionId);
+        if (transport) {
+          const restoredMessage = { ...message, id: originalId };
           try {
-            const message = JSON.parse(data.toString()) as { id?: string; error?: string; result?: GetPromptResult };
-            if (message.id === id) {
-              clearTimeout(timeout);
-              this.activeConnection?.removeListener('message', handleResponse);
-
-              if (message.error) {
-                reject(new Error(message.error));
-              } else if (message.result) {
-                resolve(message.result);
-              }
-            }
-          } catch (_e) {
-            // ignore
+            transport.send(restoredMessage);
+          } catch (e) {
+            console.error(`Failed to send response to session ${sessionId}:`, e);
           }
-        };
-
-        this.activeConnection?.on('message', handleResponse);
-
-        this.activeConnection?.send(
-          JSON.stringify({
-            id,
-            method: 'getPrompt',
-            params: {
-              name: request.params.name,
-              arguments: request.params.arguments,
-            },
-          }),
-        );
-      });
-    });
-
-    this.mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-      if (!this.activeConnection) {
-        throw new Error('Extension not connected');
+        } else {
+          console.error(`Session ${sessionId} not found for response ${originalId}`);
+        }
+      } else {
+        // Unknown ID? Might be a spontaneous request from Extension?
+        // If Extension acts as client, we might need to broadcast requests.
+        // But for now, assume Unmatched ID = Drop or Log
+        // If we support server-initiated requests (e.g. sampling), we just broadcast with original ID?
+        // For now, let's broadcast requests (method != undefined) and drop unmapped responses
+        if ('method' in message) {
+          this.broadcastToAll(message);
+        } else {
+          console.warn('Received response with unknown ID:', message.id);
+        }
       }
+    } else {
+      // Notification - broadcast to all
+      this.broadcastToAll(message);
+    }
+  }
 
-      return new Promise<ReadResourceResult>((resolve, reject) => {
-        const id = Math.random().toString(36).substring(7);
-
-        const timeout = setTimeout(() => {
-          this.activeConnection?.removeListener('message', handleResponse);
-          reject(new Error('Resource read timed out'));
-        }, 30000);
-
-        const handleResponse = (data: Buffer | ArrayBuffer | Buffer[]) => {
-          try {
-            const message = JSON.parse(data.toString()) as {
-              id?: string;
-              error?: string;
-              result?: { contents: ReadResourceResult['contents'] };
-            };
-            if (message.id === id) {
-              clearTimeout(timeout);
-              this.activeConnection?.removeListener('message', handleResponse);
-
-              if (message.error) {
-                reject(new Error(message.error));
-              } else if (message.result) {
-                resolve({
-                  contents: message.result.contents,
-                });
-              }
-            }
-          } catch (_e) {
-            // ignore
-          }
-        };
-
-        this.activeConnection?.on('message', handleResponse);
-
-        this.activeConnection?.send(
-          JSON.stringify({
-            id,
-            method: 'readResource',
-            params: {
-              uri: request.params.uri,
-            },
-          }),
-        );
-      });
-    });
-
-    this.mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-      if (!this.activeConnection) {
-        throw new Error('Extension not connected');
+  private broadcastToAll(message: JSONRPCMessage) {
+    for (const transport of this.transports.values()) {
+      try {
+        transport.send(message);
+      } catch (e) {
+        console.error('Failed to send to client transport:', e);
       }
-
-      return new Promise<CallToolResult>((resolve, reject) => {
-        const id = Math.random().toString(36).substring(7);
-
-        const timeout = setTimeout(() => {
-          this.activeConnection?.removeListener('message', handleResponse);
-          reject(new Error('Tool execution timed out'));
-        }, 30000);
-
-        const handleResponse = (data: Buffer | ArrayBuffer | Buffer[]) => {
-          try {
-            const message = JSON.parse(data.toString()) as { id?: string; error?: string; result?: CallToolResult };
-            if (message.id === id) {
-              clearTimeout(timeout);
-              this.activeConnection?.removeListener('message', handleResponse);
-
-              if (message.error) {
-                resolve({
-                  content: [{ type: 'text', text: `Error: ${message.error}` }],
-                  isError: true,
-                });
-              } else if (message.result) {
-                resolve(message.result);
-              }
-            }
-          } catch (_e) {
-            // ignore other messages
-          }
-        };
-
-        this.activeConnection?.on('message', handleResponse);
-
-        this.activeConnection?.send(
-          JSON.stringify({
-            id,
-            method: 'callTool',
-            params: {
-              name: request.params.name,
-              arguments: request.params.arguments,
-            },
-          }),
-        );
-      });
-    });
+    }
   }
 }
 
