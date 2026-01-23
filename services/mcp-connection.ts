@@ -36,8 +36,43 @@ class McpConnectionService {
   private isEnabled = true;
 
   // Signals for UI
-  public status = new Signal.State<ConnectionStatus>('disconnected');
-  public error = new Signal.State<string | null>(null);
+  private _status = new Signal.State<ConnectionStatus>('disconnected');
+  private _error = new Signal.State<string | null>(null);
+
+  private statusListeners: ((status: ConnectionStatus) => void)[] = [];
+  private errorListeners: ((error: string | null) => void)[] = [];
+
+  get status() {
+    return this._status;
+  }
+
+  get error() {
+    return this._error;
+  }
+
+  public onStatusChange(callback: (status: ConnectionStatus) => void) {
+    this.statusListeners.push(callback);
+    callback(this._status.get()); // Initial call
+  }
+
+  public onErrorChange(callback: (error: string | null) => void) {
+    this.errorListeners.push(callback);
+    callback(this._error.get()); // Initial call
+  }
+
+  private setStatus(status: ConnectionStatus) {
+    this._status.set(status);
+    this.statusListeners.forEach((cb) => {
+      cb(status);
+    });
+  }
+
+  private setError(error: string | null) {
+    this._error.set(error);
+    this.errorListeners.forEach((cb) => {
+      cb(error);
+    });
+  }
 
   // Tool Registry
   private tools: Map<string, { tool: Tool; handler: (args: Record<string, unknown>) => Promise<CallToolResult> }> =
@@ -75,17 +110,17 @@ class McpConnectionService {
   private connect() {
     if (!this.isEnabled || this.status.get() === 'connected' || this.status.get() === 'connecting') return;
 
-    this.status.set('connecting');
-    this.error.set(null);
+    this.setStatus('connecting');
+    this.setError(null);
 
     try {
       this.ws = new WebSocket('ws://localhost:3003');
 
       this.ws.onopen = () => {
         console.log('MCP: Connected');
-        this.status.set('connected');
+        this.setStatus('connected');
         this.attempt = 0;
-        this.error.set(null);
+        this.setError(null);
         // Send lists immediately
         this.sendToolsList();
         this.sendResourcesList();
@@ -97,14 +132,14 @@ class McpConnectionService {
 
       this.ws.onclose = () => {
         console.log('MCP: Disconnected');
-        this.status.set('disconnected');
+        this.setStatus('disconnected');
         this.stopKeepAlive();
         this.scheduleReconnect();
       };
 
       this.ws.onerror = (e) => {
         console.error('MCP: Connection error', e);
-        this.error.set('Connection failed');
+        this.setError('Connection failed');
         // onclose will be called after onerror usually
       };
 
@@ -118,7 +153,7 @@ class McpConnectionService {
       };
     } catch (e) {
       console.error('MCP: Failed to create WebSocket', e);
-      this.status.set('error');
+      this.setStatus('error');
       this.scheduleReconnect();
     }
   }
@@ -133,7 +168,7 @@ class McpConnectionService {
       this.ws.close();
       this.ws = null;
     }
-    this.status.set('disconnected');
+    this.setStatus('disconnected');
   }
 
   private startKeepAlive() {

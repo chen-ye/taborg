@@ -4,6 +4,7 @@ import { SignalArray } from 'signal-utils/array';
 import { SignalMap } from 'signal-utils/map';
 import { SignalSet } from 'signal-utils/set';
 import { browserService } from './browser-service';
+import { suggestionService } from './suggestion-service';
 
 // Polyfill Signal for @lit-labs/signals if not present
 if (!(globalThis as any).Signal) {
@@ -244,8 +245,7 @@ export class TabStore {
   }
 
   private async loadSuggestions(): Promise<Map<string, string[]>> {
-    const result = await chrome.storage.local.get('tab-suggestions');
-    const suggestionsByUrl = (result['tab-suggestions'] as Record<string, string[]>) || {};
+    const suggestionsByUrl = await suggestionService.getAllSuggestions();
     const loadedMap = new Map<string, string[]>();
     for (const url in suggestionsByUrl) {
       // Sort suggestions alphabetically
@@ -293,12 +293,9 @@ export class TabStore {
       // Sort alphabetically
       const sortedSuggestions = suggestions.sort((a, b) => a.localeCompare(b));
       this.suggestionsUrlMap.set(url, sortedSuggestions);
+      await suggestionService.setSuggestions(url, sortedSuggestions);
     }
     console.log('Updated suggestionsUrlMap:', this.suggestionsUrlMap);
-
-    // Save to storage
-    const suggestionsByUrlObj = Object.fromEntries(this.suggestionsUrlMap.entries());
-    await chrome.storage.local.set({ 'tab-suggestions': suggestionsByUrlObj });
   }
 
   async fetchAll() {
@@ -408,15 +405,17 @@ export class TabStore {
     chrome.windows.onRemoved.addListener(debouncedRefresh);
     chrome.windows.onFocusChanged.addListener(debouncedRefresh);
 
+    // Subscribe to suggestion changes using the service
+    suggestionService.onChanged((map) => {
+      this.suggestionsUrlMap.clear();
+      for (const [key, value] of Object.entries(map)) {
+        this.suggestionsUrlMap.set(key, value);
+      }
+      this.fetchAll();
+    });
+
     // Listen for storage changes (e.g. from background script)
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName === 'local' && changes['tab-suggestions']) {
-        this.loadSuggestions().then((map) => {
-          this.suggestionsUrlMap.clear();
-          for (const [key, value] of map) this.suggestionsUrlMap.set(key, value);
-          this.fetchAll();
-        });
-      }
       if (areaName === 'local' && changes['window-names']) {
         this.loadWindowNames().then((map) => {
           this.windowNames.clear();
@@ -653,8 +652,7 @@ export class TabStore {
       this.suggestionsUrlMap.delete(tab.url);
       console.log('Cleared suggestionsUrlMap for url:', tab.url, this.suggestionsUrlMap);
 
-      const suggestionsByUrl = Object.fromEntries(this.suggestionsUrlMap.entries());
-      await chrome.storage.local.set({ 'tab-suggestions': suggestionsByUrl });
+      await suggestionService.removeSuggestions(tab.url);
     }
   }
 

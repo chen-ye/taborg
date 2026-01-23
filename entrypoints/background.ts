@@ -1,6 +1,7 @@
 import { browserService } from '../services/browser-service.js';
 import { geminiService } from '../services/gemini.js';
-import { mcpService } from '../services/mcp-connection.ts';
+import { mcpService } from '../services/mcp-connection.js';
+import { suggestionService } from '../services/suggestion-service.js';
 
 export const main = () => {
   // Create offscreen document to watch for theme changes
@@ -68,14 +69,7 @@ export const main = () => {
 
           if (suggestions.has(tabId)) {
             const newSuggestions = suggestions.get(tabId) || [];
-
-            // Update storage
-            const result = await chrome.storage.local.get('tab-suggestions');
-            const suggestionsByUrl = (result['tab-suggestions'] as Record<string, string[]>) || {};
-
-            suggestionsByUrl[tab.url] = newSuggestions;
-
-            await chrome.storage.local.set({ 'tab-suggestions': suggestionsByUrl });
+            await suggestionService.setSuggestions(tab.url, newSuggestions);
           }
         } catch (e) {
           console.error('Auto-suggest failed', e);
@@ -118,6 +112,26 @@ export const main = () => {
   initializeMcpTools();
   initializeMcpResources();
   initializeMcpPrompts();
+  mcpService.onStatusChange((status) => {
+    chrome.storage.session.set({ mcpStatus: status });
+    updateBadge(); // Update badge on status change too
+  });
+
+  mcpService.onErrorChange((error) => {
+    chrome.storage.session.set({ mcpError: error });
+  });
+
+  // Handle MCP messages from sidepanel
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'MCP_CONNECT') {
+      mcpService.setEnabled(true);
+    } else if (message.type === 'MCP_DISCONNECT') {
+      mcpService.setEnabled(false);
+    } else if (message.type === 'MCP_RETRY') {
+      mcpService.retryConnection();
+    }
+  });
+
   mcpService.init();
 };
 
@@ -425,12 +439,9 @@ function initializeMcpTools() {
       const typedArgs = args as { tabId: number; tabSuggestions: string[] };
       const tab = await browserService.getTab(typedArgs.tabId);
 
-      const result = await chrome.storage.local.get('tab-suggestions');
-      const suggestionsByUrl = (result['tab-suggestions'] as Record<string, string[]>) || {};
-
-      suggestionsByUrl[tab.url] = typedArgs.tabSuggestions;
-
-      await chrome.storage.local.set({ 'tab-suggestions': suggestionsByUrl });
+      if (tab.url) {
+        await suggestionService.setSuggestions(tab.url, typedArgs.tabSuggestions);
+      }
 
       return {
         content: [
@@ -440,6 +451,54 @@ function initializeMcpTools() {
           },
         ],
       };
+    },
+  );
+
+  mcpService.registerTool(
+    {
+      name: 'get_suggestions',
+      description: 'Get existing category suggestions for a specific tab',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          tabId: { type: 'number', description: 'The ID of the tab to get suggestions for' },
+        },
+        required: ['tabId'],
+      },
+    },
+    async (args) => {
+      const typedArgs = args as { tabId: number };
+
+      try {
+        const tab = await browserService.getTab(typedArgs.tabId);
+        if (!tab.url) {
+          return {
+            content: [{ type: 'text', text: JSON.stringify({ suggestions: [] }, null, 2) }],
+          };
+        }
+
+        const suggestions = await suggestionService.getSuggestions(tab.url);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ suggestions }, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        // If tab not found or other error, return empty suggestions or error
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: `Error getting suggestions: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
     },
   );
 }

@@ -2,7 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { geminiService } from '../services/gemini.js';
-import { type ConnectionStatus, mcpService } from '../services/mcp-connection.js';
+import type { ConnectionStatus } from '../services/mcp-connection.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -43,6 +43,9 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   @state() private predefinedGroups = '';
   @state() private mcpEnabled = true;
 
+  @state() private mcpStatus: ConnectionStatus = 'disconnected';
+  @state() private mcpError: string | null = null;
+
   @query('sl-dialog') dialog!: SlDialog;
   @query('#api-key-input') apiKeyInput!: SlInput;
   @query('#predefined-groups-input') predefinedGroupsInput!: SlInput;
@@ -58,11 +61,13 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     }
     await this.loadPredefinedGroups();
     this.loadMcpSettings();
+    this.startObservingMcp();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('open-settings', this.handleOpenSettings);
+    chrome.storage.onChanged.removeListener(this.handleStorageChange);
   }
 
   private async loadPredefinedGroups() {
@@ -76,8 +81,27 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private async loadMcpSettings() {
     const result = await chrome.storage.sync.get('mcp-enabled');
     this.mcpEnabled = result['mcp-enabled'] !== false; // Default to true
-    mcpService.setEnabled(this.mcpEnabled);
   }
+
+  private async startObservingMcp() {
+    // Initial fetch
+    const session = await chrome.storage.session.get(['mcpStatus', 'mcpError']);
+    if (session.mcpStatus) this.mcpStatus = session.mcpStatus as ConnectionStatus;
+    if (session.mcpError) this.mcpError = session.mcpError as string;
+
+    chrome.storage.onChanged.addListener(this.handleStorageChange);
+  }
+
+  private handleStorageChange = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
+    if (areaName === 'session') {
+      if (changes.mcpStatus) {
+        this.mcpStatus = changes.mcpStatus.newValue as ConnectionStatus;
+      }
+      if (changes.mcpError) {
+        this.mcpError = changes.mcpError.newValue as string | null;
+      }
+    }
+  };
 
   private handleOpenSettings = () => {
     this.open = true;
@@ -105,14 +129,16 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     // Save MCP settings
     const mcpEnabled = this.mcpEnabledSwitch.checked;
     await chrome.storage.sync.set({ 'mcp-enabled': mcpEnabled });
-    mcpService.setEnabled(mcpEnabled);
+
+    // Notify background
+    chrome.runtime.sendMessage({ type: mcpEnabled ? 'MCP_CONNECT' : 'MCP_DISCONNECT' });
 
     this.open = false;
     alert('Settings saved!');
   }
 
   private handleRetryMcp() {
-    mcpService.retryConnection();
+    chrome.runtime.sendMessage({ type: 'MCP_RETRY' });
   }
 
   private getStatusColor(status: ConnectionStatus) {
@@ -129,9 +155,6 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   }
 
   render() {
-    const mcpStatus = mcpService.status.get();
-    const mcpError = mcpService.error.get();
-
     return html`
       <sl-dialog label="Settings" ?open=${this.open} @sl-after-hide=${() => {
         this.open = false;
@@ -163,18 +186,18 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
           <div class="status-row">
             <sl-switch id="mcp-enabled-switch" ?checked=${this.mcpEnabled}>Enable MCP Server</sl-switch>
-             <sl-badge variant=${this.getStatusColor(mcpStatus)}>${mcpStatus}</sl-badge>
+             <sl-badge variant=${this.getStatusColor(this.mcpStatus)}>${this.mcpStatus}</sl-badge>
           </div>
 
           ${
-            mcpStatus === 'disconnected' || mcpStatus === 'error'
+            this.mcpStatus === 'disconnected' || this.mcpStatus === 'error'
               ? html`
              <sl-button size="small" variant="default" @click=${this.handleRetryMcp} ?disabled=${!this.mcpEnabled}>Reconnect Now</sl-button>
           `
               : ''
           }
 
-          ${mcpError ? html`<div style="color: var(--sl-color-danger-600); font-size: var(--sl-font-size-small);">${mcpError}</div>` : ''}
+          ${this.mcpError ? html`<div style="color: var(--sl-color-danger-600); font-size: var(--sl-font-size-small);">${this.mcpError}</div>` : ''}
 
         </div>
         <div slot="footer">
