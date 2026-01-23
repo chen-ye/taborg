@@ -12,8 +12,17 @@ export class SuggestionService {
   }
 
   async setSuggestions(url: string, suggestions: string[]): Promise<void> {
+    await this.setAllSuggestions({ [url]: suggestions });
+  }
+
+  async setAllSuggestions(map: Record<string, string[]>): Promise<void> {
     const all = await this.getAllSuggestions();
-    all[url] = suggestions;
+    // Merge new map into existing suggestions with deduplication
+    for (const [url, newSuggestions] of Object.entries(map)) {
+      const existing = all[url] || [];
+      const combined = new Set([...existing, ...newSuggestions]);
+      all[url] = Array.from(combined).sort((a, b) => a.localeCompare(b));
+    }
     await chrome.storage.local.set({ [this.STORAGE_KEY]: all });
   }
 

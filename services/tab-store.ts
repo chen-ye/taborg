@@ -6,11 +6,6 @@ import { SignalSet } from 'signal-utils/set';
 import { browserService } from './browser-service';
 import { suggestionService } from './suggestion-service';
 
-// Polyfill Signal for @lit-labs/signals if not present
-if (!(globalThis as any).Signal) {
-  (globalThis as any).Signal = Signal;
-}
-
 export interface TabNode {
   id: number;
   title: string;
@@ -288,20 +283,22 @@ export class TabStore {
   }
 
   async setSuggestions(suggestionsByUrl: Map<string, string[]>) {
+    const changes: Record<string, string[]> = {};
     // Upsert URL map with sorted suggestions
     for (const [url, suggestions] of suggestionsByUrl.entries()) {
       // Sort alphabetically
       const sortedSuggestions = suggestions.sort((a, b) => a.localeCompare(b));
       this.suggestionsUrlMap.set(url, sortedSuggestions);
-      await suggestionService.setSuggestions(url, sortedSuggestions);
+      changes[url] = sortedSuggestions;
     }
+    await suggestionService.setAllSuggestions(changes);
     console.log('Updated suggestionsUrlMap:', this.suggestionsUrlMap);
   }
 
   async fetchAll() {
     console.log('fetch-all');
     const [windows, tabs, groups] = await Promise.all([
-      chrome.windows.getAll(),
+      browserService.getWindows(),
       browserService.getTabs(),
       browserService.getGroups(),
     ]);
@@ -322,14 +319,12 @@ export class TabStore {
 
     const windowMap = new Map<number, WindowNode>();
     windows.forEach((w) => {
-      if (w.id !== undefined) {
-        windowMap.set(w.id, {
-          id: w.id,
-          focused: w.focused,
-          tabs: [],
-          groups: [],
-        });
-      }
+      windowMap.set(w.id, {
+        id: w.id,
+        focused: w.focused,
+        tabs: [],
+        groups: [],
+      });
     });
 
     for (const t of tabs) {
@@ -385,9 +380,7 @@ export class TabStore {
 
     chrome.tabs.onCreated.addListener(debouncedRefresh);
 
-    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-      debouncedRefresh();
-    });
+    chrome.tabs.onUpdated.addListener(debouncedRefresh);
 
     chrome.tabs.onActivated.addListener(debouncedRefresh);
     // ... other listeners

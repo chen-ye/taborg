@@ -216,6 +216,19 @@ function initializeMcpResources() {
       return [{ uri: 'taborg://groups', mimeType: 'application/json', text: JSON.stringify(groupData, null, 2) }];
     },
   );
+
+  mcpService.registerResource(
+    {
+      uri: 'taborg://windows',
+      name: 'Browser Windows',
+      description: 'List of all open browser windows with their dimensions and state',
+      mimeType: 'application/json',
+    },
+    async () => {
+      const windows = await browserService.getWindows();
+      return [{ uri: 'taborg://windows', mimeType: 'application/json', text: JSON.stringify(windows, null, 2) }];
+    },
+  );
 }
 function initializeMcpTools() {
   mcpService.registerTool(
@@ -504,6 +517,56 @@ function initializeMcpTools() {
           ],
         };
       }
+    },
+  );
+
+  mcpService.registerTool(
+    {
+      name: 'list_windows',
+      description: 'List all open browser windows',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    async () => {
+      const windows = await browserService.getWindows();
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(windows, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  mcpService.registerTool(
+    {
+      name: 'move_tab_group',
+      description: 'Move a tab group to a specific window and optional index.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          groupId: { type: 'number', description: 'The ID of the group to move' },
+          windowId: { type: 'number', description: 'The target window ID' },
+          index: { type: 'number', description: 'Optional index in the target window' },
+        },
+        required: ['groupId', 'windowId'],
+      },
+    },
+    async (args) => {
+      const typedArgs = args as { groupId: number; windowId: number; index?: number };
+      await browserService.moveGroup(typedArgs.groupId, typedArgs.windowId, typedArgs.index ?? -1);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ success: true }, null, 2),
+          },
+        ],
+      };
     },
   );
 }

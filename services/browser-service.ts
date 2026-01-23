@@ -17,6 +17,17 @@ export interface GroupInfo {
   collapsed: boolean;
 }
 
+export interface WindowInfo {
+  id: number;
+  focused: boolean;
+  state?: string;
+  type?: string;
+  width?: number;
+  height?: number;
+  top?: number;
+  left?: number;
+}
+
 export function assertNonEmptyArray<T>(arr: T[]): asserts arr is [T, ...T[]] {
   if (arr.length === 0) {
     throw new Error('Array cannot be empty');
@@ -46,6 +57,20 @@ export class BrowserService {
       color: g.color,
       windowId: g.windowId,
       collapsed: g.collapsed,
+    }));
+  }
+
+  async getWindows(): Promise<WindowInfo[]> {
+    const windows = await chrome.windows.getAll({ populate: false });
+    return windows.map((w) => ({
+      id: w.id!,
+      focused: w.focused,
+      state: w.state,
+      type: w.type,
+      width: w.width,
+      height: w.height,
+      top: w.top,
+      left: w.left,
     }));
   }
 
