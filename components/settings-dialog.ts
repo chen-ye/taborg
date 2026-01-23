@@ -1,13 +1,17 @@
-import { LitElement, html, css } from 'lit';
-import { customElement, state, query } from 'lit/decorators.js';
+import { SignalWatcher } from '@lit-labs/signals';
+import { css, html, LitElement } from 'lit';
+import { customElement, query, state } from 'lit/decorators.js';
 import { geminiService } from '../services/gemini.js';
+import { type ConnectionStatus, mcpService } from '../services/mcp-connection.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
-import type { SlDialog, SlInput } from '@shoelace-style/shoelace';
+import '@shoelace-style/shoelace/dist/components/switch/switch.js';
+import '@shoelace-style/shoelace/dist/components/badge/badge.js';
+import type { SlDialog, SlInput, SlSwitch } from '@shoelace-style/shoelace';
 
 @customElement('settings-dialog')
-export class SettingsDialog extends LitElement {
+export class SettingsDialog extends SignalWatcher(LitElement) {
   static styles = css`
     :host {
       display: block;
@@ -18,21 +22,42 @@ export class SettingsDialog extends LitElement {
       flex-direction: column;
       gap: var(--sl-spacing-medium);
     }
+
+    .section-title {
+        font-size: var(--sl-font-size-medium);
+        font-weight: var(--sl-font-weight-semibold);
+        margin-bottom: var(--sl-spacing-x-small);
+        color: var(--sl-color-neutral-700);
+    }
+
+    .status-row {
+        display: flex;
+        align-items: center;
+        gap: var(--sl-spacing-medium);
+        justify-content: space-between;
+    }
   `;
 
   @state() private open = false;
   @state() private apiKey = '';
   @state() private predefinedGroups = '';
+  @state() private mcpEnabled = true;
 
   @query('sl-dialog') dialog!: SlDialog;
   @query('#api-key-input') apiKeyInput!: SlInput;
   @query('#predefined-groups-input') predefinedGroupsInput!: SlInput;
+  @query('#mcp-enabled-switch') mcpEnabledSwitch!: SlSwitch;
 
   async connectedCallback() {
     super.connectedCallback();
     window.addEventListener('open-settings', this.handleOpenSettings);
     await geminiService.loadApiKey();
+    const result = await chrome.storage.sync.get('geminiApiKey');
+    if (result.geminiApiKey) {
+      this.apiKey = '****************';
+    }
     await this.loadPredefinedGroups();
+    this.loadMcpSettings();
   }
 
   disconnectedCallback() {
@@ -48,6 +73,12 @@ export class SettingsDialog extends LitElement {
     }
   }
 
+  private async loadMcpSettings() {
+    const result = await chrome.storage.sync.get('mcp-enabled');
+    this.mcpEnabled = result['mcp-enabled'] !== false; // Default to true
+    mcpService.setEnabled(this.mcpEnabled);
+  }
+
   private handleOpenSettings = () => {
     this.open = true;
   };
@@ -58,7 +89,7 @@ export class SettingsDialog extends LitElement {
 
   private async handleSave() {
     const key = this.apiKeyInput.value.trim();
-    if (key) {
+    if (key && key !== '****************') {
       await geminiService.setApiKey(key);
     }
 
@@ -66,19 +97,47 @@ export class SettingsDialog extends LitElement {
     const groupsText = this.predefinedGroupsInput.value.trim();
     const groups = groupsText
       .split(',')
-      .map(g => g.trim())
-      .filter(g => g.length > 0);
+      .map((g) => g.trim())
+      .filter((g) => g.length > 0);
 
     await chrome.storage.sync.set({ 'predefined-groups': groups });
+
+    // Save MCP settings
+    const mcpEnabled = this.mcpEnabledSwitch.checked;
+    await chrome.storage.sync.set({ 'mcp-enabled': mcpEnabled });
+    mcpService.setEnabled(mcpEnabled);
 
     this.open = false;
     alert('Settings saved!');
   }
 
+  private handleRetryMcp() {
+    mcpService.retryConnection();
+  }
+
+  private getStatusColor(status: ConnectionStatus) {
+    switch (status) {
+      case 'connected':
+        return 'success';
+      case 'connecting':
+        return 'warning';
+      case 'error':
+        return 'danger';
+      case 'disconnected':
+        return 'neutral';
+    }
+  }
+
   render() {
+    const mcpStatus = mcpService.status.get();
+    const mcpError = mcpService.error.get();
+
     return html`
-      <sl-dialog label="Settings" ?open=${this.open} @sl-after-hide=${() => this.open = false}>
+      <sl-dialog label="Settings" ?open=${this.open} @sl-after-hide=${() => {
+        this.open = false;
+      }}>
         <div class="content">
+          <div class="section-title">Gemini API</div>
           <p>Enter your <a href="https://aistudio.google.com/app/api-keys">Gemini API Key</a> to enable auto-organization features.</p>
           <sl-input
             id="api-key-input"
@@ -86,6 +145,7 @@ export class SettingsDialog extends LitElement {
             type="password"
             placeholder="AIza..."
             password-toggle
+            value=${this.apiKey}
           ></sl-input>
 
           <sl-input
@@ -95,6 +155,27 @@ export class SettingsDialog extends LitElement {
             value=${this.predefinedGroups}
             help-text="These group names will always be suggested as existing groups"
           ></sl-input>
+
+          <div class="divider"></div>
+
+          <div class="section-title">MCP Server</div>
+          <p>Expose tab manipulation to LLMs via local MCP server (requires helper script).</p>
+
+          <div class="status-row">
+            <sl-switch id="mcp-enabled-switch" ?checked=${this.mcpEnabled}>Enable MCP Server</sl-switch>
+             <sl-badge variant=${this.getStatusColor(mcpStatus)}>${mcpStatus}</sl-badge>
+          </div>
+
+          ${
+            mcpStatus === 'disconnected' || mcpStatus === 'error'
+              ? html`
+             <sl-button size="small" variant="default" @click=${this.handleRetryMcp} ?disabled=${!this.mcpEnabled}>Reconnect Now</sl-button>
+          `
+              : ''
+          }
+
+          ${mcpError ? html`<div style="color: var(--sl-color-danger-600); font-size: var(--sl-font-size-small);">${mcpError}</div>` : ''}
+
         </div>
         <div slot="footer">
           <sl-button variant="primary" @click=${this.handleSave}>Save</sl-button>

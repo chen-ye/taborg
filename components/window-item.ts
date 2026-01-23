@@ -1,7 +1,7 @@
-import { LitElement, html, css } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { WindowNode, GroupNode, tabStore } from '../services/tab-store.js';
 import { geminiService } from '../services/gemini.js';
+import { type GroupNode, tabStore, type WindowNode } from '../services/tab-store.js';
 import { toast } from '../services/toast.js';
 import { dropTargetStyles } from './shared-styles.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
@@ -87,7 +87,7 @@ export class WindowItem extends LitElement {
       sl-tooltip {
         text-transform: none;
       }
-    `
+    `,
   ];
 
   @property({ type: Object }) window!: WindowNode;
@@ -96,7 +96,8 @@ export class WindowItem extends LitElement {
   @state() private isEditing = false;
 
   render() {
-    const tabCount = this.window.tabs.length + this.window.groups.reduce((acc: number, g: GroupNode) => acc + g.tabs.length, 0);
+    const tabCount =
+      this.window.tabs.length + this.window.groups.reduce((acc: number, g: GroupNode) => acc + g.tabs.length, 0);
     const displayName = tabStore.windowNames.get(this.window.id) || `Window ${this.window.id}`;
 
     return html`
@@ -111,8 +112,9 @@ export class WindowItem extends LitElement {
         @dragleave=${this.handleDragLeave}
       >
         <div class="left">
-          ${this.isEditing
-            ? html`
+          ${
+            this.isEditing
+              ? html`
               <sl-input
                 class="name-input"
                 size="small"
@@ -123,7 +125,7 @@ export class WindowItem extends LitElement {
                 autofocus
               ></sl-input>
             `
-            : html`
+              : html`
               <span class="window-name" @dblclick=${this.startEditing}>
                 ${displayName} ${this.window.focused ? '(Current)' : ''}
               </span>
@@ -136,9 +138,10 @@ export class WindowItem extends LitElement {
         </div>
 
         <div class="controls">
-          ${this.generatingName
-            ? html`<sl-spinner style="font-size: var(--sl-font-size-medium); --track-width: 2px;"></sl-spinner>`
-            : html`
+          ${
+            this.generatingName
+              ? html`<sl-spinner style="font-size: var(--sl-font-size-medium); --track-width: 2px;"></sl-spinner>`
+              : html`
               <sl-tooltip content="Rename Window">
                 <sl-icon-button
                   name="pencil"
@@ -204,10 +207,7 @@ export class WindowItem extends LitElement {
 
     try {
       // Collect all tabs and groups in this window
-      const allTabs = [
-        ...this.window.tabs,
-        ...this.window.groups.flatMap((g: GroupNode) => g.tabs)
-      ];
+      const allTabs = [...this.window.tabs, ...this.window.groups.flatMap((g: GroupNode) => g.tabs)];
 
       const groupNames = this.window.groups.reduce((acc: string[], g: GroupNode) => {
         if (g.title) {
@@ -217,8 +217,8 @@ export class WindowItem extends LitElement {
       }, []);
 
       const name = await geminiService.generateWindowName(
-        allTabs.map(t => ({ title: t.title, url: t.url })),
-        groupNames
+        allTabs.map((t) => ({ title: t.title, url: t.url })),
+        groupNames,
       );
 
       if (name) {
@@ -303,11 +303,13 @@ export class WindowItem extends LitElement {
     } else if (dragging.type === 'group') {
       await tabStore.moveGroupToWindow(dragging.id, this.window.id);
     } else if (dragging.type === 'window') {
-      this.dispatchEvent(new CustomEvent('merge-request', {
-        detail: { type: 'merge-windows', sourceId: dragging.id, targetId: this.window.id },
-        bubbles: true,
-        composed: true
-      }));
+      this.dispatchEvent(
+        new CustomEvent('merge-request', {
+          detail: { type: 'merge-windows', sourceId: dragging.id, targetId: this.window.id },
+          bubbles: true,
+          composed: true,
+        }),
+      );
     }
 
     tabStore.draggingState.set(null); // Clear state

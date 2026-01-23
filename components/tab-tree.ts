@@ -1,8 +1,8 @@
-import { LitElement, html, css } from 'lit';
+import { SignalWatcher } from '@lit-labs/signals';
+import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { tabStore, WindowNode, GroupNode, TabNode } from '../services/tab-store.js';
-import { SignalWatcher } from '@lit-labs/signals';
+import { type GroupNode, type TabNode, tabStore } from '../services/tab-store.js';
 import './tab-item';
 import './group-item';
 import './window-item';
@@ -62,7 +62,7 @@ export class TabTree extends SignalWatcher(LitElement) {
     } */
   `;
 
-  @state() private pendingMerge: { type: string, sourceId: number, targetId: number } | null = null;
+  @state() private pendingMerge: { type: string; sourceId: number; targetId: number } | null = null;
 
   @property({ type: String, reflect: true, attribute: 'dragging-type' })
   draggingType: string | null = null;
@@ -81,7 +81,10 @@ export class TabTree extends SignalWatcher(LitElement) {
         @sl-selection-change=${this.handleTreeSelectionChange}
         @merge-request=${this.handleMergeRequest}
       >
-        ${repeat(tabStore.sortedWindows.get(), (window) => window.id, (window) => html`
+        ${repeat(
+          tabStore.sortedWindows.get(),
+          (window) => window.id,
+          (window) => html`
           <sl-tree-item
             ?expanded=${this.draggingType ? true : !tabStore.collapsedWindowIds.has(window.id)}
             ?data-temp-expanded=${this.draggingType && tabStore.collapsedWindowIds.has(window.id)}
@@ -94,7 +97,10 @@ export class TabTree extends SignalWatcher(LitElement) {
           >
             <window-item .window=${window}></window-item>
 
-            ${repeat(window.groups, (group: GroupNode) => group.id, (group: GroupNode) => html`
+            ${repeat(
+              window.groups,
+              (group: GroupNode) => group.id,
+              (group: GroupNode) => html`
               <sl-tree-item
                 ?expanded=${!group.collapsed}
                 ?selected=${group.tabs.every((t: TabNode) => tabStore.selectedTabIds.has(t.id))}
@@ -110,7 +116,10 @@ export class TabTree extends SignalWatcher(LitElement) {
                   @group-close=${this.handleGroupClose}
                 ></group-item>
 
-                ${repeat(group.tabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
+                ${repeat(
+                  group.tabs,
+                  (tab: TabNode) => tab.id,
+                  (tab: TabNode) => html`
                   <sl-tree-item
                     ?selected=${tabStore.selectedTabIds.has(tab.id)}
                     data-id=${tab.id}
@@ -124,11 +133,16 @@ export class TabTree extends SignalWatcher(LitElement) {
                       @tab-move-to-group=${this.handleMoveToGroup}
                     ></tab-item>
                   </sl-tree-item>
-                `)}
+                `,
+                )}
               </sl-tree-item>
-            `)}
+            `,
+            )}
 
-            ${repeat(window.tabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
+            ${repeat(
+              window.tabs,
+              (tab: TabNode) => tab.id,
+              (tab: TabNode) => html`
               <sl-tree-item
                 ?selected=${tabStore.selectedTabIds.has(tab.id)}
                 data-id=${tab.id}
@@ -142,15 +156,21 @@ export class TabTree extends SignalWatcher(LitElement) {
                   @tab-move-to-group=${this.handleMoveToGroup}
                 ></tab-item>
               </sl-tree-item>
-            `)}
+            `,
+            )}
           </sl-tree-item>
-        `)}
+        `,
+        )}
       </sl-tree>
 
       <sl-dialog label="Confirm Merge" class="merge-dialog">
-        ${this.pendingMerge ? html`
+        ${
+          this.pendingMerge
+            ? html`
           Are you sure you want to merge these ${this.pendingMerge.type === 'merge-groups' ? 'groups' : 'windows'}?
-        ` : ''}
+        `
+            : ''
+        }
         <sl-button slot="footer" variant="primary" @click=${this.confirmMerge}>Merge</sl-button>
         <sl-button slot="footer" variant="default" @click=${this.cancelMerge}>Cancel</sl-button>
       </sl-dialog>
@@ -174,7 +194,7 @@ export class TabTree extends SignalWatcher(LitElement) {
         // Find the tree item for the active tab
         const treeItem = this.shadowRoot?.querySelector(`sl-tree-item[data-id="${activeTabId}"][data-type="tab"]`);
         if (treeItem) {
-           treeItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          treeItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }
       }
     }
@@ -213,7 +233,7 @@ export class TabTree extends SignalWatcher(LitElement) {
 
     // Reset all selection first (or we could diff, but this is simpler for now)
     const newSelection = new Set<number>();
-    selectedItems.forEach(item => {
+    selectedItems.forEach((item) => {
       const id = Number(item.getAttribute('data-id'));
       const type = item.getAttribute('data-type');
 
@@ -288,11 +308,13 @@ export class TabTree extends SignalWatcher(LitElement) {
   }
 
   private emitSelectionChange() {
-    this.dispatchEvent(new CustomEvent('selection-change', {
-      detail: { count: tabStore.selectedTabIds.size },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('selection-change', {
+        detail: { count: tabStore.selectedTabIds.size },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private handleWindowExpand(evt: CustomEvent, windowId: number) {

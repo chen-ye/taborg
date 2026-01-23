@@ -1,8 +1,8 @@
-import { LitElement, html, css } from 'lit';
+import { SignalWatcher } from '@lit-labs/signals';
+import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { tabStore, TabNode } from '../services/tab-store.js';
-import { SignalWatcher } from '@lit-labs/signals';
+import { type TabNode, tabStore } from '../services/tab-store.js';
 import './tab-item';
 
 @customElement('similar-pane')
@@ -23,14 +23,18 @@ export class SimilarPane extends SignalWatcher(LitElement) {
     }
 
     return html`
-      ${repeat(similarTabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
+      ${repeat(
+        similarTabs,
+        (tab: TabNode) => tab.id,
+        (tab: TabNode) => html`
         <tab-item
           .tab=${tab}
           @tab-select=${this.handleTabSelect}
           @tab-focus=${this.handleTabFocus}
           @tab-close=${this.handleTabClose}
         ></tab-item>
-      `)}
+      `,
+      )}
     `;
   }
 

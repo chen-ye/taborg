@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { main } from '../entrypoints/background';
 import { geminiService } from '../services/gemini';
@@ -12,7 +12,7 @@ vi.mock('../services/gemini', () => ({
 
 describe('Background Script', () => {
   // Mock listeners
-  const listeners: Record<string, Function[]> = {};
+  const listeners: Record<string, ((...args: any[]) => void)[]> = {};
 
   const createMockListener = (name: string) => ({
     addListener: vi.fn((cb) => {
@@ -55,25 +55,41 @@ describe('Background Script', () => {
       },
       action: {
         setIcon: vi.fn(),
+        setBadgeText: vi.fn(),
+        setBadgeBackgroundColor: vi.fn(),
       },
       tabGroups: {
-          query: vi.fn().mockResolvedValue([]),
-      }
+        query: vi.fn().mockResolvedValue([]),
+      },
     };
+
+    // Mock WebSocket
+    (globalThis as any).WebSocket = vi.fn().mockImplementation(() => ({
+      onopen: null,
+      onclose: null,
+      onerror: null,
+      onmessage: null,
+      send: vi.fn(),
+      close: vi.fn(),
+    }));
   });
 
   const triggerOnCreated = (tab: any) => {
-    listeners['onCreated']?.forEach(cb => cb(tab));
+    listeners['onCreated']?.forEach((cb) => {
+      cb(tab);
+    });
   };
 
   const triggerOnUpdated = async (tabId: number, changeInfo: any, tab: any) => {
     // onUpdated is async in background.ts
-    await Promise.all(listeners['onUpdated']?.map(cb => cb(tabId, changeInfo, tab)) || []);
+    await Promise.all(listeners['onUpdated']?.map((cb) => cb(tabId, changeInfo, tab)) || []);
   };
 
-  const triggerOnRemoved = (tabId: number) => {
-      listeners['onRemoved']?.forEach(cb => cb(tabId));
-  }
+  const _triggerOnRemoved = (tabId: number) => {
+    listeners['onRemoved']?.forEach((cb) => {
+      cb(tabId);
+    });
+  };
 
   it('should trigger suggest for tab with openerTabId (link click)', async () => {
     main(); // Register listeners
@@ -96,67 +112,67 @@ describe('Background Script', () => {
   });
 
   it('should NOT trigger suggest for stand-alone new tab (direct navigation without new tab state tracked)', async () => {
-      main();
+    main();
 
-      const tabId = 102;
-      const tab = {
-          id: tabId,
-          url: 'https://example.com',
-          openerTabId: undefined,
-      };
+    const tabId = 102;
+    const tab = {
+      id: tabId,
+      url: 'https://example.com',
+      openerTabId: undefined,
+    };
 
-      await triggerOnUpdated(tabId, { status: 'complete' }, tab);
-      expect(geminiService.categorizeTabs).not.toHaveBeenCalled();
+    await triggerOnUpdated(tabId, { status: 'complete' }, tab);
+    expect(geminiService.categorizeTabs).not.toHaveBeenCalled();
   });
 
   it('should trigger suggest for tab navigating away from new tab page', async () => {
-      main();
+    main();
 
-      const tabId = 103;
+    const tabId = 103;
 
-      // 1. Tab created as new tab
-      triggerOnCreated({ id: tabId, url: 'chrome://newtab/' });
+    // 1. Tab created as new tab
+    triggerOnCreated({ id: tabId, url: 'chrome://newtab/' });
 
-      // 2. Tab navigates to http url
-      const tab = {
-          id: tabId,
-          url: 'https://news.com',
-          title: 'News',
-      };
+    // 2. Tab navigates to http url
+    const tab = {
+      id: tabId,
+      url: 'https://news.com',
+      title: 'News',
+    };
 
-      (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['News']]]));
+    (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['News']]]));
 
-      await triggerOnUpdated(tabId, { status: 'complete' }, tab);
+    await triggerOnUpdated(tabId, { status: 'complete' }, tab);
 
-      expect(geminiService.categorizeTabs).toHaveBeenCalled();
-      const stored = await fakeBrowser.storage.local.get('tab-suggestions');
-      expect(stored['tab-suggestions']['https://news.com']).toEqual(['News']);
+    expect(geminiService.categorizeTabs).toHaveBeenCalled();
+    const stored = await fakeBrowser.storage.local.get('tab-suggestions');
+    expect(stored['tab-suggestions']['https://news.com']).toEqual(['News']);
   });
 
   it('should handle navigation back to new tab and then to a site', async () => {
-      main();
-      const tabId = 104;
+    main();
+    const tabId = 104;
 
-      // 1. Tab created normally (no suggestion)
-      await triggerOnUpdated(tabId, { status: 'complete' }, { id: tabId, url: 'https://a.com' });
-      expect(geminiService.categorizeTabs).not.toHaveBeenCalled();
+    // 1. Tab created normally (no suggestion)
+    await triggerOnUpdated(tabId, { status: 'complete' }, { id: tabId, url: 'https://a.com' });
+    expect(geminiService.categorizeTabs).not.toHaveBeenCalled();
 
-      // 2. Navigate to new tab
-      await triggerOnUpdated(tabId, { url: 'chrome://newtab/' }, { id: tabId, url: 'chrome://newtab/' });
+    // 2. Navigate to new tab
+    await triggerOnUpdated(tabId, { url: 'chrome://newtab/' }, { id: tabId, url: 'chrome://newtab/' });
 
-      // 3. Navigate to new site
-       const tab = {
-          id: tabId,
-          url: 'https://b.com',
-          title: 'B',
-      };
-      (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['B']]]));
+    // 3. Navigate to new site
+    const tab = {
+      id: tabId,
+      url: 'https://b.com',
+      title: 'B',
+    };
+    (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['B']]]));
 
-      await triggerOnUpdated(tabId, { status: 'complete' }, tab);
+    await triggerOnUpdated(tabId, { status: 'complete' }, tab);
 
-      expect(geminiService.categorizeTabs).toHaveBeenCalledWith(
-          expect.arrayContaining([expect.objectContaining({ url: 'https://b.com' })]),
-          expect.anything()
-      );
+    expect(geminiService.categorizeTabs).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ url: 'https://b.com' })]),
+      expect.anything(),
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { TabStore } from '../services/tab-store.js';
 
@@ -42,24 +42,24 @@ describe('TabStore', () => {
       },
       storage: {
         local: {
-            get: vi.fn().mockResolvedValue({}),
-            set: vi.fn(),
+          get: vi.fn().mockResolvedValue({}),
+          set: vi.fn(),
         },
         onChanged: { addListener: vi.fn() },
-      }
+      },
     };
   });
 
   const setupStore = async (tabs: any[]) => {
-      // Mock returns
-      (chrome.windows.getAll as any).mockResolvedValue([{ id: 1, focused: true }]);
-      (chrome.tabs.query as any).mockResolvedValue(tabs);
-      (chrome.windows.getCurrent as any).mockReturnValue(Promise.resolve({ id: 1 }));
+    // Mock returns
+    (chrome.windows.getAll as any).mockResolvedValue([{ id: 1, focused: true }]);
+    (chrome.tabs.query as any).mockResolvedValue(tabs);
+    (chrome.windows.getCurrent as any).mockReturnValue(Promise.resolve({ id: 1 }));
 
-      store = new TabStore();
-      // Wait for init
-      await new Promise(r => setTimeout(r, 0));
-      await store.fetchAll();
+    store = new TabStore();
+    // Wait for init
+    await new Promise((r) => setTimeout(r, 0));
+    await store.fetchAll();
   };
 
   it('should identify similar tabs by domain', async () => {
@@ -118,6 +118,6 @@ describe('TabStore', () => {
 
     await store.moveTabAfterActive(2);
 
-    expect(chrome.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 6 });
+    expect(chrome.tabs.move).toHaveBeenCalledWith([2], { windowId: 1, index: 6 });
   });
 });

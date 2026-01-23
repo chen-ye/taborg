@@ -1,28 +1,100 @@
 # TabOrg
 
-TabOrg is a powerful Chrome extension designed to help you organize your browser tabs and windows efficiently. It provides a vertical tree-style view of your tabs, intelligent grouping, and AI-powered window naming.
+TabOrg is a Chrome extension for granular, incremental tab management. It is
+designed for asynchronous workflows, allowing users to create tabs and windows
+freely while providing AI-assisted suggestions for grouping and organization.
+
+This workflow distinguishes TabOrg from fully automated solutions that make
+decisions for you, and from manual-only approaches that require tedious
+organization.
 
 ## Features
 
 ### Semi-Automated Tab Organization
 
-TabOrg takes a unique approach to tab management that puts you in control while leveraging AI assistance:
+TabOrg provides AI assistance for tab management while retaining user control:
 
-1. **Granular Selection**: Select specific tabs using checkboxes in the tree view, or quickly select all ungrouped tabs with one click.
-2. **AI-Powered Suggestions**: Click "Organize Tabs" to have Google Gemini analyze your selected tabs and suggest intelligent groupings based on content similarity and context.
-3. **Review & Apply**: Preview suggested groups before applying them. Accept all suggestions at once or pick and choose which groupings make sense for your workflow.
-4. **Manual Refinement**: Easily reassign tabs to different groups or create your own groups from scratch using the dropdown menu on each tab.
-
-This workflow distinguishes TabOrg from fully automated solutions that make decisions for you, and from manual-only approaches that require tedious organization. You get the best of both worlds: AI insights with human oversight.
+1. **Granular Selection**: Select specific tabs using checkboxes in the tree
+   view, or quickly select all ungrouped tabs.
+2. **AI Suggestions**: Click "Organize Tabs" to have Google Gemini analyze
+   selected tabs and suggest groupings based on content.
+3. **Review & Apply**: Preview suggested groups before applying them. Accept all
+   suggestions or select specific groupings.
+4. **Manual Refinement**: Reassign tabs to different groups or create groups
+   manually using the dropdown menu.
 
 ### Core Features
 
-- **Tree-Style Tab View**: View all your open windows and tabs in a hierarchical sidebar with expand/collapse controls.
-- **Tab Management**: Close, switch to, and reorder tabs with simple clicks and drag-and-drop.
-- **Group Management**: Create, rename, and colorize tab groups. Move tabs between groups or windows.
-- **AI Window Naming**: Automatically generate descriptive names for your windows based on their contained tabs and groups using Google Gemini.
-- **Theme Support**: Seamlessly adapts to your system's light or dark mode, including dynamic extension icons.
+- **Hierarchical Vertical Tab View**: View all your open windows and tabs in a
+  tree within the sidepanel.
+- **Tab Management**: Close, switch to, and reorder tabs with clicks or
+  drag-and-drop.
+- **Group Management**: Create, rename, and colorize tab groups. Move tabs
+  between groups or windows.
+- **AI Window Naming**: Automatically generate names for windows based on their
+  contained tabs and groups using Google Gemini.
+- **Theme Support**: Adapts to system light or dark mode, including dynamic
+  extension icons.
 
+## MCP Server
+
+TabOrg exposes a local
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that
+allows external LLMs (like Claude Desktop or MCP Inspector) to interact with
+your browser tabs.
+
+### Capabilities
+
+- **List Tabs**: Query your open tabs and groups.
+- **Manipulate**: Group, move, and close tabs programmatically.
+
+### Setup
+
+1. **Start the MCP Bridge Server**: The extension requires a local bridge server
+   to communicate with the MCP client.
+   ```bash
+   yarn workspace @taborg/server start
+   ```
+
+2. **Enable in Extension**:
+   - Open TabOrg Settings.
+   - Toggle **Enable MCP Server** to ON.
+   - Verify the status shows "Connected".
+
+3. **Connect your MCP Client**:
+   - **Claude Desktop**: Add to your `claude_desktop_config.json`:
+     ```json
+     {
+       "mcpServers": {
+         "taborg": {
+           "command": "node",
+           "args": ["/absolute/path/to/taborg/server/dist/index.js"]
+         }
+       }
+     }
+     ```
+   - **MCP Inspector**:
+     ```bash
+     npx @modelcontextprotocol/inspector node server/dist/index.js
+     ```
+
+   - **Gemini CLI**:
+
+     **Option 1: Using the CLI (Recommended)**
+     ```bash
+     gemini mcp add taborg http://localhost:3000/mcp
+     ```
+
+     **Option 2: Manual Configuration** Add to your `~/.gemini/settings.json`:
+     ```json
+     {
+       "mcpServers": {
+         "taborg": {
+           "httpUrl": "http://localhost:3000/mcp"
+         }
+       }
+     }
+     ```
 
 ## Tech Stack
 

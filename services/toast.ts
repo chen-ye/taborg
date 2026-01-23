@@ -2,7 +2,12 @@ import '@shoelace-style/shoelace/dist/components/alert/alert.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 
 export const toast = {
-  show(message: string, variant: 'primary' | 'success' | 'neutral' | 'warning' | 'danger' = 'primary', iconName: string = 'info-circle', duration: number = 3000) {
+  show(
+    message: string,
+    variant: 'primary' | 'success' | 'neutral' | 'warning' | 'danger' = 'primary',
+    iconName: string = 'info-circle',
+    duration: number = 3000,
+  ) {
     const alert = Object.assign(document.createElement('sl-alert'), {
       variant,
       closable: true,
@@ -10,7 +15,7 @@ export const toast = {
       innerHTML: `
         <sl-icon slot="icon" name="${iconName}"></sl-icon>
         ${escapeHtml(message)}
-      `
+      `,
     });
 
     document.body.append(alert);
@@ -23,14 +28,14 @@ export const toast = {
 
   success(message: string) {
     this.show(message, 'success', 'check2-circle');
-  }
+  },
 };
 
 function escapeHtml(unsafe: string) {
   return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

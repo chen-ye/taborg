@@ -1,8 +1,8 @@
-import { LitElement, html, css } from 'lit';
+import { SignalWatcher } from '@lit-labs/signals';
+import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { TabNode, tabStore } from '../services/tab-store.js';
-import { SignalWatcher } from '@lit-labs/signals';
+import { type TabNode, tabStore } from '../services/tab-store.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -136,7 +136,6 @@ export class TabItem extends SignalWatcher(LitElement) {
 
   @property({ type: Object }) tab!: TabNode;
 
-
   @state() private hasDropdownOpened = false;
 
   render() {
@@ -152,16 +151,19 @@ export class TabItem extends SignalWatcher(LitElement) {
         @dragend=${this.handleDragEnd}
       >
         <div class="left">
-          ${this.tab.favIconUrl
-            ? html`<img class="favicon" src="${this.tab.favIconUrl}" />`
-            : html`<div class="favicon" style="background: #ccc"></div>`
+          ${
+            this.tab.favIconUrl
+              ? html`<img class="favicon" src="${this.tab.favIconUrl}" />`
+              : html`<div class="favicon" style="background: #ccc"></div>`
           }
 
           <span class="title" title="${this.tab.title}">${this.tab.title}</span>
         </div>
 
         <div class="right">
-          ${suggestedGroups && suggestedGroups.length > 0 ? html`
+          ${
+            suggestedGroups && suggestedGroups.length > 0
+              ? html`
             <div class="suggestions">
               ${repeat(
                 suggestedGroups,
@@ -176,16 +178,21 @@ export class TabItem extends SignalWatcher(LitElement) {
                       pill
                       .color=${existingGroup?.color}
                       style="order: ${isNew ? 0 : 1}"
-                      @click=${(e: Event) => { e.stopPropagation(); this.moveToGroup(groupName); }}
+                      @click=${(e: Event) => {
+                        e.stopPropagation();
+                        this.moveToGroup(groupName);
+                      }}
                     >
                       ${isNew ? html`<sl-icon name="plus"></sl-icon>` : ''}
                       ${groupName}
                     </group-tag>
                   `;
-                }
+                },
               )}
             </div>
-          ` : ''}
+          `
+              : ''
+          }
 
           <div class="group-dropdown" @click=${(e: Event) => e.stopPropagation()}>
             <sl-dropdown placement="bottom-end" hoist @sl-show=${this.handleDropdownShow}>
@@ -193,19 +200,23 @@ export class TabItem extends SignalWatcher(LitElement) {
                 <sl-icon name="folder"></sl-icon>
               </group-tag>
               <sl-menu @sl-select=${this.handleGroupSelect}>
-                ${this.hasDropdownOpened ? repeat(
-                  tabStore.getAllGroups(),
-                  (group) => group.id,
-                  (group) => {
-                    const shoelaceColor = this.getShoelaceColor(group.color);
-                    return html`
+                ${
+                  this.hasDropdownOpened
+                    ? repeat(
+                        tabStore.getAllGroups(),
+                        (group) => group.id,
+                        (group) => {
+                          const shoelaceColor = this.getShoelaceColor(group.color);
+                          return html`
                       <sl-menu-item value="${group.title}">
                         <sl-icon slot="prefix" name="circle-fill" style="color: var(--sl-color-${shoelaceColor}-500)"></sl-icon>
                         ${group.title}
                       </sl-menu-item>
                     `;
-                  }
-                ) : ''}
+                        },
+                      )
+                    : ''
+                }
               </sl-menu>
             </sl-dropdown>
           </div>
@@ -220,7 +231,9 @@ export class TabItem extends SignalWatcher(LitElement) {
             >
               <sl-icon slot="prefix" name="x" label="Close Tab"></sl-icon>
             </sl-button>
-            ${!this.tab.active ? html`
+            ${
+              !this.tab.active
+                ? html`
               <sl-button
                 pill
                 size="small"
@@ -228,7 +241,9 @@ export class TabItem extends SignalWatcher(LitElement) {
               >
                 <sl-icon slot="prefix" name="arrow-down" label="Move after active tab"></sl-icon>
               </sl-button>
-            ` : ''}
+            `
+                : ''
+            }
           </sl-button-group>
         </div>
       </div>
@@ -239,23 +254,24 @@ export class TabItem extends SignalWatcher(LitElement) {
     this.hasDropdownOpened = true;
   }
 
-
-
   private getShoelaceColor(color: string) {
     return color === 'grey' ? 'neutral' : color;
   }
 
   private focusTab(evt: Event) {
     evt.stopPropagation();
-    this.dispatchEvent(new CustomEvent('tab-focus', {
-      detail: { id: this.tab.id },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('tab-focus', {
+        detail: { id: this.tab.id },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private handleAuxClick(e: MouseEvent) {
-    if (e.button === 1) { // Middle click
+    if (e.button === 1) {
+      // Middle click
       e.preventDefault(); // Prevent default middle-click behavior (like autoscroll)
       this.closeTab(e);
     }
@@ -263,11 +279,13 @@ export class TabItem extends SignalWatcher(LitElement) {
 
   private closeTab(e: Event) {
     e.stopPropagation();
-    this.dispatchEvent(new CustomEvent('tab-close', {
-      detail: { id: this.tab.id },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('tab-close', {
+        detail: { id: this.tab.id },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private moveTabAfterActive(e: Event) {
@@ -276,14 +294,14 @@ export class TabItem extends SignalWatcher(LitElement) {
   }
 
   private moveToGroup(groupName: string) {
-    this.dispatchEvent(new CustomEvent('tab-move-to-group', {
-      detail: { tabId: this.tab.id, groupName },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('tab-move-to-group', {
+        detail: { tabId: this.tab.id, groupName },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
-
-
 
   private handleGroupSelect(e: CustomEvent) {
     const item = e.detail.item;

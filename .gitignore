@@ -25,3 +25,5 @@ web-ext.config.ts
 *.sln
 *.sw?
 .yarn/install-state.gz
+
+server/dist

@@ -1,7 +1,7 @@
-import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { tabStore } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
+import { css, html, LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
+import { tabStore } from '../services/tab-store.js';
 import './tab-tree';
 import './selected-pane';
 import './similar-pane';
@@ -131,6 +131,4 @@ export class AppRoot extends SignalWatcher(LitElement) {
       <settings-dialog></settings-dialog>
     `;
   }
-
-
 }

@@ -1,8 +1,9 @@
+import Fuse from 'fuse.js';
 import { Signal } from 'signal-polyfill';
 import { SignalArray } from 'signal-utils/array';
-import { SignalSet } from 'signal-utils/set';
 import { SignalMap } from 'signal-utils/map';
-import Fuse from 'fuse.js';
+import { SignalSet } from 'signal-utils/set';
+import { browserService } from './browser-service';
 
 // Polyfill Signal for @lit-labs/signals if not present
 if (!(globalThis as any).Signal) {
@@ -61,7 +62,8 @@ export class TabStore {
 
   groupsByName = new Signal.Computed(() => {
     const map = new Map<string, GroupNode>();
-    for (const w of this.windows) { // Direct access
+    for (const w of this.windows) {
+      // Direct access
       for (const g of w.groups) {
         if (g.title) {
           map.set(g.title, g);
@@ -85,7 +87,8 @@ export class TabStore {
 
   allTabsById = new Signal.Computed(() => {
     const map = new Map<number, TabNode>();
-    for (const w of this.windows) { // Direct access
+    for (const w of this.windows) {
+      // Direct access
       for (const t of w.tabs) {
         map.set(t.id, t);
       }
@@ -138,11 +141,11 @@ export class TabStore {
 
     const currentId = this.currentWindowId.get();
     if (currentId && (!focusedWindow || focusedWindow.id !== currentId)) {
-       const cw = this.windows.find(w => w.id === currentId);
-       if (cw) {
-         for (const t of cw.tabs) if (t.active) return t.id;
-         for (const g of cw.groups) for (const t of g.tabs) if (t.active) return t.id;
-       }
+      const cw = this.windows.find((w) => w.id === currentId);
+      if (cw) {
+        for (const t of cw.tabs) if (t.active) return t.id;
+        for (const g of cw.groups) for (const t of g.tabs) if (t.active) return t.id;
+      }
     }
 
     return undefined;
@@ -170,7 +173,7 @@ export class TabStore {
     }
 
     const allTabs = Array.from(this.allTabsById.get().values());
-    const candidates = allTabs.filter(t => t.id !== active.id && t.url);
+    const candidates = allTabs.filter((t) => t.id !== active.id && t.url);
 
     // 1. Domain match
     const domainMatches = new Set<TabNode>();
@@ -187,14 +190,14 @@ export class TabStore {
     // 2. Fuzzy match title using Fuse.js
     let fuzzyMatches: TabNode[] = [];
     if (active.title) {
-        const options = {
-            keys: ['title'],
-            threshold: 0.6, // Match sensitivity
-        };
-        const fuse = new Fuse(candidates, options);
-        // Limit results to avoid noise?
-        const results = fuse.search(active.title, { limit: 10 });
-        fuzzyMatches = results.map(r => r.item);
+      const options = {
+        keys: ['title'],
+        threshold: 0.6, // Match sensitivity
+      };
+      const fuse = new Fuse(candidates, options);
+      // Limit results to avoid noise?
+      const results = fuse.search(active.title, { limit: 10 });
+      fuzzyMatches = results.map((r) => r.item);
     }
 
     // Merge: Domain matches first, then fuzzy matches. Deduplicate.
@@ -217,7 +220,7 @@ export class TabStore {
         this.loadSelection(),
         this.loadWindowNames(),
         this.loadCollapsedWindows(),
-        chrome.windows.getCurrent()
+        chrome.windows.getCurrent(),
       ]);
 
       // Batch all signal updates together
@@ -246,7 +249,10 @@ export class TabStore {
     const loadedMap = new Map<string, string[]>();
     for (const url in suggestionsByUrl) {
       // Sort suggestions alphabetically
-      loadedMap.set(url, suggestionsByUrl[url].sort((a, b) => a.localeCompare(b)));
+      loadedMap.set(
+        url,
+        suggestionsByUrl[url].sort((a, b) => a.localeCompare(b)),
+      );
     }
     return loadedMap;
   }
@@ -261,9 +267,7 @@ export class TabStore {
     const result = await chrome.storage.local.get('window-names');
     const names = (result['window-names'] as Record<string, string>) || {};
     // Convert string keys back to numbers
-    return new Map(
-      Object.entries(names).map(([k, v]) => [Number(k), v])
-    );
+    return new Map(Object.entries(names).map(([k, v]) => [Number(k), v]));
   }
 
   private async loadCollapsedWindows(): Promise<Set<number>> {
@@ -298,35 +302,35 @@ export class TabStore {
   }
 
   async fetchAll() {
-    console.log('fetch-all')
+    console.log('fetch-all');
     const [windows, tabs, groups] = await Promise.all([
       chrome.windows.getAll(),
-      chrome.tabs.query({}),
-      chrome.tabGroups.query({})
+      browserService.getTabs(),
+      browserService.getGroups(),
     ]);
 
     const groupMap = new Map<number, GroupNode>();
 
-    groups.forEach(g => {
+    groups.forEach((g) => {
       const groupNode: GroupNode = {
         id: g.id,
         title: g.title || '',
         color: g.color,
         windowId: g.windowId,
         collapsed: g.collapsed,
-        tabs: []
+        tabs: [],
       };
       groupMap.set(g.id, groupNode);
     });
 
     const windowMap = new Map<number, WindowNode>();
-    windows.forEach(w => {
+    windows.forEach((w) => {
       if (w.id !== undefined) {
         windowMap.set(w.id, {
           id: w.id,
           focused: w.focused,
           tabs: [],
-          groups: []
+          groups: [],
         });
       }
     });
@@ -345,7 +349,7 @@ export class TabStore {
         windowId: t.windowId,
         active: t.active || false,
         selected: this.selectedTabIds.has(t.id), // Added
-        suggestedGroups // Added
+        suggestedGroups, // Added
       };
 
       if (t.groupId > -1 && groupMap.has(t.groupId)) {
@@ -407,21 +411,21 @@ export class TabStore {
     // Listen for storage changes (e.g. from background script)
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName === 'local' && changes['tab-suggestions']) {
-        this.loadSuggestions().then(map => {
+        this.loadSuggestions().then((map) => {
           this.suggestionsUrlMap.clear();
           for (const [key, value] of map) this.suggestionsUrlMap.set(key, value);
           this.fetchAll();
         });
       }
       if (areaName === 'local' && changes['window-names']) {
-        this.loadWindowNames().then(map => {
+        this.loadWindowNames().then((map) => {
           this.windowNames.clear();
           for (const [key, value] of map) this.windowNames.set(key, value);
           this.fetchAll();
         });
       }
       if (areaName === 'local' && changes['collapsed-windows']) {
-        this.loadCollapsedWindows().then(set => {
+        this.loadCollapsedWindows().then((set) => {
           this.collapsedWindowIds.clear();
           for (const id of set) this.collapsedWindowIds.add(id);
         });
@@ -454,7 +458,7 @@ export class TabStore {
     } else if (type === 'group') {
       const group = this.findGroup(id);
       if (group) {
-        group.tabs.forEach(t => {
+        group.tabs.forEach((t) => {
           if (selected) this.pendingSelectionChanges!.add(t.id);
           else this.pendingSelectionChanges!.delete(t.id);
         });
@@ -502,20 +506,18 @@ export class TabStore {
   }
 
   async closeTab(id: number) {
-    await chrome.tabs.remove(id);
+    await browserService.closeTabs(id);
   }
 
   async focusTab(id: number) {
-    const tab = await chrome.tabs.get(id);
-    await chrome.tabs.update(id, { active: true });
-    await chrome.windows.update(tab.windowId, { focused: true });
+    await browserService.focusTab(id);
   }
 
   async closeGroup(id: number) {
     const group = this.findGroup(id);
     if (group) {
-      const tabIds = group.tabs.map(t => t.id);
-      await chrome.tabs.remove(tabIds);
+      const tabIds = group.tabs.map((t) => t.id);
+      await browserService.closeTabs(tabIds);
     }
   }
 
@@ -523,54 +525,36 @@ export class TabStore {
     const activeTabId = this.activeTabId.get();
     if (!activeTabId) return;
 
-    const activeTab = await chrome.tabs.get(activeTabId);
+    const activeTab = await browserService.getTab(activeTabId);
 
     // Move to the same window as active tab, right after it
-    await chrome.tabs.move(tabId, { windowId: activeTab.windowId, index: activeTab.index + 1 });
+    await browserService.moveTabs([tabId], activeTab.windowId, activeTab.index + 1);
   }
 
   async moveTabToGroup(tabId: number, groupId: number) {
-    const group = this.findGroup(groupId);
-    if (!group) return;
-
-    const tab = await chrome.tabs.get(tabId);
-    if (tab.windowId !== group.windowId) {
-      // Move tab to the same window first
-      await chrome.tabs.move(tabId, { windowId: group.windowId, index: -1 });
-      // Wait for move to complete/propagate? Usually `move` returns the updated tab details.
-      // We use the ID, which shouldn't change, but let's be safe.
-    }
-
-    const wasCollapsed = group.collapsed;
-
-    await chrome.tabs.group({ tabIds: tabId, groupId });
-
-    if (wasCollapsed) {
-      // Chrome automatically expands the group when a tab is added.
-      // We need to re-collapse it if it was previously collapsed.
-      await chrome.tabGroups.update(groupId, { collapsed: true });
-    }
+    // browserService.groupTabs handles window movement if tab is in diff window
+    await browserService.groupTabs([tabId], groupId);
   }
 
   async createGroupForTab(tabId: number, title: string) {
-    const groupId = await chrome.tabs.group({ tabIds: tabId });
-    await chrome.tabGroups.update(groupId, { title });
+    await browserService.groupTabs([tabId], undefined, title);
   }
 
   async renameGroup(groupId: number, title: string) {
-    await chrome.tabGroups.update(groupId, { title });
+    await browserService.updateGroup(groupId, { title });
   }
 
   async collapseGroup(groupId: number, collapsed: boolean) {
-    await chrome.tabGroups.update(groupId, { collapsed });
+    await browserService.updateGroup(groupId, { collapsed });
   }
 
   async setAllGroupsCollapsed(collapsed: boolean) {
     const updates: Promise<void>[] = [];
-    this.windows.forEach((w: WindowNode) => { // Direct access
+    this.windows.forEach((w: WindowNode) => {
+      // Direct access
       w.groups.forEach((g: GroupNode) => {
         if (g.collapsed !== collapsed) {
-          updates.push(chrome.tabGroups.update(g.id, { collapsed }) as unknown as Promise<void>);
+          updates.push(browserService.updateGroup(g.id, { collapsed }));
         }
       });
     });
@@ -585,10 +569,7 @@ export class TabStore {
 
   getTabsWithoutSuggestions(): TabNode[] {
     return [...this.windows]
-      .flatMap((w: WindowNode) => [
-        ...w.tabs,
-        ...w.groups.flatMap((g: GroupNode) => g.tabs)
-      ])
+      .flatMap((w: WindowNode) => [...w.tabs, ...w.groups.flatMap((g: GroupNode) => g.tabs)])
       .filter((t: TabNode) => !t.suggestedGroups || t.suggestedGroups.length === 0);
   }
 
@@ -601,7 +582,8 @@ export class TabStore {
     }
 
     this.selectedTabIds.clear(); // Clear existing selection
-    this.windows.forEach((w: WindowNode) => { // Direct access
+    this.windows.forEach((w: WindowNode) => {
+      // Direct access
       w.tabs.forEach((t: TabNode) => {
         this.selectedTabIds.add(t.id);
       });
@@ -630,7 +612,8 @@ export class TabStore {
       }
     };
 
-    for (const w of this.windows) { // Direct access
+    for (const w of this.windows) {
+      // Direct access
       collectTabs(w.tabs);
       for (const g of w.groups) {
         collectTabs(g.tabs);
@@ -658,13 +641,13 @@ export class TabStore {
   }
 
   async closeTabs(ids: number[]) {
-    await chrome.tabs.remove(ids);
+    await browserService.closeTabs(ids);
   }
 
   async clearSuggestions(tabId: number) {
     // Update storage and cache
-    const tabs = await chrome.tabs.query({});
-    const tab = tabs.find(t => t.id === tabId);
+    const tabs = await browserService.getTabs();
+    const tab = tabs.find((t) => t.id === tabId);
 
     if (tab?.url && this.suggestionsUrlMap.has(tab.url)) {
       this.suggestionsUrlMap.delete(tab.url);
@@ -705,14 +688,11 @@ export class TabStore {
   }
 
   async moveTabToWindow(tabId: number, windowId: number) {
-    // If we just move it to the window, it might stay in its group if the group is also moving?
-    // No, if we move a single tab, we probably want to ungroup it from its previous group in the old window.
-    // However, chrome.tabs.move removes it from the old window, so it implicitly leaves the old group.
-    await chrome.tabs.move(tabId, { windowId, index: -1 });
+    await browserService.moveTabs([tabId], windowId);
   }
 
   async moveGroupToWindow(groupId: number, windowId: number) {
-    await chrome.tabGroups.move(groupId, { windowId, index: -1 });
+    await browserService.moveGroup(groupId, windowId);
   }
 
   async mergeGroups(sourceGroupId: number, targetGroupId: number) {
@@ -720,14 +700,11 @@ export class TabStore {
     const targetGroup = this.findGroup(targetGroupId);
     if (!sourceGroup || !targetGroup) return;
 
-    if (sourceGroup.windowId !== targetGroup.windowId) {
-      // Move source group to target window first
-      await chrome.tabGroups.move(sourceGroupId, { windowId: targetGroup.windowId, index: -1 });
-    }
-
-    const tabIds = sourceGroup.tabs.map(t => t.id);
+    // BrowserService.groupTabs handles window movement, but we need to pass IDs
+    const tabIds = sourceGroup.tabs.map((t) => t.id);
     if (tabIds.length === 0) return;
-    await chrome.tabs.group({ tabIds: tabIds as [number, ...number[]], groupId: targetGroupId });
+
+    await browserService.groupTabs(tabIds, targetGroupId);
   }
 
   async mergeWindows(sourceWindowId: number, targetWindowId: number) {
@@ -736,13 +713,13 @@ export class TabStore {
 
     // Move all groups
     for (const group of sourceWindow.groups) {
-      await chrome.tabGroups.move(group.id, { windowId: targetWindowId, index: -1 });
+      await browserService.moveGroup(group.id, targetWindowId);
     }
 
     // Move all ungrouped tabs
     const tabIds = sourceWindow.tabs.map((t: TabNode) => t.id);
     if (tabIds.length > 0) {
-      await chrome.tabs.move(tabIds, { windowId: targetWindowId, index: -1 });
+      await browserService.moveTabs(tabIds, targetWindowId);
     }
   }
 

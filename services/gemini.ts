@@ -17,7 +17,10 @@ export class GeminiService {
     await chrome.storage.sync.set({ geminiApiKey: key });
   }
 
-  async categorizeTabs(tabs: { title: string; url: string; id: number }[], existingGroups: string[]): Promise<Map<number, string[]>> {
+  async categorizeTabs(
+    tabs: { title: string; url: string; id: number }[],
+    existingGroups: string[],
+  ): Promise<Map<number, string[]>> {
     if (!this.apiKey) {
       throw new Error('API Key not set');
     }
@@ -35,7 +38,7 @@ export class GeminiService {
       You are a helpful assistant that organizes browser tabs.
 
       Here is a list of tabs:
-      ${tabs.map(t => `- ID: ${t.id}, Title: "${t.title}", URL: "${t.url}"`).join('\n')}
+      ${tabs.map((t) => `- ID: ${t.id}, Title: "${t.title}", URL: "${t.url}"`).join('\n')}
 
       Here is a list of existing tab groups:
       ${allGroups.join(', ')}
@@ -46,24 +49,24 @@ export class GeminiService {
     `;
 
     const schema = {
-      type: "OBJECT",
+      type: 'OBJECT',
       properties: {
         suggestions: {
-          type: "ARRAY",
+          type: 'ARRAY',
           items: {
-            type: "OBJECT",
+            type: 'OBJECT',
             properties: {
-              tabId: { type: "INTEGER" },
+              tabId: { type: 'INTEGER' },
               groupNames: {
-                type: "ARRAY",
-                items: { type: "STRING" }
-              }
+                type: 'ARRAY',
+                items: { type: 'STRING' },
+              },
             },
-            required: ["tabId", "groupNames"]
-          }
-        }
+            required: ['tabId', 'groupNames'],
+          },
+        },
       },
-      required: ["suggestions"]
+      required: ['suggestions'],
     };
 
     try {
@@ -72,8 +75,8 @@ export class GeminiService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
-          responseSchema: schema
-        }
+          responseSchema: schema,
+        },
       });
 
       const responseText = result.text;
@@ -85,14 +88,16 @@ export class GeminiService {
         resultMap.set(Number(item.tabId), item.groupNames);
       }
       return resultMap;
-
     } catch (error) {
       console.error('Gemini API Error:', error);
       throw error;
     }
   }
 
-  async findSimilarTabs(referenceTab: { title: string; url: string }, candidateTabs: { id: number; title: string; url: string }[]): Promise<number[]> {
+  async findSimilarTabs(
+    referenceTab: { title: string; url: string },
+    candidateTabs: { id: number; title: string; url: string }[],
+  ): Promise<number[]> {
     if (!this.apiKey) {
       throw new Error('API Key not set');
     }
@@ -107,7 +112,7 @@ export class GeminiService {
       - URL: "${referenceTab.url}"
 
       Candidate Tabs:
-      ${candidateTabs.map(t => `- ID: ${t.id}, Title: "${t.title}", URL: "${t.url}"`).join('\n')}
+      ${candidateTabs.map((t) => `- ID: ${t.id}, Title: "${t.title}", URL: "${t.url}"`).join('\n')}
 
       Identify which candidate tabs are similar to the Reference Tab based on:
       1. Same Domain/Website
@@ -116,14 +121,14 @@ export class GeminiService {
     `;
 
     const schema = {
-      type: "OBJECT",
+      type: 'OBJECT',
       properties: {
         similarTabIds: {
-          type: "ARRAY",
-          items: { type: "INTEGER" }
-        }
+          type: 'ARRAY',
+          items: { type: 'INTEGER' },
+        },
       },
-      required: ["similarTabIds"]
+      required: ['similarTabIds'],
     };
 
     try {
@@ -132,8 +137,8 @@ export class GeminiService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
-          responseSchema: schema
-        }
+          responseSchema: schema,
+        },
       });
 
       const responseText = result.text;
@@ -158,7 +163,7 @@ export class GeminiService {
       Here is the content of the window:
 
       Tabs:
-      ${tabs.map(t => `- Title: "${t.title}", URL: "${t.url}"`).join('\n')}
+      ${tabs.map((t) => `- Title: "${t.title}", URL: "${t.url}"`).join('\n')}
 
       Tab Groups:
       ${groups.join(', ')}
@@ -168,11 +173,11 @@ export class GeminiService {
     `;
 
     const schema = {
-      type: "OBJECT",
+      type: 'OBJECT',
       properties: {
-        windowName: { type: "STRING" }
+        windowName: { type: 'STRING' },
       },
-      required: ["windowName"]
+      required: ['windowName'],
     };
 
     try {
@@ -181,8 +186,8 @@ export class GeminiService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
-          responseSchema: schema
-        }
+          responseSchema: schema,
+        },
       });
 
       const responseText = result.text;

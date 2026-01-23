@@ -1,8 +1,8 @@
-import { LitElement, html, css } from 'lit';
+import { SignalWatcher } from '@lit-labs/signals';
+import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { tabStore, TabNode } from '../services/tab-store.js';
-import { SignalWatcher } from '@lit-labs/signals';
+import { type TabNode, tabStore } from '../services/tab-store.js';
 import './tab-item';
 
 @customElement('selected-pane')
@@ -25,8 +25,6 @@ export class SelectedPane extends SignalWatcher(LitElement) {
     }
   `;
 
-
-
   render() {
     const selectedTabs = tabStore.sortedSelectedTabs.get();
 
@@ -35,14 +33,18 @@ export class SelectedPane extends SignalWatcher(LitElement) {
     }
 
     return html`
-      ${repeat(selectedTabs, (tab: TabNode) => tab.id, (tab: TabNode) => html`
+      ${repeat(
+        selectedTabs,
+        (tab: TabNode) => tab.id,
+        (tab: TabNode) => html`
         <tab-item
           .tab=${tab}
           @tab-select=${this.handleTabSelect}
           @tab-focus=${this.handleTabFocus}
           @tab-close=${this.handleTabClose}
         ></tab-item>
-      `)}
+      `,
+      )}
     `;
   }
 
@@ -62,16 +64,12 @@ export class SelectedPane extends SignalWatcher(LitElement) {
 
   private async closeAllSelected() {
     const selectedTabs = tabStore.selectedTabs.get();
-    const ids = selectedTabs.map(t => t.id);
+    const ids = selectedTabs.map((t) => t.id);
     if (ids.length === 0) return;
 
     if (confirm(`Are you sure you want to close ${ids.length} tabs?`)) {
-       await tabStore.closeTabs(ids);
-       tabStore.setSelectedTabs(new Set());
+      await tabStore.closeTabs(ids);
+      tabStore.setSelectedTabs(new Set());
     }
-  }
-
-  private clearSelection() {
-    tabStore.setSelectedTabs(new Set());
   }
 }

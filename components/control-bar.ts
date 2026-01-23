@@ -1,8 +1,8 @@
-import { LitElement, html, css } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
-import { tabStore, WindowNode, GroupNode } from '../services/tab-store.js';
 import { SignalWatcher } from '@lit-labs/signals';
+import { css, html, LitElement } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
 import { geminiService } from '../services/gemini.js';
+import { type GroupNode, tabStore, type WindowNode } from '../services/tab-store.js';
 import { toast } from '../services/toast.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
@@ -39,7 +39,6 @@ export class ControlBar extends SignalWatcher(LitElement) {
       gap: var(--sl-spacing-2x-small);
     }
   `;
-
 
   @state() private organizing = false;
   @state() private findingSimilar = false;
@@ -158,21 +157,20 @@ export class ControlBar extends SignalWatcher(LitElement) {
       });
       // 2. Call Gemini
       const suggestions = await geminiService.categorizeTabs(
-        tabsToOrganize.map(t => ({ id: t.id, title: t.title, url: t.url })),
-        Array.from(allGroupNames)
+        tabsToOrganize.map((t) => ({ id: t.id, title: t.title, url: t.url })),
+        Array.from(allGroupNames),
       );
 
       // 3. Convert tab ID suggestions to URL suggestions
       const suggestionsByUrl = new Map<string, string[]>();
       for (const [tabId, groups] of suggestions.entries()) {
-        const tab = tabsToOrganize.find(t => t.id === tabId);
+        const tab = tabsToOrganize.find((t) => t.id === tabId);
         if (tab?.url) {
           suggestionsByUrl.set(tab.url, groups);
         }
       }
 
       tabStore.setSuggestions(suggestionsByUrl);
-
     } catch (e) {
       console.error(e);
       toast.error('Failed to organize tabs. Check your API key.');
@@ -191,29 +189,30 @@ export class ControlBar extends SignalWatcher(LitElement) {
     try {
       // Get all other tabs
       const allTabs: { id: number; title: string; url: string }[] = [];
-      tabStore.windows.forEach(w => {
-         w.tabs.forEach(t => {
-           if (t.id !== referenceTab.id) allTabs.push({id: t.id, title: t.title, url: t.url});
-         });
-         w.groups.forEach(g => {
-           g.tabs.forEach(t => {
-             if (t.id !== referenceTab.id) allTabs.push({id: t.id, title: t.title, url: t.url});
-           });
-         });
+      tabStore.windows.forEach((w) => {
+        w.tabs.forEach((t) => {
+          if (t.id !== referenceTab.id) allTabs.push({ id: t.id, title: t.title, url: t.url });
+        });
+        w.groups.forEach((g) => {
+          g.tabs.forEach((t) => {
+            if (t.id !== referenceTab.id) allTabs.push({ id: t.id, title: t.title, url: t.url });
+          });
+        });
       });
 
       const similarTabIds = await geminiService.findSimilarTabs(
         { title: referenceTab.title, url: referenceTab.url },
-        allTabs
+        allTabs,
       );
 
       // Select the found tabs (keeping the reference tab selected)
       const newSelection = new Set(tabStore.selectedTabIds);
-      similarTabIds.forEach(id => newSelection.add(id));
+      for (const id of similarTabIds) {
+        newSelection.add(id);
+      }
       tabStore.setSelectedTabs(newSelection);
 
       toast.success(`Found ${similarTabIds.length} similar tabs.`);
-
     } catch (e) {
       console.error(e);
       toast.error('Failed to find similar tabs. Check your API key.');

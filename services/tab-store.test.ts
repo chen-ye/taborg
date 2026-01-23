@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 
 // Mock chrome.tabGroups and other missing listeners
@@ -16,6 +16,7 @@ const mockTabGroups = {
   onRemoved: mockListeners,
   update: vi.fn().mockResolvedValue(undefined),
   move: vi.fn().mockResolvedValue(undefined),
+  get: vi.fn().mockResolvedValue({ windowId: 1 }),
 };
 
 describe('TabStore', () => {
@@ -25,12 +26,12 @@ describe('TabStore', () => {
     fakeBrowser.reset();
 
     // Force patch listeners
-    const tabs = (fakeBrowser.tabs as any);
+    const tabs = fakeBrowser.tabs as any;
     tabs.onMoved = mockListeners;
     tabs.onAttached = mockListeners;
     tabs.onDetached = mockListeners;
 
-    const windows = (fakeBrowser.windows as any);
+    const windows = fakeBrowser.windows as any;
     windows.onFocusChanged = mockListeners;
 
     // Add missing mocks to fakeBrowser.tabs
@@ -52,7 +53,7 @@ describe('TabStore', () => {
     // Wait for init
     let retries = 0;
     while (tabStore.isInitializing.get() && retries < 50) {
-      await new Promise(r => setTimeout(r, 10));
+      await new Promise((r) => setTimeout(r, 10));
       retries++;
     }
   });
@@ -68,11 +69,11 @@ describe('TabStore', () => {
     vi.resetModules();
     fakeBrowser.reset();
 
-    const tabs = (fakeBrowser.tabs as any);
+    const tabs = fakeBrowser.tabs as any;
     tabs.onMoved = mockListeners;
     tabs.onAttached = mockListeners;
     tabs.onDetached = mockListeners;
-    const windows = (fakeBrowser.windows as any);
+    const windows = fakeBrowser.windows as any;
     windows.onFocusChanged = mockListeners;
 
     (globalThis as any).chrome = {
@@ -82,7 +83,7 @@ describe('TabStore', () => {
 
     await fakeBrowser.windows.create({ focused: true });
     await fakeBrowser.storage.local.set({
-      'tab-suggestions': { 'https://test.com': ['Group A'] }
+      'tab-suggestions': { 'https://test.com': ['Group A'] },
     });
 
     const mod = await import('./tab-store');
@@ -90,7 +91,7 @@ describe('TabStore', () => {
 
     let retries = 0;
     while (store.isInitializing.get() && retries < 50) {
-      await new Promise(r => setTimeout(r, 10));
+      await new Promise((r) => setTimeout(r, 10));
       retries++;
     }
 
@@ -103,19 +104,19 @@ describe('TabStore', () => {
 
     // Mock chrome.tabs.query because fakeBrowser seems to have issues returning created tabs in query
     const mockTab = {
-        id: 123,
-        windowId: window.id,
-        url: 'https://google.com',
-        title: 'Google',
-        active: true,
-        groupId: -1,
-        pinned: false,
-        highlighted: false,
-        incognito: false,
-        index: 0,
-        selected: false,
-        discarded: false,
-        autoDiscardable: false,
+      id: 123,
+      windowId: window.id,
+      url: 'https://google.com',
+      title: 'Google',
+      active: true,
+      groupId: -1,
+      pinned: false,
+      highlighted: false,
+      incognito: false,
+      index: 0,
+      selected: false,
+      discarded: false,
+      autoDiscardable: false,
     };
 
     (globalThis as any).chrome.tabs.query = vi.fn().mockResolvedValue([mockTab]);
@@ -140,7 +141,7 @@ describe('TabStore', () => {
   it('should move tab to window', async () => {
     const moveSpy = vi.spyOn(fakeBrowser.tabs, 'move').mockResolvedValue(undefined as any);
     await tabStore.moveTabToWindow(1, 2);
-    expect(moveSpy).toHaveBeenCalledWith(1, { windowId: 2, index: -1 });
+    expect(moveSpy).toHaveBeenCalledWith([1], { windowId: 2, index: -1 });
   });
 
   it('should move group to window', async () => {
@@ -159,17 +160,46 @@ describe('TabStore', () => {
     // Using simple mock since we just need findGroup to return something
     vi.spyOn(tabStore, 'findGroup').mockReturnValue({
       id: sourceGroupId,
-      tabs: [{ id: 101 }, { id: 102 }]
+      tabs: [{ id: 101 }, { id: 102 }],
     } as any);
 
     const groupSpy = vi.spyOn(fakeBrowser.tabs, 'group').mockResolvedValue(undefined as any);
+
+    // Mock getGroup for browserService
+    vi.spyOn(mockTabGroups, 'get').mockResolvedValue({ id: targetGroupId, windowId: 1 });
+    // Mock getTab for browserService
+    vi.spyOn(fakeBrowser.tabs, 'get').mockResolvedValue({ id: 101, windowId: 1 } as any);
 
     await tabStore.mergeGroups(sourceGroupId, targetGroupId);
 
     expect(groupSpy).toHaveBeenCalledWith({
       tabIds: [101, 102],
-      groupId: targetGroupId
+      groupId: targetGroupId,
     });
+  });
+
+  it('should restore collapsed state when merging into collapsed group', async () => {
+    const sourceGroupId = 10;
+    const targetGroupId = 20;
+
+    vi.spyOn(tabStore, 'findGroup').mockReturnValue({
+      id: sourceGroupId,
+      tabs: [{ id: 101 }],
+    } as any);
+
+    // Mock chrome.tabs.group
+    vi.spyOn(fakeBrowser.tabs, 'group').mockResolvedValue(targetGroupId);
+
+    // Mock getGroup returning collapsed=true
+    vi.spyOn(mockTabGroups, 'get').mockResolvedValue({ id: targetGroupId, windowId: 1, collapsed: true });
+
+    // Mock getTab
+    vi.spyOn(fakeBrowser.tabs, 'get').mockResolvedValue({ id: 101, windowId: 1 } as any);
+
+    await tabStore.mergeGroups(sourceGroupId, targetGroupId);
+
+    // Should call update with collapsed: true
+    expect(mockTabGroups.update).toHaveBeenCalledWith(targetGroupId, { collapsed: true });
   });
 
   it('should merge groups across windows', async () => {
@@ -184,12 +214,22 @@ describe('TabStore', () => {
     const moveGroupSpy = vi.spyOn(mockTabGroups, 'move').mockResolvedValue(undefined as any);
     const groupSpy = vi.spyOn(fakeBrowser.tabs, 'group').mockResolvedValue(undefined as any);
 
+    // Mock get for browserService
+    const getGroupSpy = vi.spyOn(mockTabGroups, 'get');
+    getGroupSpy.mockImplementation(async (id: number) => {
+      if (id === sourceGroupId) return { id: sourceGroupId, windowId: 1 };
+      if (id === targetGroupId) return { id: targetGroupId, windowId: 2 };
+      return { windowId: 1 };
+    });
+    // Mock getTab for browserService
+    vi.spyOn(fakeBrowser.tabs, 'get').mockResolvedValue({ id: 101, windowId: 1 } as any);
+
     await tabStore.mergeGroups(sourceGroupId, targetGroupId);
 
     expect(moveGroupSpy).toHaveBeenCalledWith(sourceGroupId, { windowId: 2, index: -1 });
     expect(groupSpy).toHaveBeenCalledWith({
       tabIds: [101],
-      groupId: targetGroupId
+      groupId: targetGroupId,
     });
   });
 
@@ -202,8 +242,8 @@ describe('TabStore', () => {
       {
         id: sourceWindowId,
         groups: [{ id: 10, tabs: [] }],
-        tabs: [{ id: 101 }, { id: 102 }]
-      }
+        tabs: [{ id: 101 }, { id: 102 }],
+      },
     ] as any;
 
     const groupMoveSpy = vi.spyOn(mockTabGroups, 'move').mockResolvedValue(undefined as any);
@@ -214,16 +254,16 @@ describe('TabStore', () => {
     expect(groupMoveSpy).toHaveBeenCalledWith(10, { windowId: targetWindowId, index: -1 });
     expect(tabMoveSpy).toHaveBeenCalledWith([101, 102], { windowId: targetWindowId, index: -1 });
   });
-  
+
   it('should return tabs without suggestions', async () => {
     vi.resetModules();
     fakeBrowser.reset();
 
-    const tabs = (fakeBrowser.tabs as any);
+    const tabs = fakeBrowser.tabs as any;
     tabs.onMoved = mockListeners;
     tabs.onAttached = mockListeners;
     tabs.onDetached = mockListeners;
-    const windows = (fakeBrowser.windows as any);
+    const windows = fakeBrowser.windows as any;
     windows.onFocusChanged = mockListeners;
 
     (globalThis as any).chrome = {
@@ -235,42 +275,42 @@ describe('TabStore', () => {
 
     // Setup tabs
     const tabWithSuggestion = {
-        id: 101,
-        windowId: 1,
-        url: 'https://suggested.com',
-        title: 'Suggested',
-        active: false,
-        groupId: -1,
-        pinned: false,
-        highlighted: false,
-        incognito: false,
-        index: 0,
-        selected: false,
-        discarded: false,
-        autoDiscardable: false,
+      id: 101,
+      windowId: 1,
+      url: 'https://suggested.com',
+      title: 'Suggested',
+      active: false,
+      groupId: -1,
+      pinned: false,
+      highlighted: false,
+      incognito: false,
+      index: 0,
+      selected: false,
+      discarded: false,
+      autoDiscardable: false,
     };
 
     const tabWithoutSuggestion = {
-        id: 102,
-        windowId: 1,
-        url: 'https://unsuggested.com',
-        title: 'Unsuggested',
-        active: true,
-        groupId: -1,
-        pinned: false,
-        highlighted: false,
-        incognito: false,
-        index: 1,
-        selected: false,
-        discarded: false,
-        autoDiscardable: false,
+      id: 102,
+      windowId: 1,
+      url: 'https://unsuggested.com',
+      title: 'Unsuggested',
+      active: true,
+      groupId: -1,
+      pinned: false,
+      highlighted: false,
+      incognito: false,
+      index: 1,
+      selected: false,
+      discarded: false,
+      autoDiscardable: false,
     };
 
     (globalThis as any).chrome.tabs.query = vi.fn().mockResolvedValue([tabWithSuggestion, tabWithoutSuggestion]);
 
     // Setup storage with suggestion for the first tab
     await fakeBrowser.storage.local.set({
-      'tab-suggestions': { 'https://suggested.com': ['Group A'] }
+      'tab-suggestions': { 'https://suggested.com': ['Group A'] },
     });
 
     const mod = await import('./tab-store');
@@ -279,7 +319,7 @@ describe('TabStore', () => {
     // Wait for init
     let retries = 0;
     while (store.isInitializing.get() && retries < 50) {
-      await new Promise(r => setTimeout(r, 10));
+      await new Promise((r) => setTimeout(r, 10));
       retries++;
     }
 
@@ -298,11 +338,13 @@ describe('TabStore', () => {
     const tab2 = { id: 102, url: 'https://dup.com', windowId: 1, groupId: -1 };
     const tab3 = { id: 103, url: 'https://unique.com', windowId: 1, groupId: -1 };
 
-    tabStore.windows = [{
-      id: 1,
-      tabs: [tab1, tab2, tab3],
-      groups: []
-    }] as any;
+    tabStore.windows = [
+      {
+        id: 1,
+        tabs: [tab1, tab2, tab3],
+        groups: [],
+      },
+    ] as any;
 
     tabStore.selectDuplicateTabs();
 

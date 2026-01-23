@@ -3,6 +3,9 @@
   "packageManager": "yarn@4.10.3",
   "description": "manifest.json description",
   "private": true,
+  "workspaces": [
+    "server"
+  ],
   "version": "0.0.4",
   "type": "module",
   "scripts": {
@@ -10,23 +13,33 @@
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
-    "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "pack": "crx pack .output/chrome-mv3 -o .output/taborg.crx",
     "compile": "tsc --noEmit",
+    "lint": "biome lint .",
+    "format": "biome format . --write",
+    "check": "biome check --write .",
     "postinstall": "wxt prepare",
     "test": "vitest",
-    "prepare": "husky"
+    "prepare": "husky",
+    "server:build": "yarn workspace @taborg/server build",
+    "server:start": "yarn workspace @taborg/server start",
+    "server:dev": "yarn workspace @taborg/server dev"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.11",
     "@types/chrome": "^0.1.30",
     "@wxt-dev/auto-icons": "^1.1.0",
     "crx": "^5.0.1",
     "happy-dom": "^20.0.10",
     "husky": "^9.1.7",
     "typescript": "^5.9.3",
+    "vite": "^7.2.4",
     "vitest": "^4.0.13",
     "wxt": "^0.20.11"
+  },
+  "resolutions": {
+    "vite": "^7.2.4"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

@@ -1,6 +1,6 @@
-import { LitElement, html, css } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { GroupNode, tabStore } from '../services/tab-store.js';
+import { type GroupNode, tabStore } from '../services/tab-store.js';
 import { dropTargetStyles } from './shared-styles.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
@@ -70,7 +70,7 @@ export class GroupItem extends LitElement {
         font-size: var(--sl-font-size-x-small);
         color: var(--sl-color-neutral-500);
       }
-    `
+    `,
   ];
 
   @property({ type: Object }) group!: GroupNode;
@@ -90,8 +90,9 @@ export class GroupItem extends LitElement {
         @dragleave=${this.handleDragLeave}
       >
         <div class="left">
-          ${this.isEditing
-            ? html`
+          ${
+            this.isEditing
+              ? html`
               <sl-input
                 class="name-input"
                 size="small"
@@ -102,7 +103,7 @@ export class GroupItem extends LitElement {
                 autofocus
               ></sl-input>
             `
-            : html`
+              : html`
               <group-tag
                 size="medium"
                 pill
@@ -168,11 +169,13 @@ export class GroupItem extends LitElement {
     const newTitle = input.value.trim();
 
     if (newTitle && newTitle !== this.group.title) {
-      this.dispatchEvent(new CustomEvent('group-rename', {
-        detail: { id: this.group.id, title: newTitle },
-        bubbles: true,
-        composed: true
-      }));
+      this.dispatchEvent(
+        new CustomEvent('group-rename', {
+          detail: { id: this.group.id, title: newTitle },
+          bubbles: true,
+          composed: true,
+        }),
+      );
     }
 
     this.isEditing = false;
@@ -181,11 +184,13 @@ export class GroupItem extends LitElement {
   private closeGroup(e: Event) {
     e.stopPropagation();
     if (confirm('Are you sure you want to close this group and all its tabs?')) {
-      this.dispatchEvent(new CustomEvent('group-close', {
-        detail: { id: this.group.id },
-        bubbles: true,
-        composed: true
-      }));
+      this.dispatchEvent(
+        new CustomEvent('group-close', {
+          detail: { id: this.group.id },
+          bubbles: true,
+          composed: true,
+        }),
+      );
     }
   }
 
@@ -224,24 +229,24 @@ export class GroupItem extends LitElement {
   }
 
   private handleDragEnter(e: DragEvent) {
-     e.stopPropagation();
-     const dragging = tabStore.draggingState.get();
-     if (!dragging) return;
+    e.stopPropagation();
+    const dragging = tabStore.draggingState.get();
+    if (!dragging) return;
 
-     let valid = false;
-     if (dragging.type === 'tab') valid = true;
-     if (dragging.type === 'group' && dragging.id !== this.group.id) valid = true;
+    let valid = false;
+    if (dragging.type === 'tab') valid = true;
+    if (dragging.type === 'group' && dragging.id !== this.group.id) valid = true;
 
-     console.log('[GroupItem] dragenter:', { groupId: this.group.id, dragging, valid });
-     if (valid) {
-        this.dropTarget = true;
-     }
+    console.log('[GroupItem] dragenter:', { groupId: this.group.id, dragging, valid });
+    if (valid) {
+      this.dropTarget = true;
+    }
   }
 
   private handleDragLeave(e: DragEvent) {
-     console.log('[GroupItem] dragleave:', { groupId: this.group.id });
-     e.stopPropagation();
-     this.dropTarget = false;
+    console.log('[GroupItem] dragleave:', { groupId: this.group.id });
+    e.stopPropagation();
+    this.dropTarget = false;
   }
 
   private async handleDrop(e: DragEvent) {
@@ -256,11 +261,13 @@ export class GroupItem extends LitElement {
     if (dragging.type === 'tab') {
       await tabStore.moveTabToGroup(dragging.id, this.group.id);
     } else if (dragging.type === 'group') {
-      this.dispatchEvent(new CustomEvent('merge-request', {
-        detail: { type: 'merge-groups', sourceId: dragging.id, targetId: this.group.id },
-        bubbles: true,
-        composed: true
-      }));
+      this.dispatchEvent(
+        new CustomEvent('merge-request', {
+          detail: { type: 'merge-groups', sourceId: dragging.id, targetId: this.group.id },
+          bubbles: true,
+          composed: true,
+        }),
+      );
     }
 
     tabStore.draggingState.set(null); // Clear state

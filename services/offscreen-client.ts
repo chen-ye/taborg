@@ -18,7 +18,7 @@ async function updateIcon(isDark: boolean) {
 
     chrome.runtime.sendMessage({
       type: 'UPDATE_ICON',
-      imageData: imageData
+      imageData: imageData,
     });
   } catch (error) {
     console.error('Failed to generate icon:', error);
