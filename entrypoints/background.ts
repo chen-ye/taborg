@@ -549,6 +549,34 @@ function initializeMcpTools() {
 
   mcpService.registerTool(
     {
+      name: 'taborg_set_window_name',
+      description:
+        'Set a custom name for a specific window. This name is stored in local storage and synchronized with the Sidepanel UI.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          windowId: { type: 'number', description: 'The ID of the window to name' },
+          name: { type: 'string', description: 'The new name for the window' },
+        },
+        required: ['windowId', 'name'],
+      },
+    },
+    async (args) => {
+      const typedArgs = args as { windowId: number; name: string };
+      await browserService.setWindowName(typedArgs.windowId, typedArgs.name);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ success: true, windowId: typedArgs.windowId, name: typedArgs.name }, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  mcpService.registerTool(
+    {
       name: 'taborg_move_tab_group',
       description: 'Move a tab group to a specific window and optional index.',
       inputSchema: {

@@ -26,6 +26,7 @@ export interface WindowInfo {
   height?: number;
   top?: number;
   left?: number;
+  name?: string;
 }
 
 export function assertNonEmptyArray<T>(arr: T[]): asserts arr is [T, ...T[]] {
@@ -62,6 +63,7 @@ export class BrowserService {
 
   async getWindows(): Promise<WindowInfo[]> {
     const windows = await chrome.windows.getAll({ populate: false });
+    const windowNames = await this.getWindowNames();
     return windows.map((w) => ({
       id: w.id!,
       focused: w.focused,
@@ -71,7 +73,19 @@ export class BrowserService {
       height: w.height,
       top: w.top,
       left: w.left,
+      name: windowNames[w.id!] || undefined,
     }));
+  }
+
+  async setWindowName(windowId: number, name: string) {
+    const names = await this.getWindowNames();
+    names[windowId] = name;
+    await chrome.storage.local.set({ 'window-names': names });
+  }
+
+  private async getWindowNames(): Promise<Record<number, string>> {
+    const result = await chrome.storage.local.get('window-names');
+    return (result['window-names'] as Record<number, string>) || {};
   }
 
   async getTab(tabId: number): Promise<TabInfo> {

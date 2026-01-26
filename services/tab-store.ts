@@ -225,7 +225,7 @@ export class TabStore {
       for (const [key, value] of windowNamesMap) this.windowNames.set(key, value);
       for (const id of collapsedWindowIdsSet) this.collapsedWindowIds.add(id);
 
-      if (currentWindow && currentWindow.id) {
+      if (currentWindow?.id) {
         this.currentWindowId.set(currentWindow.id);
       }
 

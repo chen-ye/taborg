@@ -62,20 +62,21 @@ your browser tabs.
    - Verify the status shows "Connected".
 
 3. **Connect your MCP Client**:
-   - **Claude Desktop**: Add to your `claude_desktop_config.json`:
-     ```json
-     {
-       "mcpServers": {
-         "taborg": {
-           "command": "node",
-           "args": ["/absolute/path/to/taborg/server/dist/index.js"]
-         }
+   > Note: Claude Desktop requires an SSE-to-Stdio bridge to connect to local
+   > HTTP servers.
+   ```json
+   {
+     "mcpServers": {
+       "taborg": {
+         "command": "npx",
+         "args": ["-y", "mcp-proxy", "http://localhost:3000/mcp"]
        }
      }
-     ```
+   }
+   ```
    - **MCP Inspector**:
      ```bash
-     npx @modelcontextprotocol/inspector node server/dist/index.js
+     npx @modelcontextprotocol/inspector http://localhost:3000/mcp
      ```
 
    - **Gemini CLI**:

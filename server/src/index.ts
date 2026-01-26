@@ -1,7 +1,7 @@
+import { createServer } from 'node:net';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import express from 'express';
-import { createServer } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 
 const HTTP_PORT = 3000;

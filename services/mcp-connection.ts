@@ -1,10 +1,10 @@
 import type {
   CallToolResult,
+  JSONRPCMessage,
+  JSONRPCRequest,
   Prompt,
   Resource,
   Tool,
-  JSONRPCMessage,
-  JSONRPCRequest,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Signal } from 'signal-polyfill';
 
@@ -29,6 +29,7 @@ export interface PromptMessage {
 export interface GetPromptResult {
   description?: string;
   messages: PromptMessage[];
+  [key: string]: unknown;
 }
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';

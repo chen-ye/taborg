@@ -11,8 +11,8 @@ import '@shoelace-style/shoelace/dist/components/badge/badge.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import type { SlDialog, SlInput, SlSwitch } from '@shoelace-style/shoelace';
-import { Signal } from 'signal-polyfill';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { Signal } from 'signal-polyfill';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
