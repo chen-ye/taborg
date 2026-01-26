@@ -344,17 +344,25 @@ export class TabStore {
         suggestedGroups, // Added
       };
 
-      if (t.groupId > -1 && groupMap.has(t.groupId)) {
-        groupMap.get(t.groupId)!.tabs.push(tabNode);
-      } else if (windowMap.has(t.windowId)) {
-        windowMap.get(t.windowId)!.tabs.push(tabNode);
+      if (t.groupId > -1) {
+        const group = groupMap.get(t.groupId);
+        if (group) {
+          group.tabs.push(tabNode);
+          continue;
+        }
+      }
+
+      const window = windowMap.get(t.windowId);
+      if (window) {
+        window.tabs.push(tabNode);
       }
     }
 
     // Assign groups to windows
     groupMap.forEach((g, id) => {
-      if (windowMap.has(g.windowId)) {
-        windowMap.get(g.windowId)!.groups.push(g);
+      const window = windowMap.get(g.windowId);
+      if (window) {
+        window.groups.push(g);
       } else {
         groupMap.delete(id);
       }
@@ -440,32 +448,34 @@ export class TabStore {
 
   toggleSelection(id: number, type: 'tab' | 'group' | 'window', selected: boolean) {
     // Initialize pending changes with current selection if not already batching
-    if (this.pendingSelectionChanges === null) {
-      this.pendingSelectionChanges = new Set(this.selectedTabIds.values()); // Use .values() for SignalSet
+    let pending = this.pendingSelectionChanges;
+    if (pending === null) {
+      pending = new Set(this.selectedTabIds.values()); // Use .values() for SignalSet
+      this.pendingSelectionChanges = pending;
     }
 
     if (type === 'tab') {
-      if (selected) this.pendingSelectionChanges.add(id);
-      else this.pendingSelectionChanges.delete(id);
+      if (selected) pending.add(id);
+      else pending.delete(id);
     } else if (type === 'group') {
       const group = this.findGroup(id);
       if (group) {
         group.tabs.forEach((t) => {
-          if (selected) this.pendingSelectionChanges!.add(t.id);
-          else this.pendingSelectionChanges!.delete(t.id);
+          if (selected) pending.add(t.id);
+          else pending.delete(t.id);
         });
       }
     } else if (type === 'window') {
       const win = this.windows.find((w: WindowNode) => w.id === id); // Direct access
       if (win) {
         win.tabs.forEach((t: TabNode) => {
-          if (selected) this.pendingSelectionChanges!.add(t.id);
-          else this.pendingSelectionChanges!.delete(t.id);
+          if (selected) pending.add(t.id);
+          else pending.delete(t.id);
         });
         win.groups.forEach((g: GroupNode) => {
           g.tabs.forEach((t: TabNode) => {
-            if (selected) this.pendingSelectionChanges!.add(t.id);
-            else this.pendingSelectionChanges!.delete(t.id);
+            if (selected) pending.add(t.id);
+            else pending.delete(t.id);
           });
         });
       }

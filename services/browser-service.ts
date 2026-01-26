@@ -35,11 +35,16 @@ export function assertNonEmptyArray<T>(arr: T[]): asserts arr is [T, ...T[]] {
   }
 }
 
+// Type guard to ensure item has an ID
+function hasId<T extends { id?: number }>(item: T): item is T & { id: number } {
+  return item.id !== undefined;
+}
+
 export class BrowserService {
   async getTabs(query: chrome.tabs.QueryInfo = {}): Promise<TabInfo[]> {
     const tabs = await chrome.tabs.query(query);
-    return tabs.map((t) => ({
-      id: t.id!,
+    return tabs.filter(hasId).map((t) => ({
+      id: t.id,
       title: t.title || '',
       url: t.url || '',
       windowId: t.windowId,
@@ -64,8 +69,8 @@ export class BrowserService {
   async getWindows(): Promise<WindowInfo[]> {
     const windows = await chrome.windows.getAll({ populate: false });
     const windowNames = await this.getWindowNames();
-    return windows.map((w) => ({
-      id: w.id!,
+    return windows.filter(hasId).map((w) => ({
+      id: w.id,
       focused: w.focused,
       state: w.state,
       type: w.type,
@@ -73,7 +78,7 @@ export class BrowserService {
       height: w.height,
       top: w.top,
       left: w.left,
-      name: windowNames[w.id!] || undefined,
+      name: windowNames[w.id] || undefined,
     }));
   }
 
@@ -91,7 +96,7 @@ export class BrowserService {
   async getTab(tabId: number): Promise<TabInfo> {
     const t = await chrome.tabs.get(tabId);
     return {
-      id: t.id!,
+      id: t.id ?? tabId,
       title: t.title || '',
       url: t.url || '',
       windowId: t.windowId,

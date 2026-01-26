@@ -80,10 +80,12 @@ class McpProxyServer {
 
       // Handle DELETE for session cleanup
       if (req.method === 'DELETE') {
-        if (sessionId && this.transports.has(sessionId)) {
-          const transport = this.transports.get(sessionId)!;
-          await transport.close();
-          this.transports.delete(sessionId);
+        if (sessionId) {
+          const transport = this.transports.get(sessionId);
+          if (transport) {
+            await transport.close();
+            this.transports.delete(sessionId);
+          }
         }
         res.status(200).json({ success: true });
         return;
@@ -96,7 +98,9 @@ class McpProxyServer {
         // Ensure transport is set up to handle incoming messages from Client
         if (!transport.onmessage) {
           transport.onmessage = (message: JSONRPCMessage) => {
-            this.forwardToExtension(message, transport.sessionId!);
+            if (transport.sessionId) {
+              this.forwardToExtension(message, transport.sessionId);
+            }
           };
         }
 
@@ -115,8 +119,9 @@ class McpProxyServer {
 
   // Helper to deduplicate transport creation logic
   private getOrCreateTransport(sessionId?: string): StreamableHTTPServerTransport {
-    if (sessionId && this.transports.has(sessionId)) {
-      return this.transports.get(sessionId)!;
+    if (sessionId) {
+      const existing = this.transports.get(sessionId);
+      if (existing) return existing;
     }
 
     const transport = new StreamableHTTPServerTransport({

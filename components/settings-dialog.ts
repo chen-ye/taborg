@@ -17,8 +17,8 @@ import { Signal } from 'signal-polyfill';
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 class SettingState<T> {
-  current = new Signal.State<T>(null!);
-  original = new Signal.State<T>(null!);
+  current: Signal.State<T>;
+  original: Signal.State<T>;
   status = new Signal.State<SaveStatus>('idle');
 
   get isDirty() {
@@ -26,8 +26,8 @@ class SettingState<T> {
   }
 
   constructor(initialValue: T) {
-    this.current.set(initialValue);
-    this.original.set(initialValue);
+    this.current = new Signal.State(initialValue);
+    this.original = new Signal.State(initialValue);
   }
 
   reset() {
