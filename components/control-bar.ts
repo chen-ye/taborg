@@ -8,6 +8,10 @@ import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
+import '@shoelace-style/shoelace/dist/components/dropdown/dropdown.js';
+import '@shoelace-style/shoelace/dist/components/menu/menu.js';
+import '@shoelace-style/shoelace/dist/components/menu-item/menu-item.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 
 @customElement('control-bar')
 export class ControlBar extends SignalWatcher(LitElement) {
@@ -97,6 +101,22 @@ export class ControlBar extends SignalWatcher(LitElement) {
         </div>
 
         <div class="right-actions">
+          <sl-dropdown placement="bottom-end" hoist>
+            <sl-icon-button slot="trigger" name="eye" label="View Settings"></sl-icon-button>
+            <sl-menu>
+              <sl-menu-item
+                type="checkbox"
+                ?checked=${tabStore.viewOptions.get().viewMode === 'compact'}
+                @click=${() => this.setViewMode('compact')}
+              >Compact</sl-menu-item>
+              <sl-menu-item
+                type="checkbox"
+                ?checked=${tabStore.viewOptions.get().viewMode === 'detailed'}
+                @click=${() => this.setViewMode('detailed')}
+              >Detailed</sl-menu-item>
+            </sl-menu>
+          </sl-dropdown>
+
           <sl-tooltip content="Follow Me">
             <sl-icon-button
               name="crosshair"
@@ -287,5 +307,9 @@ export class ControlBar extends SignalWatcher(LitElement) {
   }
   private toggleFollowMode() {
     tabStore.toggleFollowMode();
+  }
+
+  private setViewMode(mode: 'compact' | 'detailed') {
+    tabStore.setViewMode(mode);
   }
 }

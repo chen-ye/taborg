@@ -2,4 +2,5 @@
 trigger: always_on
 ---
 
-Remember that this project uses yarn for package-management and script running.
+This project uses yarn v4 (with workspaces) for package-management and script
+running.

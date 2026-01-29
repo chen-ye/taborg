@@ -18,6 +18,10 @@ export interface TabNode {
   suggestedGroups?: string[]; // Added for reactive collections
 }
 
+export interface ViewOptions {
+  viewMode: 'compact' | 'detailed';
+}
+
 export interface GroupNode {
   id: number;
   title: string;
@@ -48,6 +52,7 @@ export class TabStore {
 
   draggingState = new Signal.State<{ type: 'tab' | 'group' | 'window'; id: number } | null>(null);
   followMode = new Signal.State(false); // Added for Follow Me mode
+  viewOptions = new Signal.State<ViewOptions>({ viewMode: 'compact' });
 
   // Batching state for selection updates
   private pendingSelectionChanges: Set<number> | null = null;
@@ -219,6 +224,8 @@ export class TabStore {
         chrome.windows.getCurrent(),
       ]);
 
+      await this.loadViewOptions();
+
       // Batch all signal updates together
       for (const [key, value] of suggestionsMap) this.suggestionsUrlMap.set(key, value);
       for (const id of selectedIds) this.selectedTabIds.add(id);
@@ -269,6 +276,12 @@ export class TabStore {
     const result = await chrome.storage.local.get('collapsed-windows');
     const collapsed = (result['collapsed-windows'] as number[]) || [];
     return new Set(collapsed);
+  }
+
+  private async loadViewOptions(): Promise<void> {
+    const result = await chrome.storage.local.get('view-options');
+    const options = (result['view-options'] as ViewOptions) || { viewMode: 'compact' };
+    this.viewOptions.set(options);
   }
 
   private async saveSelection() {
@@ -726,6 +739,12 @@ export class TabStore {
 
   toggleFollowMode() {
     this.followMode.set(!this.followMode.get());
+  }
+
+  async setViewMode(mode: 'compact' | 'detailed') {
+    const newOptions: ViewOptions = { viewMode: mode };
+    this.viewOptions.set(newOptions);
+    await chrome.storage.local.set({ 'view-options': newOptions });
   }
 }
 

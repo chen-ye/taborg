@@ -28,13 +28,16 @@ export class TabItem extends SignalWatcher(LitElement) {
     .tab-row {
       min-width: 0;
       flex-grow: 1;
-      display: flex;
+      display: grid;
       align-items: center;
-      justify-content: space-between;
       padding: var(--sl-spacing-2x-small) var(--sl-spacing-x-small);
       border-radius: var(--sl-border-radius-medium);
       cursor: pointer;
       transition: background-color var(--sl-transition-fast);
+      position: relative;
+      gap: var(--sl-spacing-x-small);
+      /* Default grid columns (will be overridden by modes) */
+      grid-template-columns: min-content 1fr min-content;
     }
 
     .tab-row:hover {
@@ -50,13 +53,37 @@ export class TabItem extends SignalWatcher(LitElement) {
       padding-left: calc(var(--sl-spacing-x-small) - 3px);
     }
 
+    /* Grid Areas */
     .left {
+      grid-area: title;
       min-width: 0;
       display: flex;
       align-items: center;
       gap: var(--sl-spacing-2x-small);
     }
 
+    .suggestions {
+      grid-area: suggestions;
+      display: flex;
+      gap: var(--sl-spacing-2x-small);
+      align-items: center;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .right {
+      grid-area: dropdown;
+      display: flex;
+      align-items: center;
+    }
+
+    .controls {
+      grid-area: controls;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Common Child Styles */
     sl-checkbox {
       margin-right: var(--sl-spacing-x-small);
     }
@@ -66,6 +93,7 @@ export class TabItem extends SignalWatcher(LitElement) {
       height: var(--sl-spacing-medium);
       margin-right: var(--sl-spacing-x-small);
       border-radius: var(--sl-border-radius-small);
+      flex-shrink: 0;
     }
 
     .title {
@@ -76,13 +104,6 @@ export class TabItem extends SignalWatcher(LitElement) {
       color: var(--sl-color-neutral-700);
     }
 
-    .suggestions {
-      display: flex;
-      gap: var(--sl-spacing-2x-small);
-      align-items: center;
-      align-items: center;
-    }
-
     group-tag {
       cursor: pointer;
     }
@@ -91,31 +112,50 @@ export class TabItem extends SignalWatcher(LitElement) {
       opacity: 0.8;
     }
 
-    .controls {
-      display: none;
-      position: absolute;
-      left: var(--sl-spacing-2x-small);
-      height: 100%;
-      padding-left: 2px;
-    }
-
-    .tab-row:hover .controls {
-      display: flex;
-      align-items: center;
-    }
-
-    .right {
-      display: flex;
-      align-items: center;
-      gap: var(--sl-spacing-2x-small);
-      margin-left: auto;
-    }
-
     sl-icon-button {
       font-size: var(--sl-font-size-small);
     }
 
+    /* COMPACT MODE */
+    .tab-row.compact {
+        grid-template-columns: minmax(0, min-content) minmax(0, 1fr) min-content min-content;
+        grid-template-areas: "title suggestions dropdown controls";
+    }
 
+    .tab-row.compact .controls {
+        opacity: 0; /* Gutter reserved, but hidden */
+        pointer-events: none;
+    }
+
+    .tab-row.compact:hover .controls {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* DETAILED MODE */
+    .tab-row.detailed {
+        grid-template-columns: 1fr min-content auto;
+        /* Rows defined by content */
+    }
+
+    /* Detailed: With Suggestions (2 Rows) */
+    .tab-row.detailed.has-suggestions {
+        grid-template-areas:
+            "title title controls"
+            "suggestions dropdown controls";
+    }
+
+    /* Detailed: No Suggestions (1 Row) */
+    .tab-row.detailed:not(.has-suggestions) {
+        grid-template-areas: "title dropdown controls";
+        grid-template-columns: 1fr min-content auto;
+    }
+
+    /* In detailed mode, align controls to top or center? */
+    .tab-row.detailed .controls {
+        /* If 2 rows, span them? or just align to top row? */
+        /* If we want it vertically centered across the whole card, default stretch/center works. */
+    }
 
     .group-dropdown {
       display: block;
@@ -140,16 +180,20 @@ export class TabItem extends SignalWatcher(LitElement) {
 
   render() {
     const suggestedGroups = this.tab.url ? tabStore.suggestionsUrlMap.get(this.tab.url) : undefined;
+    const viewMode = tabStore.viewOptions.get().viewMode;
+
+    const hasSuggestions = suggestedGroups && suggestedGroups.length > 0;
 
     return html`
       <div
-        class="tab-row ${this.tab.active ? 'active' : ''}"
+        class="tab-row ${this.tab.active ? 'active' : ''} ${viewMode} ${hasSuggestions ? 'has-suggestions' : ''}"
         @click=${this.focusTab}
         @auxclick=${this.handleAuxClick}
         draggable="true"
         @dragstart=${this.handleDragStart}
         @dragend=${this.handleDragEnd}
       >
+        <!-- Title Area -->
         <div class="left">
           ${
             this.tab.favIconUrl
@@ -160,10 +204,10 @@ export class TabItem extends SignalWatcher(LitElement) {
           <span class="title" title="${this.tab.title}">${this.tab.title}</span>
         </div>
 
-        <div class="right">
-          ${
-            suggestedGroups && suggestedGroups.length > 0
-              ? html`
+        <!-- Suggestions Area -->
+        ${
+          suggestedGroups && suggestedGroups.length > 0
+            ? html`
             <div class="suggestions">
               ${repeat(
                 suggestedGroups,
@@ -191,9 +235,14 @@ export class TabItem extends SignalWatcher(LitElement) {
               )}
             </div>
           `
-              : ''
-          }
+            : html`<div class="suggestions" style="display:none"></div>`
+          // Keep an empty div or handle via grid area?
+          // If display:none, it doesn't take grid area.
+          // In grid areas, if an element is missing, that area is empty.
+        }
 
+        <!-- Dropdown Area -->
+        <div class="right">
           <div class="group-dropdown" @click=${(e: Event) => e.stopPropagation()}>
             <sl-dropdown placement="bottom-end" hoist @sl-show=${this.handleDropdownShow}>
               <group-tag slot="trigger" size="small" pill class="group-trigger">
@@ -222,28 +271,24 @@ export class TabItem extends SignalWatcher(LitElement) {
           </div>
         </div>
 
+        <!-- Controls Area -->
         <div class="controls">
           <sl-button-group>
+            <sl-button
+              pill
+              size="small"
+              .disabled=${this.tab.active}
+              @click=${this.moveTabAfterActive}
+            >
+              <sl-icon slot="prefix" name="arrow-down" label="Move after active tab"></sl-icon>
+            </sl-button>
             <sl-button
               pill
               size="small"
               @click=${this.closeTab}
             >
               <sl-icon slot="prefix" name="x" label="Close Tab"></sl-icon>
-            </sl-button>
-            ${
-              !this.tab.active
-                ? html`
-              <sl-button
-                pill
-                size="small"
-                @click=${this.moveTabAfterActive}
-              >
-                <sl-icon slot="prefix" name="arrow-down" label="Move after active tab"></sl-icon>
-              </sl-button>
-            `
-                : ''
-            }
+          </sl-button>
           </sl-button-group>
         </div>
       </div>

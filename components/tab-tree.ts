@@ -22,7 +22,7 @@ export class TabTree extends SignalWatcher(LitElement) {
     }
 
     sl-tree {
-      --indent-size: var(--sl-spacing-large);
+      --indent-size: var(--sl-spacing-medium);
     }
 
     sl-tree-item {
