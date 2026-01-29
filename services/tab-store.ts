@@ -216,11 +216,12 @@ export class TabStore {
   private async init() {
     try {
       // Load data without triggering re-renders
-      const [suggestionsMap, selectedIds, windowNamesMap, collapsedWindowIdsSet, currentWindow] = await Promise.all([
+      const [suggestionsMap, selectedIds, windowNamesMap, collapsedWindowIdsSet, , currentWindow] = await Promise.all([
         this.loadSuggestions(),
         this.loadSelection(),
         this.loadWindowNames(),
         this.loadCollapsedWindows(),
+        this.loadFollowMode(),
         chrome.windows.getCurrent(),
       ]);
 
@@ -282,6 +283,13 @@ export class TabStore {
     const result = await chrome.storage.local.get('view-options');
     const options = (result['view-options'] as ViewOptions) || { viewMode: 'compact' };
     this.viewOptions.set(options);
+    this.viewOptions.set(options);
+  }
+
+  private async loadFollowMode(): Promise<void> {
+    const result = await chrome.storage.local.get('follow-mode');
+    const follow = (result['follow-mode'] as boolean) || false;
+    this.followMode.set(follow);
   }
 
   private async saveSelection() {
@@ -738,7 +746,9 @@ export class TabStore {
   }
 
   toggleFollowMode() {
-    this.followMode.set(!this.followMode.get());
+    const newState = !this.followMode.get();
+    this.followMode.set(newState);
+    chrome.storage.local.set({ 'follow-mode': newState });
   }
 
   async setViewMode(mode: 'compact' | 'detailed') {

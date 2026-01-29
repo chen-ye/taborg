@@ -194,7 +194,7 @@ export class TabTree extends SignalWatcher(LitElement) {
         // Find the tree item for the active tab
         const treeItem = this.shadowRoot?.querySelector(`sl-tree-item[data-id="${activeTabId}"][data-type="tab"]`);
         if (treeItem) {
-          treeItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          treeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
         }
       }
     }

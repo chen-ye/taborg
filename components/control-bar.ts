@@ -42,6 +42,10 @@ export class ControlBar extends SignalWatcher(LitElement) {
       display: flex;
       gap: var(--sl-spacing-2x-small);
     }
+
+    sl-icon-button[variant="primary"]::part(base) {
+      color: var(--sl-color-primary-600);
+    }
   `;
 
   @state() private organizing = false;
