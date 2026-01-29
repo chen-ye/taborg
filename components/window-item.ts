@@ -1,4 +1,4 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { geminiService } from '../services/gemini.js';
 import { type GroupNode, tabStore, type WindowNode } from '../services/tab-store.js';
@@ -93,7 +93,7 @@ export class WindowItem extends LitElement {
   @property({ type: Object }) window!: WindowNode;
   @property({ type: Boolean }) private generatingName = false;
   @property({ type: Boolean, reflect: true, attribute: 'drop-target' }) dropTarget = false;
-  @state() private isEditing = false;
+  @state() isEditing = false;
 
   render() {
     const tabCount =
@@ -163,7 +163,7 @@ export class WindowItem extends LitElement {
     `;
   }
 
-  updated(changedProperties: Map<string, any>) {
+  updated(changedProperties: PropertyValues<this>) {
     if (changedProperties.has('isEditing') && this.isEditing) {
       // Focus the input when editing starts
       const input = this.renderRoot.querySelector('.name-input') as HTMLInputElement;

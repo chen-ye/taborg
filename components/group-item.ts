@@ -1,4 +1,4 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { type GroupNode, tabStore } from '../services/tab-store.js';
 import { dropTargetStyles } from './shared-styles.js';
@@ -75,7 +75,7 @@ export class GroupItem extends LitElement {
 
   @property({ type: Object }) group!: GroupNode;
   @property({ type: Boolean, reflect: true, attribute: 'drop-target' }) dropTarget = false;
-  @state() private isEditing = false;
+  @state() isEditing = false;
 
   render() {
     return html`
@@ -138,7 +138,7 @@ export class GroupItem extends LitElement {
     `;
   }
 
-  updated(changedProperties: Map<string, any>) {
+  updated(changedProperties: PropertyValues<this>) {
     if (changedProperties.has('isEditing') && this.isEditing) {
       // Focus the input when editing starts
       const input = this.renderRoot.querySelector('.name-input') as HTMLInputElement;

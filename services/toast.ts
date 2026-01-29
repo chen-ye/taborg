@@ -19,7 +19,7 @@ export const toast = {
     });
 
     document.body.append(alert);
-    (alert as any).toast();
+    (alert as unknown as { toast: () => Promise<void> }).toast();
   },
 
   error(message: string) {

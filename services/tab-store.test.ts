@@ -152,7 +152,6 @@ describe('TabStore', () => {
 
   it('should merge groups', async () => {
     // Setup source group with tabs
-    const windows = await fakeBrowser.windows.getAll();
     const sourceGroupId = 10;
     const targetGroupId = 20;
 

@@ -1,5 +1,5 @@
 import { SignalWatcher } from '@lit-labs/signals';
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { type GroupNode, type TabNode, tabStore } from '../services/tab-store.js';
@@ -177,7 +177,7 @@ export class TabTree extends SignalWatcher(LitElement) {
     `;
   }
 
-  willUpdate(changedProperties: Map<string, any>) {
+  willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
     // Sync draggingType and draggingId properties with signal state
     const dragging = tabStore.draggingState.get();
@@ -185,7 +185,7 @@ export class TabTree extends SignalWatcher(LitElement) {
     this.draggingId = dragging?.id ?? null;
   }
 
-  updated(changedProperties: Map<string, any>) {
+  updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
 
     if (tabStore.followMode.get()) {

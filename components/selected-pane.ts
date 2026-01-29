@@ -61,15 +61,4 @@ export class SelectedPane extends SignalWatcher(LitElement) {
     e.stopPropagation();
     tabStore.focusTab(e.detail.id);
   }
-
-  private async closeAllSelected() {
-    const selectedTabs = tabStore.selectedTabs.get();
-    const ids = selectedTabs.map((t) => t.id);
-    if (ids.length === 0) return;
-
-    if (confirm(`Are you sure you want to close ${ids.length} tabs?`)) {
-      await tabStore.closeTabs(ids);
-      tabStore.setSelectedTabs(new Set());
-    }
-  }
 }
