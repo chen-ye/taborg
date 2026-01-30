@@ -5,6 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
     "useDefineForClassFields": false,
     "experimentalDecorators": true,
     "plugins": [

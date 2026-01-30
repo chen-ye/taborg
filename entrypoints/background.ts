@@ -1,5 +1,5 @@
 import { llmManager } from '../services/ai/llm-manager.js';
-import { mcpService } from '../services/mcp/mcp-connection.js';
+import { McpConnectionService, mcpService } from '../services/mcp/mcp-connection.js';
 import { browserService } from '../services/tabs/browser-service.js';
 import { suggestionService } from '../services/tabs/suggestion-service.js';
 import type { AutoCategorizationMode } from '../types/llm-types.js';
@@ -187,9 +187,26 @@ export const main = () => {
   chrome.tabs.onCreated.addListener(() => updateBadge());
   chrome.tabs.onRemoved.addListener(() => updateBadge());
   updateBadge();
-  initializeMcpTools();
-  initializeMcpResources();
-  initializeMcpPrompts();
+
+  McpConnectionService.getPersistedInstanceId().then((instanceId) => {
+    initializeMcpTools();
+    initializeMcpResources(instanceId);
+    initializeMcpPrompts(instanceId);
+    mcpService.init();
+  });
+
+  // Re-register resources when instance ID changes
+  chrome.storage.onChanged.addListener(async (changes, area) => {
+    if (area === 'local' && changes['mcp-instance-id']) {
+      const newId = await McpConnectionService.getPersistedInstanceId();
+      mcpService.clearRegistrations();
+      initializeMcpTools();
+      initializeMcpResources(newId);
+      initializeMcpPrompts(newId);
+      // Connection retry is handled by mcp-connection.ts
+    }
+  });
+
   mcpService.onStatusChange((status) => {
     chrome.storage.session.set({ mcpStatus: status });
     updateBadge(); // Update badge on status change too
@@ -210,15 +227,15 @@ export const main = () => {
     }
   });
 
-  mcpService.init();
+  // init called in the promise chain above
 };
 
-function initializeMcpPrompts() {
+function initializeMcpPrompts(instanceId: string) {
+  const resourceBase = `taborg://${instanceId}`;
   mcpService.registerPrompt(
     {
       name: 'organize_tabs',
-      description:
-        'Instructions for organizing browser tabs into groups. The agent should read taborg://tabs and taborg://groups resources to get current state.',
+      description: `Instructions for organizing browser tabs into groups. The agent should read ${resourceBase}/tabs and ${resourceBase}/groups resources to get current state.`,
       arguments: [],
     },
     async () => {
@@ -231,8 +248,8 @@ function initializeMcpPrompts() {
       const promptText = `You are a helpful assistant that organizes browser tabs.
 
 First, read the following MCP resources to get the current state:
-- taborg://tabs - List of all open tabs with IDs, titles, URLs, and group info
-- taborg://groups - List of all existing tab groups with IDs, titles, and colors
+- ${resourceBase}/tabs - List of all open tabs with IDs, titles, URLs, and group info
+- ${resourceBase}/groups - List of all existing tab groups with IDs, titles, and colors
 ${predefinedText}
 
 After reading the resources, analyze the tabs and:
@@ -255,10 +272,10 @@ Then use the 'taborg_group_tabs' tool to organize tabs, or 'taborg_update_sugges
   );
 }
 
-function initializeMcpResources() {
+function initializeMcpResources(instanceId: string) {
   mcpService.registerResource(
     {
-      uri: 'taborg://tabs',
+      uri: `taborg://${instanceId}/tabs`,
       name: 'Open Tabs',
       description: 'List of all open browser tabs with their IDs, titles, URLs, and group information',
       mimeType: 'application/json',
@@ -272,13 +289,15 @@ function initializeMcpResources() {
         windowId: t.windowId,
         groupId: t.groupId,
       }));
-      return [{ uri: 'taborg://tabs', mimeType: 'application/json', text: JSON.stringify(tabData, null, 2) }];
+      return [
+        { uri: `taborg://${instanceId}/tabs`, mimeType: 'application/json', text: JSON.stringify(tabData, null, 2) },
+      ];
     },
   );
 
   mcpService.registerResource(
     {
-      uri: 'taborg://groups',
+      uri: `taborg://${instanceId}/groups`,
       name: 'Tab Groups',
       description: 'List of all tab groups with their IDs, titles, colors, and window information',
       mimeType: 'application/json',
@@ -291,24 +310,33 @@ function initializeMcpResources() {
         color: g.color,
         windowId: g.windowId,
       }));
-      return [{ uri: 'taborg://groups', mimeType: 'application/json', text: JSON.stringify(groupData, null, 2) }];
+      return [
+        {
+          uri: `taborg://${instanceId}/groups`,
+          mimeType: 'application/json',
+          text: JSON.stringify(groupData, null, 2),
+        },
+      ];
     },
   );
 
   mcpService.registerResource(
     {
-      uri: 'taborg://windows',
+      uri: `taborg://${instanceId}/windows`,
       name: 'Browser Windows',
       description: 'List of all open browser windows with their dimensions and state',
       mimeType: 'application/json',
     },
     async () => {
       const windows = await browserService.getWindows();
-      return [{ uri: 'taborg://windows', mimeType: 'application/json', text: JSON.stringify(windows, null, 2) }];
+      return [
+        { uri: `taborg://${instanceId}/windows`, mimeType: 'application/json', text: JSON.stringify(windows, null, 2) },
+      ];
     },
   );
 }
 function initializeMcpTools() {
+  // Tools remain unchanged as they are scoped by valid server connection
   mcpService.registerTool(
     {
       name: 'taborg_list_tabs',

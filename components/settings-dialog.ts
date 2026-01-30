@@ -219,8 +219,12 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     }
 
     // Load instance ID or fetch default
-    let instanceId = result['mcp-instance-id'] as string;
-    if (!instanceId) {
+    let instanceId: string;
+    const localResult = await chrome.storage.local.get('mcp-instance-id');
+
+    if (localResult['mcp-instance-id']) {
+      instanceId = localResult['mcp-instance-id'] as string;
+    } else {
       try {
         const userInfo = await chrome.identity.getProfileUserInfo();
         instanceId = userInfo.email || 'default';
@@ -274,9 +278,9 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     this.open = false;
   };
 
-  // Custom save for instance ID that triggers reconnect
+  // Custom save for instance ID
   private async saveMcpInstanceId(id: string) {
-    await chrome.storage.sync.set({ 'mcp-instance-id': id });
+    await chrome.storage.local.set({ 'mcp-instance-id': id });
   }
 
   // Generic render helper for text settings

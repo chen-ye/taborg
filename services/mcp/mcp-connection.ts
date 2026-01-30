@@ -34,7 +34,7 @@ export interface GetPromptResult {
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
 
-class McpConnectionService {
+export class McpConnectionService {
   private ws: WebSocket | null = null;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
@@ -42,6 +42,7 @@ class McpConnectionService {
   private maxDelay = 30000;
   private baseDelay = 1000;
   private isEnabled = true;
+  private currentInstanceId = 'default';
 
   // Signals for UI
   private _status = new Signal.State<ConnectionStatus>('disconnected');
@@ -153,6 +154,7 @@ class McpConnectionService {
         }
       }
 
+      this.currentInstanceId = instanceId;
       this.ws = new WebSocket(`ws://localhost:3003/${instanceId}`);
 
       this.ws.onopen = () => {
@@ -270,8 +272,8 @@ class McpConnectionService {
               },
             },
             serverInfo: {
-              name: 'TabOrg',
-              version: '0.1.0',
+              name: `TabOrg (${this.currentInstanceId})`,
+              version: chrome.runtime.getManifest().version,
             },
           },
         });
