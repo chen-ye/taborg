@@ -150,6 +150,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private fallbackEnabled = new SettingState<boolean>(false);
   private autoCategorizationMode = new SettingState<AutoCategorizationMode>('initial');
   private chromeAIAvailable = new Signal.State(false);
+  private mcpInstanceId = new SettingState<string>('');
 
   @state() private mcpEnabled = true;
 
@@ -167,17 +168,6 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   async checkChromeAIAvailability() {
     try {
-      // We use the proxy availability check from the service if possible,
-      // or just check if the offscreen messaging works?
-      // Actually, we can just check if chrome.runtime.sendMessage works for the check type.
-      // Let's assume the chromeAIService default instance can be used, but since we are in UI
-      // we might not want to depend on the instantiated service if it's strictly a view.
-      // But importing chromeAIService is fine.
-      // However, let's keep it simple and just assume available if the user can select it,
-      // or check window.ai if we were in the right context.
-      // Limitation: Settings dialog runs in extension pages (popup/options), where window.LanguageModel might not be available.
-      // So we must use the message passing check.
-
       const response = await chrome.runtime.sendMessage({ type: MessageTypes.CHECK_CHROME_AI_AVAILABILITY });
       this.chromeAIAvailable.set(!!response && response.success);
     } catch (_e) {
@@ -196,6 +186,8 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
       'predefined-groups',
       'active-llm-provider',
       'llm-fallback-enabled',
+      'auto-categorization-mode',
+      'mcp-instance-id',
     ]);
 
     if (result.geminiApiKey) {
@@ -225,6 +217,19 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
       this.predefinedGroups.original.set('');
       this.predefinedGroups.current.set('');
     }
+
+    // Load instance ID or fetch default
+    let instanceId = result['mcp-instance-id'] as string;
+    if (!instanceId) {
+      try {
+        const userInfo = await chrome.identity.getProfileUserInfo();
+        instanceId = userInfo.email || 'default';
+      } catch {
+        instanceId = 'default';
+      }
+    }
+    this.mcpInstanceId.original.set(instanceId);
+    this.mcpInstanceId.current.set(instanceId);
 
     this.loadMcpSettings();
     this.startObservingMcp();
@@ -268,6 +273,11 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private handleClose = () => {
     this.open = false;
   };
+
+  // Custom save for instance ID that triggers reconnect
+  private async saveMcpInstanceId(id: string) {
+    await chrome.storage.sync.set({ 'mcp-instance-id': id });
+  }
 
   // Generic render helper for text settings
   private renderStringSetting(
@@ -364,9 +374,6 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     const enabled = (e.target as SlSwitch).checked;
     this.mcpEnabled = enabled;
     await chrome.storage.sync.set({ 'mcp-enabled': enabled });
-
-    // Notify background
-    chrome.runtime.sendMessage({ type: enabled ? MessageTypes.MCP_CONNECT : MessageTypes.MCP_DISCONNECT });
   }
 
   private handleRetryMcp() {
@@ -492,6 +499,12 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
               ></sl-icon-button>
             </div>
           </div>
+
+           ${this.renderStringSetting('Instance ID', this.mcpInstanceId, this.saveMcpInstanceId.bind(this), {
+             placeholder: 'default',
+             id: 'mcp-instance-id-input',
+             helpText: 'Unique ID for this browser profile (defaults to email)',
+           })}
 
           ${this.mcpError ? html`<div style="color: var(--sl-color-danger-600); font-size: var(--sl-font-size-small);">${this.mcpError}</div>` : ''}
 

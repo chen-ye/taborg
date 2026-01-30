@@ -8,7 +8,7 @@ export default defineConfig({
     grayscaleOnDevelopment: false,
   },
   manifest: {
-    permissions: ['sidePanel', 'tabs', 'tabGroups', 'storage', 'offscreen'],
+    permissions: ['sidePanel', 'tabs', 'tabGroups', 'storage', 'offscreen', 'identity'],
     action: {}, // Optional: enables the toolbar icon
   },
   vite: () => ({

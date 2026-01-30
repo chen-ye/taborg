@@ -97,6 +97,24 @@ class McpConnectionService {
 
   public init() {
     this.connect();
+    this.startObservingSettings();
+  }
+
+  private startObservingSettings() {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'sync') return;
+
+      if (changes['mcp-enabled']) {
+        const enabled = changes['mcp-enabled'].newValue as boolean;
+        this.setEnabled(enabled);
+      }
+
+      if (changes['mcp-instance-id']) {
+        if (this.isEnabled) {
+          this.retryConnection();
+        }
+      }
+    });
   }
 
   public setEnabled(enabled: boolean) {
@@ -115,14 +133,27 @@ class McpConnectionService {
     }
   }
 
-  private connect() {
+  private async connect() {
     if (!this.isEnabled || this.status.get() === 'connected' || this.status.get() === 'connecting') return;
 
     this.setStatus('connecting');
     this.setError(null);
 
     try {
-      this.ws = new WebSocket('ws://localhost:3003');
+      const storedSettings = await chrome.storage.sync.get('mcp-instance-id');
+      let instanceId = storedSettings['mcp-instance-id'] as string;
+
+      if (!instanceId) {
+        try {
+          const userInfo = await chrome.identity.getProfileUserInfo();
+          instanceId = userInfo.email || 'default';
+        } catch (e) {
+          console.warn('Failed to get profile user info', e);
+          instanceId = 'default';
+        }
+      }
+
+      this.ws = new WebSocket(`ws://localhost:3003/${instanceId}`);
 
       this.ws.onopen = () => {
         console.log('MCP: Connected');

@@ -59,8 +59,8 @@ allow external LLMs to interact with browser tabs.
 - **State:** Reactive state management using Signals (`tabStore`).
 - **Styling:** Shoelace components are used for the base UI. Custom styles
   follow standard CSS patterns.
-- **MCP:** The server acts as a bridge between the extension (via WebSocket) and
-  MCP clients.
+- **MCP:** The server acts as a multiplexing bridge between multiple extension
+  instances (identified by `instanceId` in the WebSocket path) and MCP clients.
 
 ## Meta Conventions
 

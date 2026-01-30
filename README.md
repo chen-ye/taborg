@@ -76,14 +76,18 @@ your browser tabs.
    ```
    - **MCP Inspector**:
      ```bash
-     npx @modelcontextprotocol/inspector http://localhost:3000/mcp
+     npx @modelcontextprotocol/inspector http://localhost:3000/default/mcp
      ```
 
    - **Gemini CLI**:
 
      **Option 1: Using the CLI (Recommended)**
      ```bash
-     gemini mcp add taborg http://localhost:3000/mcp
+     # Connect to the default instance
+     gemini mcp add taborg http://localhost:3000/default/mcp
+
+     # OR connect to a specific profile (e.g., your email)
+     gemini mcp add taborg-work http://localhost:3000/your.email@example.com/mcp
      ```
 
      **Option 2: Manual Configuration** Add to your `~/.gemini/settings.json`:
@@ -91,11 +95,14 @@ your browser tabs.
      {
        "mcpServers": {
          "taborg": {
-           "httpUrl": "http://localhost:3000/mcp"
+           "httpUrl": "http://localhost:3000/default/mcp"
          }
        }
      }
      ```
+     > **Note**: Replace `default` with your Instance ID (found in Extension
+     > Settings) if you are using specific profiles or multiple instances. By
+     > default, it uses your Chrome profile email.
 
 ## Tech Stack
 
