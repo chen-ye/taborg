@@ -12,20 +12,29 @@ async function updateIcon(isDark: boolean) {
   const url = chrome.runtime.getURL(iconName);
 
   try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    const bitmap = await createImageBitmap(blob, { resizeWidth: 128, resizeHeight: 128 });
+    const img = new Image();
+    img.src = url;
+    await new Promise((resolve, reject) => {
+      img.onload = () => resolve(undefined);
+      img.onerror = () => reject(new Error(`Failed to load icon: ${url}`));
+    });
 
-    const canvas = new OffscreenCanvas(128, 128);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Failed to get 2d context');
 
-    ctx.drawImage(bitmap, 0, 0);
+    ctx.drawImage(img, 0, 0, 128, 128);
     const imageData = ctx.getImageData(0, 0, 128, 128);
 
     chrome.runtime.sendMessage({
       type: MessageTypes.UPDATE_ICON,
-      imageData: imageData,
+      imageData: {
+        width: imageData.width,
+        height: imageData.height,
+        data: Array.from(imageData.data),
+      },
     });
   } catch (error) {
     console.error('Failed to generate icon:', error);

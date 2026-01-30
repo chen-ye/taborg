@@ -173,8 +173,16 @@ export const main = () => {
 
   // Handle messages from offscreen document
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === MessageTypes.UPDATE_ICON) {
-      chrome.action.setIcon({ imageData: message.imageData });
+    if (message.type === MessageTypes.UPDATE_ICON && message.imageData) {
+      // Reconstruct ImageData to ensure it's a valid object after message passing
+      try {
+        const { width, height, data } = message.imageData;
+        const array = new Uint8ClampedArray(data);
+        const imageData = new ImageData(array, width, height);
+        chrome.action.setIcon({ imageData });
+      } catch (e) {
+        console.error('Failed to set icon:', e);
+      }
     }
   });
 
