@@ -134,6 +134,26 @@ export class McpConnectionService {
     }
   }
 
+  public clearRegistrations() {
+    this.resources.clear();
+    this.tools.clear();
+    this.prompts.clear();
+  }
+
+  public static async getPersistedInstanceId(): Promise<string> {
+    try {
+      const storedSettings = await chrome.storage.local.get('mcp-instance-id');
+      const instanceId = storedSettings['mcp-instance-id'] as string;
+      if (instanceId) return instanceId;
+
+      const userInfo = await chrome.identity.getProfileUserInfo();
+      return userInfo.email || 'default';
+    } catch (e) {
+      console.warn('Failed to get instance ID', e);
+      return 'default';
+    }
+  }
+
   private async connect() {
     if (!this.isEnabled || this.status.get() === 'connected' || this.status.get() === 'connecting') return;
 
@@ -141,19 +161,7 @@ export class McpConnectionService {
     this.setError(null);
 
     try {
-      const storedSettings = await chrome.storage.sync.get('mcp-instance-id');
-      let instanceId = storedSettings['mcp-instance-id'] as string;
-
-      if (!instanceId) {
-        try {
-          const userInfo = await chrome.identity.getProfileUserInfo();
-          instanceId = userInfo.email || 'default';
-        } catch (e) {
-          console.warn('Failed to get profile user info', e);
-          instanceId = 'default';
-        }
-      }
-
+      const instanceId = await McpConnectionService.getPersistedInstanceId();
       this.currentInstanceId = instanceId;
       this.ws = new WebSocket(`ws://localhost:3003/${instanceId}`);
 
