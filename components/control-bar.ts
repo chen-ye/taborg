@@ -172,6 +172,13 @@ export class ControlBar extends SignalWatcher(LitElement) {
     if (tabsToOrganize.length === 0) return;
 
     this.organizing = true;
+
+    // Set processing state for all tabs
+    tabStore.setProcessing(
+      tabsToOrganize.map((t) => t.id),
+      true,
+    );
+
     try {
       // Collect all group names for context
       const allGroupNames = new Set<string>();
@@ -180,25 +187,45 @@ export class ControlBar extends SignalWatcher(LitElement) {
           if (g.title) allGroupNames.add(g.title);
         });
       });
-      // 2. Call LLM Manager
-      const suggestions = await llmManager.categorizeTabs(
+
+      // 2. Call LLM Manager with incremental callback
+      await llmManager.categorizeTabs(
         tabsToOrganize.map((t) => ({ id: t.id, title: t.title, url: t.url })),
         Array.from(allGroupNames),
+        (batchResults: Map<number, string[]>) => {
+          // Process incremental results
+          const suggestionsByUrl = new Map<string, string[]>();
+          const processedIds: number[] = [];
+
+          for (const [tabId, groups] of batchResults.entries()) {
+            const tab = tabsToOrganize.find((t) => t.id === tabId);
+            if (tab?.url) {
+              suggestionsByUrl.set(tab.url, groups);
+            }
+            processedIds.push(tabId);
+          }
+
+          // Update store incrementally
+          tabStore.updateSuggestions(suggestionsByUrl);
+          // Clear processing state for finished tabs
+          tabStore.setProcessing(processedIds, false);
+        },
       );
 
-      // 3. Convert tab ID suggestions to URL suggestions
-      const suggestionsByUrl = new Map<string, string[]>();
-      for (const [tabId, groups] of suggestions.entries()) {
-        const tab = tabsToOrganize.find((t) => t.id === tabId);
-        if (tab?.url) {
-          suggestionsByUrl.set(tab.url, groups);
-        }
-      }
-
-      tabStore.setSuggestions(suggestionsByUrl);
+      // Final cleanup usually handled by onProgress, but safe to ensure clear here if needed
+      // (Depends on if verify all are done. safely clear all specific IDs)
+      tabStore.setProcessing(
+        tabsToOrganize.map((t) => t.id),
+        false,
+      );
     } catch (e) {
       console.error(e);
       toast.error('Failed to organize tabs. Check your API key or AI settings.');
+      // Clear processing on error
+      tabStore.setProcessing(
+        tabsToOrganize.map((t) => t.id),
+        false,
+      );
     } finally {
       this.organizing = false;
     }

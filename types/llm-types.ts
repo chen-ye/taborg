@@ -6,7 +6,11 @@ export interface TabData {
 
 export interface LLMService {
   isAvailable(): Promise<boolean>;
-  categorizeTabs(tabs: TabData[], existingGroups: string[]): Promise<Map<number, string[]>>;
+  categorizeTabs(
+    tabs: TabData[],
+    existingGroups: string[],
+    onProgress?: (results: Map<number, string[]>) => void,
+  ): Promise<Map<number, string[]>>;
   findSimilarTabs(referenceTab: TabData, candidateTabs: TabData[]): Promise<number[]>;
   generateWindowName(tabs: TabData[], groups: string[]): Promise<string>;
 }

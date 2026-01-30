@@ -26,7 +26,11 @@ export class GeminiService implements LLMService {
     return !!this.apiKey;
   }
 
-  async categorizeTabs(tabs: TabData[], existingGroups: string[]): Promise<Map<number, string[]>> {
+  async categorizeTabs(
+    tabs: TabData[],
+    existingGroups: string[],
+    onProgress?: (results: Map<number, string[]>) => void,
+  ): Promise<Map<number, string[]>> {
     const available = await this.isAvailable();
     if (!available || !this.apiKey) {
       throw new Error('API Key not set');
@@ -74,6 +78,9 @@ export class GeminiService implements LLMService {
       const resultMap = new Map<number, string[]>();
       for (const item of suggestions) {
         resultMap.set(Number(item.tabId), item.groupNames);
+      }
+      if (onProgress) {
+        onProgress(resultMap);
       }
       return resultMap;
     } catch (error) {

@@ -42,7 +42,11 @@ export class ChromeAIService implements LLMService {
     return response.text;
   }
 
-  async categorizeTabs(tabs: TabData[], existingGroups: string[]): Promise<Map<number, string[]>> {
+  async categorizeTabs(
+    tabs: TabData[],
+    existingGroups: string[],
+    onProgress?: (results: Map<number, string[]>) => void,
+  ): Promise<Map<number, string[]>> {
     const resultMap = new Map<number, string[]>();
 
     // Batch processing
@@ -52,6 +56,11 @@ export class ChromeAIService implements LLMService {
         const batchResults = await this.categorizeBatch(batch, existingGroups);
         for (const [id, groups] of batchResults) {
           resultMap.set(id, groups);
+        }
+
+        // Notify progress
+        if (onProgress) {
+          onProgress(batchResults);
         }
       } catch (e) {
         console.error(`Failed to categorize batch ${i}-${i + this.batchSize}:`, e);

@@ -45,6 +45,7 @@ export class TabStore {
   windows = new SignalArray<WindowNode>([]);
   selectedTabIds = new SignalSet<number>();
   suggestionsUrlMap = new SignalMap<string, string[]>();
+  processingTabIds = new SignalSet<number>(); // Added for shimmer effect
   windowNames = new SignalMap<number, string>();
   collapsedWindowIds = new SignalSet<number>();
 
@@ -313,7 +314,29 @@ export class TabStore {
       changes[url] = sortedSuggestions;
     }
     await suggestionService.setAllSuggestions(changes);
+    await suggestionService.setAllSuggestions(changes);
     console.log('Updated suggestionsUrlMap:', this.suggestionsUrlMap);
+  }
+
+  setProcessing(ids: number[], processing: boolean) {
+    if (processing) {
+      for (const id of ids) this.processingTabIds.add(id);
+    } else {
+      for (const id of ids) this.processingTabIds.delete(id);
+    }
+  }
+
+  async updateSuggestions(suggestionsByUrl: Map<string, string[]>) {
+    // Merge updates into existing map
+    const changes: Record<string, string[]> = {};
+    for (const [url, suggestions] of suggestionsByUrl.entries()) {
+      const sortedSuggestions = suggestions.sort((a, b) => a.localeCompare(b));
+      this.suggestionsUrlMap.set(url, sortedSuggestions);
+      changes[url] = sortedSuggestions;
+    }
+    // Incrementally save to storage
+    await suggestionService.setAllSuggestions(changes);
+    console.log('Incrementally updated suggestions:', changes);
   }
 
   async fetchAll() {

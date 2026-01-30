@@ -64,10 +64,14 @@ export class LLMManager implements LLMService {
     }
   }
 
-  async categorizeTabs(tabs: TabData[], existingGroups: string[]): Promise<Map<number, string[]>> {
+  async categorizeTabs(
+    tabs: TabData[],
+    existingGroups: string[],
+    onProgress?: (results: Map<number, string[]>) => void,
+  ): Promise<Map<number, string[]>> {
     return this.executeWithFallback(
-      (s) => s.categorizeTabs(tabs, existingGroups),
-      (s) => s.categorizeTabs(tabs, existingGroups),
+      (s) => s.categorizeTabs(tabs, existingGroups, onProgress),
+      (s) => s.categorizeTabs(tabs, existingGroups, onProgress),
     );
   }
 

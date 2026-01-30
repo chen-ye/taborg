@@ -172,6 +172,38 @@ export class TabItem extends SignalWatcher(LitElement) {
     :host {
       user-select: none;
     }
+
+    /* Shimmer Effect */
+    @keyframes shimmer {
+      0% {
+        background-position: -200% 0;
+      }
+      100% {
+        background-position: 200% 0;
+      }
+    }
+
+    .tab-row.processing {
+      background: linear-gradient(
+        to right,
+        var(--sl-color-neutral-0) 25%,
+        var(--sl-color-neutral-100) 50%,
+        var(--sl-color-neutral-0) 75%
+      );
+      background-size: 200% 100%;
+      animation: shimmer linear 2s infinite;
+    }
+
+    .tab-row.processing:hover {
+       /* Keep shimmer on hover but maybe slightly darker base? */
+       background: linear-gradient(
+        90deg,
+        var(--sl-color-neutral-50) 25%,
+        var(--sl-color-neutral-200) 50%,
+        var(--sl-color-neutral-50) 75%
+      );
+       background-size: 200% 100%;
+    }
   `;
 
   @property({ type: Object }) tab!: TabNode;
@@ -186,7 +218,9 @@ export class TabItem extends SignalWatcher(LitElement) {
 
     return html`
       <div
-        class="tab-row ${this.tab.active ? 'active' : ''} ${viewMode} ${hasSuggestions ? 'has-suggestions' : ''}"
+        class="tab-row ${this.tab.active ? 'active' : ''} ${viewMode} ${
+          hasSuggestions ? 'has-suggestions' : ''
+        } ${tabStore.processingTabIds.has(this.tab.id) ? 'processing' : ''}"
         @click=${this.focusTab}
         @auxclick=${this.handleAuxClick}
         draggable="true"
