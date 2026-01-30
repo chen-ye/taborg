@@ -45,18 +45,30 @@ export const main = () => {
   });
 
   chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (changeInfo.url && isNewTab(changeInfo.url)) {
+    if (isNewTab(changeInfo.url) || isNewTab(tab.url)) {
       newTabIds.add(tabId);
     }
-
     // Auto-suggest logic
     if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
       const wasNewTab = newTabIds.has(tabId);
+      const isProcessed = processedTabIds.has(tabId);
 
       // Check if opened from another tab (link) and not yet processed
       // OR if it was previously on a new tab page
-      if ((tab.openerTabId || wasNewTab) && !processedTabIds.has(tabId)) {
+      // Relaxed condition: if it has an openerTabId, it's a child tab.
+      if ((tab.openerTabId || wasNewTab) && !isProcessed) {
         processedTabIds.add(tabId);
+        console.log(`[Auto-Categories] Processing tab ${tabId}`, { url: tab.url, wasNewTab, opener: tab.openerTabId });
+
+        // Set processing state in session storage
+        try {
+          const result = await chrome.storage.session.get('processing-tabs');
+          const currentList = new Set((result['processing-tabs'] as number[]) || []);
+          currentList.add(tabId);
+          await chrome.storage.session.set({ 'processing-tabs': Array.from(currentList) });
+        } catch (e) {
+          console.error('Failed to set processing state', e);
+        }
 
         try {
           // Get existing groups from storage to pass to LLM
@@ -71,9 +83,20 @@ export const main = () => {
           if (suggestions.has(tabId)) {
             const newSuggestions = suggestions.get(tabId) || [];
             await suggestionService.setSuggestions(tab.url, newSuggestions);
+            console.log(`[Auto-Categories] Set suggestions for ${tabId}:`, newSuggestions);
           }
         } catch (e) {
           console.error('Auto-suggest failed', e);
+        } finally {
+          // Clear processing state
+          try {
+            const result = await chrome.storage.session.get('processing-tabs');
+            const currentList = new Set((result['processing-tabs'] as number[]) || []);
+            currentList.delete(tabId);
+            await chrome.storage.session.set({ 'processing-tabs': Array.from(currentList) });
+          } catch (e) {
+            console.error('Failed to clear processing state', e);
+          }
         }
       }
 

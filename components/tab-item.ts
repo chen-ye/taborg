@@ -220,7 +220,7 @@ export class TabItem extends SignalWatcher(LitElement) {
       <div
         class="tab-row ${this.tab.active ? 'active' : ''} ${viewMode} ${
           hasSuggestions ? 'has-suggestions' : ''
-        } ${tabStore.processingTabIds.has(this.tab.id) ? 'processing' : ''}"
+        } ${tabStore.processingTabIds.get().has(this.tab.id) ? 'processing' : ''}"
         @click=${this.focusTab}
         @auxclick=${this.handleAuxClick}
         draggable="true"

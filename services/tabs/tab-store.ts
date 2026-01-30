@@ -45,7 +45,7 @@ export class TabStore {
   windows = new SignalArray<WindowNode>([]);
   selectedTabIds = new SignalSet<number>();
   suggestionsUrlMap = new SignalMap<string, string[]>();
-  processingTabIds = new SignalSet<number>(); // Added for shimmer effect
+  processingTabIds = new Signal.State(new Set<number>()); // Changed for atomic updates
   windowNames = new SignalMap<number, string>();
   collapsedWindowIds = new SignalSet<number>();
 
@@ -227,6 +227,7 @@ export class TabStore {
       ]);
 
       await this.loadViewOptions();
+      await this.loadProcessingState(); // Load initial processing state
 
       // Batch all signal updates together
       for (const [key, value] of suggestionsMap) this.suggestionsUrlMap.set(key, value);
@@ -293,6 +294,12 @@ export class TabStore {
     this.followMode.set(follow);
   }
 
+  private async loadProcessingState(): Promise<void> {
+    const result = await chrome.storage.session.get('processing-tabs');
+    const ids = (result['processing-tabs'] as number[]) || [];
+    this.processingTabIds.set(new Set(ids));
+  }
+
   private async saveSelection() {
     // Debounce storage writes
     if (this.saveSelectionTimeout !== null) {
@@ -318,12 +325,27 @@ export class TabStore {
     console.log('Updated suggestionsUrlMap:', this.suggestionsUrlMap);
   }
 
-  setProcessing(ids: number[], processing: boolean) {
+  async setProcessing(ids: number[], processing: boolean) {
+    // Optimistic update - Atomic
+    const current = new Set(this.processingTabIds.get());
     if (processing) {
-      for (const id of ids) this.processingTabIds.add(id);
+      for (const id of ids) current.add(id);
     } else {
-      for (const id of ids) this.processingTabIds.delete(id);
+      for (const id of ids) current.delete(id);
     }
+    this.processingTabIds.set(current);
+
+    // Persist to session storage so background script and other contexts see it
+    const result = await chrome.storage.session.get('processing-tabs');
+    const storageList = new Set((result['processing-tabs'] as number[]) || []);
+
+    if (processing) {
+      for (const id of ids) storageList.add(id);
+    } else {
+      for (const id of ids) storageList.delete(id);
+    }
+
+    await chrome.storage.session.set({ 'processing-tabs': Array.from(storageList) });
   }
 
   async updateSuggestions(suggestionsByUrl: Map<string, string[]>) {
@@ -473,6 +495,10 @@ export class TabStore {
           this.collapsedWindowIds.clear();
           for (const id of set) this.collapsedWindowIds.add(id);
         });
+      }
+      if (areaName === 'session' && changes['processing-tabs']) {
+        const newValue = (changes['processing-tabs'].newValue as number[]) || [];
+        this.processingTabIds.set(new Set(newValue));
       }
     });
   }
