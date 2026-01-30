@@ -16,8 +16,8 @@ TabOrg provides AI assistance for tab management while retaining user control:
 
 1. **Granular Selection**: Select specific tabs using checkboxes in the tree
    view, or quickly select all ungrouped tabs.
-2. **AI Suggestions**: Click "Organize Tabs" to have Google Gemini analyze
-   selected tabs and suggest groupings based on content.
+2. **AI Suggestions**: Click "Organize Tabs" to have Google Gemini or Chrome
+   Built-in AI analyze selected tabs and suggest groupings based on content.
 3. **Review & Apply**: Preview suggested groups before applying them. Accept all
    suggestions or select specific groupings.
 4. **Manual Refinement**: Reassign tabs to different groups or create groups
@@ -32,7 +32,7 @@ TabOrg provides AI assistance for tab management while retaining user control:
 - **Group Management**: Create, rename, and colorize tab groups. Move tabs
   between groups or windows.
 - **AI Window Naming**: Automatically generate names for windows based on their
-  contained tabs and groups using Google Gemini.
+  contained tabs and groups using Google Gemini or Chrome Built-in AI.
 - **Theme Support**: Adapts to system light or dark mode, including dynamic
   extension icons.
 

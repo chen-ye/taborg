@@ -1,8 +1,9 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { geminiService } from '../services/gemini.js';
-import type { ConnectionStatus } from '../services/mcp-connection.js';
+import { geminiService } from '../services/ai/gemini.js';
+import type { ConnectionStatus } from '../services/mcp/mcp-connection.js';
+import { MessageTypes } from '../utils/message-types.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -10,7 +11,9 @@ import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/badge/badge.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
-import type { SlDialog, SlInput, SlSwitch } from '@shoelace-style/shoelace';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
+import type { SlDialog, SlInput, SlSelect, SlSwitch } from '@shoelace-style/shoelace';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { Signal } from 'signal-polyfill';
 
@@ -140,8 +143,11 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   @state() private open = false;
 
   // Use signals for granular state
-  private apiKey = new SettingState<string>('');
+  private geminiApiKey = new SettingState<string>('');
   private predefinedGroups = new SettingState<string>('');
+  private activeProvider = new SettingState<string>('gemini');
+  private fallbackEnabled = new SettingState<boolean>(false);
+  private chromeAIAvailable = new Signal.State(false);
 
   @state() private mcpEnabled = true;
 
@@ -150,6 +156,32 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   @query('sl-dialog') dialog!: SlDialog;
   @query('#mcp-enabled-switch') mcpEnabledSwitch!: SlSwitch;
+  @query('sl-input[type="password"]') apiKeyInput!: SlInput;
+
+  constructor() {
+    super();
+    this.checkChromeAIAvailability();
+  }
+
+  async checkChromeAIAvailability() {
+    try {
+      // We use the proxy availability check from the service if possible,
+      // or just check if the offscreen messaging works?
+      // Actually, we can just check if chrome.runtime.sendMessage works for the check type.
+      // Let's assume the chromeAIService default instance can be used, but since we are in UI
+      // we might not want to depend on the instantiated service if it's strictly a view.
+      // But importing chromeAIService is fine.
+      // However, let's keep it simple and just assume available if the user can select it,
+      // or check window.ai if we were in the right context.
+      // Limitation: Settings dialog runs in extension pages (popup/options), where window.LanguageModel might not be available.
+      // So we must use the message passing check.
+
+      const response = await chrome.runtime.sendMessage({ type: MessageTypes.CHECK_CHROME_AI_AVAILABILITY });
+      this.chromeAIAvailable.set(!!response && response.success);
+    } catch (_e) {
+      this.chromeAIAvailable.set(false);
+    }
+  }
 
   async connectedCallback() {
     super.connectedCallback();
@@ -157,20 +189,36 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
     // Load API Key
     await geminiService.loadApiKey();
-    const result = await chrome.storage.sync.get('geminiApiKey');
+    const result = await chrome.storage.sync.get([
+      'geminiApiKey',
+      'predefined-groups',
+      'active-llm-provider',
+      'llm-fallback-enabled',
+    ]);
+
     if (result.geminiApiKey) {
-      // Don't show the actual key, just a placeholder if it exists
-      // If we used the real key it would be insecure to display it
-      // But for edit tracking, we initialize with empty or placeholder?
-      // User requirements said "with the ability to cancel...".
-      // Let's assume we load empty or mask.
-      // If we mask, editing becomes replacement.
-      // Existing logic used '****************'
-      this.apiKey = new SettingState('****************');
+      this.geminiApiKey.original.set(result.geminiApiKey as string);
+      this.geminiApiKey.current.set('****************'); // Mask the key for display
+    }
+
+    if (result['active-llm-provider']) {
+      this.activeProvider.original.set(result['active-llm-provider'] as string);
+      this.activeProvider.current.set(result['active-llm-provider'] as string);
+    }
+    if (result['llm-fallback-enabled']) {
+      this.fallbackEnabled.original.set(!!result['llm-fallback-enabled']);
+      this.fallbackEnabled.current.set(!!result['llm-fallback-enabled']);
     }
 
     // Load Groups
-    await this.loadPredefinedGroups();
+    const groups = result['predefined-groups'] as string[] | undefined;
+    if (groups && groups.length > 0) {
+      this.predefinedGroups.original.set(groups.join(', '));
+      this.predefinedGroups.current.set(groups.join(', '));
+    } else {
+      this.predefinedGroups.original.set('');
+      this.predefinedGroups.current.set('');
+    }
 
     this.loadMcpSettings();
     this.startObservingMcp();
@@ -180,16 +228,6 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     super.disconnectedCallback();
     window.removeEventListener('open-settings', this.handleOpenSettings);
     chrome.storage.onChanged.removeListener(this.handleStorageChange);
-  }
-
-  private async loadPredefinedGroups() {
-    const result = await chrome.storage.sync.get('predefined-groups');
-    const groups = result['predefined-groups'] as string[] | undefined;
-    if (groups && groups.length > 0) {
-      this.predefinedGroups = new SettingState(groups.join(', '));
-    } else {
-      this.predefinedGroups = new SettingState('');
-    }
   }
 
   private async loadMcpSettings() {
@@ -279,6 +317,28 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     `;
   }
 
+  private renderStatus(setting: SettingState<unknown>) {
+    return html`
+      <div class="setting-actions">
+        ${
+          setting.isDirty
+            ? html`
+              <sl-icon-button
+                name="arrow-counterclockwise"
+                label="Revert"
+                @click=${() => setting.reset()}
+              ></sl-icon-button>
+            `
+            : setting.status.get() === 'saved'
+              ? html`<sl-icon name="check-circle" class="status-icon"></sl-icon>`
+              : setting.status.get() === 'error'
+                ? html`<sl-icon name="exclamation-circle" class="status-icon"></sl-icon>`
+                : ''
+        }
+      </div>
+    `;
+  }
+
   private async saveApiKey(key: string) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
@@ -300,11 +360,11 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     await chrome.storage.sync.set({ 'mcp-enabled': enabled });
 
     // Notify background
-    chrome.runtime.sendMessage({ type: enabled ? 'MCP_CONNECT' : 'MCP_DISCONNECT' });
+    chrome.runtime.sendMessage({ type: enabled ? MessageTypes.MCP_CONNECT : MessageTypes.MCP_DISCONNECT });
   }
 
   private handleRetryMcp() {
-    chrome.runtime.sendMessage({ type: 'MCP_RETRY' });
+    chrome.runtime.sendMessage({ type: MessageTypes.MCP_RETRY });
   }
 
   private getStatusColor(status: ConnectionStatus) {
@@ -326,10 +386,48 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
         this.open = false;
       }}>
         <div class="content">
-          <div class="section-title">Gemini API</div>
-          <p>Enter your <a href="https://aistudio.google.com/app/api-keys">Gemini API Key</a> to enable auto-organization features.</p>
+        <div class="section-title">AI Provider</div>
+        <div class="setting-row">
+            <sl-select
+                label="Active Provider"
+                value=${this.activeProvider.current.get()}
+                @sl-change=${(e: Event) => {
+                  const val = (e.target as SlSelect).value as string;
+                  this.activeProvider.update(val);
+                  this.activeProvider.save(async (v) => {
+                    await chrome.storage.sync.set({ 'active-llm-provider': v });
+                  });
+                }}
+                class="setting-input"
+            >
+                <sl-option value="gemini">Gemini API</sl-option>
+                <sl-option value="chrome-ai" ?disabled=${!this.chromeAIAvailable.get()}>
+                    Chrome Built-in AI ${!this.chromeAIAvailable.get() ? '(Not Available)' : ''}
+                </sl-option>
+            </sl-select>
+             ${this.renderStatus(this.activeProvider)}
+        </div>
 
-          ${this.renderStringSetting('API Key', this.apiKey, this.saveApiKey.bind(this), {
+         <div class="setting-row">
+            <sl-switch
+                ?checked=${this.fallbackEnabled.current.get()}
+                @sl-change=${(e: Event) => {
+                  const checked = (e.target as SlSwitch).checked;
+                  this.fallbackEnabled.update(checked);
+                  this.fallbackEnabled.save(async (v) => {
+                    await chrome.storage.sync.set({ 'llm-fallback-enabled': v });
+                  });
+                }}
+            >
+                Fallback to Chrome AI if Gemini fails
+            </sl-switch>
+             ${this.renderStatus(this.fallbackEnabled)}
+        </div>
+
+        <div class="section-title">Gemini API Key</div>
+        <p>Enter your <a href="https://aistudio.google.com/app/api-keys">Gemini API Key</a> to enable auto-organization features.</p>
+
+          ${this.renderStringSetting('API Key', this.geminiApiKey, this.saveApiKey.bind(this), {
             type: 'password',
             placeholder: 'AIza...',
             id: 'api-key-input',

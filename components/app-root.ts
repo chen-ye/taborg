@@ -1,7 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { tabStore } from '../services/tab-store.js';
+import { tabStore } from '../services/tabs/tab-store.js';
 import './tab-tree';
 import './selected-pane';
 import './similar-pane';

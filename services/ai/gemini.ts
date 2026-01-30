@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
+import type { LLMService, TabData } from '../../types/llm-types';
+import { CategorizationSchema, SimilaritySchema, WindowNameSchema } from '../../utils/ai-schemas';
 
-export class GeminiService {
+export class GeminiService implements LLMService {
   private apiKey: string | null = null;
 
   constructor() {
@@ -17,11 +19,16 @@ export class GeminiService {
     await chrome.storage.sync.set({ geminiApiKey: key });
   }
 
-  async categorizeTabs(
-    tabs: { title: string; url: string; id: number }[],
-    existingGroups: string[],
-  ): Promise<Map<number, string[]>> {
+  async isAvailable(): Promise<boolean> {
     if (!this.apiKey) {
+      await this.loadApiKey();
+    }
+    return !!this.apiKey;
+  }
+
+  async categorizeTabs(tabs: TabData[], existingGroups: string[]): Promise<Map<number, string[]>> {
+    const available = await this.isAvailable();
+    if (!available || !this.apiKey) {
       throw new Error('API Key not set');
     }
 
@@ -48,26 +55,7 @@ export class GeminiService {
       If no existing group fits, create a new short, descriptive group name (e.g., "Dev", "News", "Social").
     `;
 
-    const schema = {
-      type: 'OBJECT',
-      properties: {
-        suggestions: {
-          type: 'ARRAY',
-          items: {
-            type: 'OBJECT',
-            properties: {
-              tabId: { type: 'INTEGER' },
-              groupNames: {
-                type: 'ARRAY',
-                items: { type: 'STRING' },
-              },
-            },
-            required: ['tabId', 'groupNames'],
-          },
-        },
-      },
-      required: ['suggestions'],
-    };
+    const schema = CategorizationSchema;
 
     try {
       const result = await genAI.models.generateContent({
@@ -94,11 +82,9 @@ export class GeminiService {
     }
   }
 
-  async findSimilarTabs(
-    referenceTab: { title: string; url: string },
-    candidateTabs: { id: number; title: string; url: string }[],
-  ): Promise<number[]> {
-    if (!this.apiKey) {
+  async findSimilarTabs(referenceTab: TabData, candidateTabs: TabData[]): Promise<number[]> {
+    const available = await this.isAvailable();
+    if (!available || !this.apiKey) {
       throw new Error('API Key not set');
     }
 
@@ -120,16 +106,7 @@ export class GeminiService {
       3. Same Topic (e.g., both are about Python programming)
     `;
 
-    const schema = {
-      type: 'OBJECT',
-      properties: {
-        similarTabIds: {
-          type: 'ARRAY',
-          items: { type: 'INTEGER' },
-        },
-      },
-      required: ['similarTabIds'],
-    };
+    const schema = SimilaritySchema;
 
     try {
       const result = await genAI.models.generateContent({
@@ -150,8 +127,9 @@ export class GeminiService {
     }
   }
 
-  async generateWindowName(tabs: { title: string; url: string }[], groups: string[]): Promise<string> {
-    if (!this.apiKey) {
+  async generateWindowName(tabs: TabData[], groups: string[]): Promise<string> {
+    const available = await this.isAvailable();
+    if (!available || !this.apiKey) {
       throw new Error('API Key not set');
     }
 
@@ -172,13 +150,7 @@ export class GeminiService {
       The name should be concise (1-3 words).
     `;
 
-    const schema = {
-      type: 'OBJECT',
-      properties: {
-        windowName: { type: 'STRING' },
-      },
-      required: ['windowName'],
-    };
+    const schema = WindowNameSchema;
 
     try {
       const result = await genAI.models.generateContent({

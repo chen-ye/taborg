@@ -1,7 +1,8 @@
-import { browserService } from '../services/browser-service.js';
-import { geminiService } from '../services/gemini.js';
-import { mcpService } from '../services/mcp-connection.js';
-import { suggestionService } from '../services/suggestion-service.js';
+import { llmManager } from '../services/ai/llm-manager.js';
+import { mcpService } from '../services/mcp/mcp-connection.js';
+import { browserService } from '../services/tabs/browser-service.js';
+import { suggestionService } from '../services/tabs/suggestion-service.js';
+import { MessageTypes } from '../utils/message-types.js';
 
 export const main = () => {
   // Create offscreen document to watch for theme changes
@@ -58,11 +59,11 @@ export const main = () => {
         processedTabIds.add(tabId);
 
         try {
-          // Get existing groups from storage to pass to Gemini
+          // Get existing groups from storage to pass to LLM
           const groupsResult = await chrome.tabGroups.query({});
           const existingGroups = groupsResult.map((g) => g.title || '').filter(Boolean);
 
-          const suggestions = await geminiService.categorizeTabs(
+          const suggestions = await llmManager.categorizeTabs(
             [{ id: tabId, title: tab.title || '', url: tab.url }],
             existingGroups,
           );
@@ -95,7 +96,7 @@ export const main = () => {
 
   // Handle messages from offscreen document
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'UPDATE_ICON') {
+    if (message.type === MessageTypes.UPDATE_ICON) {
       chrome.action.setIcon({ imageData: message.imageData });
     }
   });
@@ -123,11 +124,11 @@ export const main = () => {
 
   // Handle MCP messages from sidepanel
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'MCP_CONNECT') {
+    if (message.type === MessageTypes.MCP_CONNECT) {
       mcpService.setEnabled(true);
-    } else if (message.type === 'MCP_DISCONNECT') {
+    } else if (message.type === MessageTypes.MCP_DISCONNECT) {
       mcpService.setEnabled(false);
-    } else if (message.type === 'MCP_RETRY') {
+    } else if (message.type === MessageTypes.MCP_RETRY) {
       mcpService.retryConnection();
     }
   });

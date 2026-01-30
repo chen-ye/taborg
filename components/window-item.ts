@@ -1,8 +1,8 @@
 import { css, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { geminiService } from '../services/gemini.js';
-import { type GroupNode, tabStore, type WindowNode } from '../services/tab-store.js';
-import { toast } from '../services/toast.js';
+import { llmManager } from '../services/ai/llm-manager.js';
+import { type GroupNode, tabStore, type WindowNode } from '../services/tabs/tab-store.js';
+import { toast } from '../utils/toast.js';
 import { dropTargetStyles } from './shared-styles.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -216,8 +216,8 @@ export class WindowItem extends LitElement {
         return acc;
       }, []);
 
-      const name = await geminiService.generateWindowName(
-        allTabs.map((t) => ({ title: t.title, url: t.url })),
+      const name = await llmManager.generateWindowName(
+        allTabs.map((t) => ({ title: t.title, url: t.url, id: t.id })),
         groupNames,
       );
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
-import { TabStore } from '../services/tab-store.js';
+import { TabStore } from '../services/tabs/tab-store.js';
 
 describe('TabStore', () => {
   let store: TabStore;

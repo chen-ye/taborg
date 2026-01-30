@@ -2,7 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { type GroupNode, type TabNode, tabStore } from '../services/tab-store.js';
+import { type GroupNode, type TabNode, tabStore } from '../services/tabs/tab-store.js';
 import './tab-item';
 import './group-item';
 import './window-item';

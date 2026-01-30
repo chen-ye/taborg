@@ -1,9 +1,10 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { geminiService } from '../services/gemini.js';
-import { type GroupNode, tabStore, type WindowNode } from '../services/tab-store.js';
-import { toast } from '../services/toast.js';
+import { llmManager } from '../services/ai/llm-manager.js';
+import { type GroupNode, tabStore, type WindowNode } from '../services/tabs/tab-store.js';
+import { toast } from '../utils/toast.js';
+
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
@@ -179,8 +180,8 @@ export class ControlBar extends SignalWatcher(LitElement) {
           if (g.title) allGroupNames.add(g.title);
         });
       });
-      // 2. Call Gemini
-      const suggestions = await geminiService.categorizeTabs(
+      // 2. Call LLM Manager
+      const suggestions = await llmManager.categorizeTabs(
         tabsToOrganize.map((t) => ({ id: t.id, title: t.title, url: t.url })),
         Array.from(allGroupNames),
       );
@@ -197,7 +198,7 @@ export class ControlBar extends SignalWatcher(LitElement) {
       tabStore.setSuggestions(suggestionsByUrl);
     } catch (e) {
       console.error(e);
-      toast.error('Failed to organize tabs. Check your API key.');
+      toast.error('Failed to organize tabs. Check your API key or AI settings.');
     } finally {
       this.organizing = false;
     }
@@ -224,8 +225,8 @@ export class ControlBar extends SignalWatcher(LitElement) {
         });
       });
 
-      const similarTabIds = await geminiService.findSimilarTabs(
-        { title: referenceTab.title, url: referenceTab.url },
+      const similarTabIds = await llmManager.findSimilarTabs(
+        { id: referenceTab.id, title: referenceTab.title, url: referenceTab.url },
         allTabs,
       );
 

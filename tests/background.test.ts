@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { main } from '../entrypoints/background';
-import { geminiService } from '../services/gemini';
+import { geminiService } from '../services/ai/gemini';
 
 // Mock geminiService
-vi.mock('../services/gemini', () => ({
+vi.mock('../services/ai/gemini', () => ({
   geminiService: {
     categorizeTabs: vi.fn(),
+    isAvailable: vi.fn().mockResolvedValue(true),
   },
 }));
 

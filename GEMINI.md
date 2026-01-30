@@ -15,7 +15,8 @@ allow external LLMs to interact with browser tabs.
   [Shoelace](https://shoelace.style/)
 - **Language:** TypeScript
 - **Package Manager:** Yarn (v4+, utilizing workspaces)
-- **AI Integration:** Google Gemini (`@google/genai`)
+- **AI Integration:** Google Gemini (`@google/genai`) and Chrome Built-in AI
+  (Prompt API).
 - **State Management:** `@lit-labs/signals`
 - **Testing:** Vitest
 - **Linting/Formatting:** Biome
@@ -25,7 +26,11 @@ allow external LLMs to interact with browser tabs.
 - `components/`: UI components (Lit elements).
 - `entrypoints/`: WXT entry points (background script, sidepanel, offscreen).
 - `server/`: Local MCP bridge server (Node.js/Express).
-- `services/`: Business logic (TabStore, Gemini integration, MCP connection).
+- `services/`: Business logic organized by domain:
+  - `ai/`: LLM integrations (Gemini, Chrome AI).
+  - `tabs/`: Tab state and browser interactions.
+  - `mcp/`: MCP connection logic.
+- `utils/`: Shared utilities (`message-types`, `schemas`, etc).
 - `types/`: TypeScript type definitions.
 - `tests/`: Unit and integration tests.
 - `public/` & `assets/`: Static assets.
@@ -66,3 +71,34 @@ allow external LLMs to interact with browser tabs.
   (nesting, variables, etc.).
 - **Native TypeScript:** Leverage native Node.js 23+ TypeScript support where
   applicable.
+
+## Chrome Built-in AI (Prompt API) Reference
+
+The project utilizes the **Prompt API** to access Chrome's built-in Gemini Nano
+model.
+
+- **Capabilities:**
+  - **Local Execution:** Runs entirely on-device (privacy-first, low latency, no
+    API keys).
+  - **Session Management:** `LanguageModel.create()` starts a session with
+    preserved context.
+  - **Structured Output:** Supports JSON Schema via `responseConstraint` in
+    `prompt()`.
+  - **System Prompts:** Can be defined via `systemPrompt` (or `initialPrompts`)
+    during session creation.
+
+- **Usage Pattern:**
+  1. **Check Availability:** `window.ai.languageModel.availability()` (returns
+     `'readily'`, `'after-download'`, or `'no'`).
+  2. **Create Session:**
+     `await window.ai.languageModel.create({ systemPrompt: '...' })`.
+  3. **Prompt:**
+     `await session.prompt('User input', { responseConstraint: ... })`.
+  4. **Destroy:** `session.destroy()` to free resources.
+
+- **Requirements:**
+  - Chrome Desktop (Mac, Windows, Linux).
+  - Sufficient hardware (GPU/RAM) for Gemini Nano.
+  - **Note:** As of Chrome 133+, this feature is Generally Available (GA) and no
+    longer requires the `aiLanguageModelOriginTrial` permission in
+    `manifest.json`.

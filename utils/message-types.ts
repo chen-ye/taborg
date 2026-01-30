@@ -1,0 +1,10 @@
+export const MessageTypes = {
+  EXECUTE_AI_PROMPT: 'EXECUTE_AI_PROMPT',
+  CHECK_CHROME_AI_AVAILABILITY: 'CHECK_CHROME_AI_AVAILABILITY',
+  UPDATE_ICON: 'UPDATE_ICON',
+  MCP_CONNECT: 'MCP_CONNECT',
+  MCP_DISCONNECT: 'MCP_DISCONNECT',
+  MCP_RETRY: 'MCP_RETRY',
+} as const;
+
+export type MessageType = (typeof MessageTypes)[keyof typeof MessageTypes];
