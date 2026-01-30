@@ -23,3 +23,5 @@ export type JsonSchema = {
   required?: string[];
   description?: string;
 };
+
+export type AutoCategorizationMode = 'off' | 'initial' | 'always';

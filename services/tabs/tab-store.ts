@@ -3,6 +3,7 @@ import { Signal } from 'signal-polyfill';
 import { SignalArray } from 'signal-utils/array';
 import { SignalMap } from 'signal-utils/map';
 import { SignalSet } from 'signal-utils/set';
+import { normalizeUrl } from '../../utils/url-utils.js';
 import { browserService } from './browser-service';
 import { suggestionService } from './suggestion-service';
 
@@ -317,7 +318,10 @@ export class TabStore {
     for (const [url, suggestions] of suggestionsByUrl.entries()) {
       // Sort alphabetically
       const sortedSuggestions = suggestions.sort((a, b) => a.localeCompare(b));
-      this.suggestionsUrlMap.set(url, sortedSuggestions);
+      // Store using normalized URL as key in map (to match service)
+      const normalized = normalizeUrl(url);
+      this.suggestionsUrlMap.set(normalized, sortedSuggestions);
+      // Pass original URL to service (it handles normalization internally too, but good to be explicit/consistent)
       changes[url] = sortedSuggestions;
     }
     await suggestionService.setAllSuggestions(changes);
@@ -396,7 +400,8 @@ export class TabStore {
     for (const t of tabs) {
       if (t.id === undefined || t.windowId === undefined) continue;
 
-      const suggestedGroups = t.url ? this.suggestionsUrlMap.get(t.url) : undefined;
+      const normalizedUrl = t.url ? normalizeUrl(t.url) : '';
+      const suggestedGroups = normalizedUrl ? this.suggestionsUrlMap.get(normalizedUrl) : undefined;
 
       const tabNode: TabNode = {
         id: t.id,

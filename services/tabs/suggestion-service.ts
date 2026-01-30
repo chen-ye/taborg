@@ -1,9 +1,12 @@
+import { normalizeUrl } from '../../utils/url-utils.js';
+
 export class SuggestionService {
   private readonly STORAGE_KEY = 'tab-suggestions';
 
   async getSuggestions(url: string): Promise<string[]> {
     const all = await this.getAllSuggestions();
-    return all[url] || [];
+    const normalized = normalizeUrl(url);
+    return all[normalized] || [];
   }
 
   async getAllSuggestions(): Promise<Record<string, string[]>> {
@@ -19,17 +22,37 @@ export class SuggestionService {
     const all = await this.getAllSuggestions();
     // Merge new map into existing suggestions with deduplication
     for (const [url, newSuggestions] of Object.entries(map)) {
-      const existing = all[url] || [];
+      const normalized = normalizeUrl(url);
+      const existing = all[normalized] || [];
       const combined = new Set([...existing, ...newSuggestions]);
-      all[url] = Array.from(combined).sort((a, b) => a.localeCompare(b));
+      all[normalized] = Array.from(combined).sort((a, b) => a.localeCompare(b));
     }
     await chrome.storage.local.set({ [this.STORAGE_KEY]: all });
   }
 
   async removeSuggestions(url: string): Promise<void> {
     const all = await this.getAllSuggestions();
-    if (url in all) {
-      delete all[url];
+    const normalized = normalizeUrl(url);
+    if (normalized in all) {
+      delete all[normalized];
+      await chrome.storage.local.set({ [this.STORAGE_KEY]: all });
+    }
+  }
+
+  async pruneSuggestions(activeUrls: string[]): Promise<void> {
+    const all = await this.getAllSuggestions();
+    const activeNormalized = new Set(activeUrls.map((u) => normalizeUrl(u)));
+    let changed = false;
+
+    for (const storedUrl of Object.keys(all)) {
+      if (!activeNormalized.has(storedUrl)) {
+        delete all[storedUrl];
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      console.log('Pruned suggestions');
       await chrome.storage.local.set({ [this.STORAGE_KEY]: all });
     }
   }

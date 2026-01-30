@@ -3,6 +3,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { geminiService } from '../services/ai/gemini.js';
 import type { ConnectionStatus } from '../services/mcp/mcp-connection.js';
+import type { AutoCategorizationMode } from '../types/llm-types.js';
 import { MessageTypes } from '../utils/message-types.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -147,6 +148,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private predefinedGroups = new SettingState<string>('');
   private activeProvider = new SettingState<string>('gemini');
   private fallbackEnabled = new SettingState<boolean>(false);
+  private autoCategorizationMode = new SettingState<AutoCategorizationMode>('initial');
   private chromeAIAvailable = new Signal.State(false);
 
   @state() private mcpEnabled = true;
@@ -209,6 +211,10 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
       this.fallbackEnabled.original.set(!!result['llm-fallback-enabled']);
       this.fallbackEnabled.current.set(!!result['llm-fallback-enabled']);
     }
+
+    const mode = (result['auto-categorization-mode'] as AutoCategorizationMode) || 'initial';
+    this.autoCategorizationMode.original.set(mode);
+    this.autoCategorizationMode.current.set(mode);
 
     // Load Groups
     const groups = result['predefined-groups'] as string[] | undefined;
@@ -443,6 +449,26 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
               helpText: 'These group names will always be suggested as existing groups',
             },
           )}
+
+          <div class="setting-row">
+            <sl-select
+                label="Auto-Categorization Mode"
+                value=${this.autoCategorizationMode.current.get()}
+                @sl-change=${(e: Event) => {
+                  const val = (e.target as SlSelect).value as AutoCategorizationMode;
+                  this.autoCategorizationMode.update(val);
+                  this.autoCategorizationMode.save(async (v) => {
+                    await chrome.storage.sync.set({ 'auto-categorization-mode': v });
+                  });
+                }}
+                class="setting-input"
+            >
+                <sl-option value="off">Off</sl-option>
+                <sl-option value="initial">Initial (New Tabs Only)</sl-option>
+                <sl-option value="always">Always (On Navigation)</sl-option>
+            </sl-select>
+             ${this.renderStatus(this.autoCategorizationMode)}
+          </div>
 
           <div class="divider"></div>
 

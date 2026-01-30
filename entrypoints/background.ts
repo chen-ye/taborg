@@ -2,6 +2,7 @@ import { llmManager } from '../services/ai/llm-manager.js';
 import { mcpService } from '../services/mcp/mcp-connection.js';
 import { browserService } from '../services/tabs/browser-service.js';
 import { suggestionService } from '../services/tabs/suggestion-service.js';
+import type { AutoCategorizationMode } from '../types/llm-types.js';
 import { MessageTypes } from '../utils/message-types.js';
 
 export const main = () => {
@@ -27,6 +28,23 @@ export const main = () => {
 
   const processedTabIds = new Set<number>();
   const newTabIds = new Set<number>();
+  let autoCategorizationMode: AutoCategorizationMode = 'initial';
+  let updateCounter = 0;
+  const PRUNE_INTERVAL = 50;
+
+  // Load initial settings
+  chrome.storage.sync.get('auto-categorization-mode').then((result) => {
+    if (result['auto-categorization-mode']) {
+      autoCategorizationMode = result['auto-categorization-mode'] as AutoCategorizationMode;
+    }
+  });
+
+  // Listen for setting changes
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && changes['auto-categorization-mode']) {
+      autoCategorizationMode = changes['auto-categorization-mode'].newValue as AutoCategorizationMode;
+    }
+  });
 
   const isNewTab = (url?: string) => {
     return (
@@ -45,20 +63,55 @@ export const main = () => {
   });
 
   chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    // Increment update counter for pruning
+    updateCounter++;
+    if (updateCounter >= PRUNE_INTERVAL) {
+      updateCounter = 0;
+      // Prune asynchronously without awaiting
+      chrome.tabs.query({}).then((tabs) => {
+        const activeUrls = tabs.map((t) => t.url || '').filter((u) => u.startsWith('http'));
+        suggestionService.pruneSuggestions(activeUrls).catch((err) => console.error('Pruning failed:', err));
+      });
+    }
+
     if (isNewTab(changeInfo.url) || isNewTab(tab.url)) {
       newTabIds.add(tabId);
     }
+
     // Auto-suggest logic
-    if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
+    if (autoCategorizationMode !== 'off' && changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
       const wasNewTab = newTabIds.has(tabId);
       const isProcessed = processedTabIds.has(tabId);
 
-      // Check if opened from another tab (link) and not yet processed
-      // OR if it was previously on a new tab page
-      // Relaxed condition: if it has an openerTabId, it's a child tab.
-      if ((tab.openerTabId || wasNewTab) && !isProcessed) {
+      // Skip if suggestions already exist
+      const existing = await suggestionService.getSuggestions(tab.url);
+      if (existing.length > 0) {
+        // If it was a new tab, we still want to clean up newTabIds
+        if (wasNewTab) {
+          newTabIds.delete(tabId);
+        }
+        return;
+      }
+
+      let shouldProcess = false;
+
+      if (autoCategorizationMode === 'always') {
+        shouldProcess = true;
+      } else {
+        // 'initial' mode: process only if opened from another tab and not yet processed
+        if ((tab.openerTabId || wasNewTab) && !isProcessed) {
+          shouldProcess = true;
+        }
+      }
+
+      if (shouldProcess) {
         processedTabIds.add(tabId);
-        console.log(`[Auto-Categories] Processing tab ${tabId}`, { url: tab.url, wasNewTab, opener: tab.openerTabId });
+        console.log(`[Auto-Categories] Processing tab ${tabId}`, {
+          url: tab.url,
+          wasNewTab,
+          opener: tab.openerTabId,
+          mode: autoCategorizationMode,
+        });
 
         // Set processing state in session storage
         try {
@@ -82,6 +135,7 @@ export const main = () => {
 
           if (suggestions.has(tabId)) {
             const newSuggestions = suggestions.get(tabId) || [];
+            // Use normalized URL is handled inside suggestionService
             await suggestionService.setSuggestions(tab.url, newSuggestions);
             console.log(`[Auto-Categories] Set suggestions for ${tabId}:`, newSuggestions);
           }
