@@ -29,7 +29,7 @@ describe('LLMManager', () => {
     (globalThis as any).chrome = {
       storage: {
         sync: {
-          get: vi.fn().mockResolvedValue({ 'active-llm-provider': 'gemini', 'llm-fallback-enabled': true }),
+          get: vi.fn().mockResolvedValue({ 'active-llm-provider': 'gemini', 'llm-fallback-enabled': true } as any),
         },
         onChanged: {
           addListener: vi.fn(),
@@ -60,7 +60,7 @@ describe('LLMManager', () => {
   });
 
   it('should not fallback if fallback is disabled', async () => {
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ 'active-llm-provider': 'gemini', 'llm-fallback-enabled': false });
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ 'active-llm-provider': 'gemini', 'llm-fallback-enabled': false } as any);
     manager = new LLMManager(); // Re-init to pick up settings
 
     vi.mocked(geminiService.isAvailable).mockResolvedValue(true);

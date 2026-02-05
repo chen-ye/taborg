@@ -20,8 +20,8 @@ describe('GeminiService', () => {
     (globalThis as any).chrome = {
       storage: {
         sync: {
-          get: vi.fn().mockResolvedValue({ geminiApiKey: 'test-key' }),
-          set: vi.fn().mockResolvedValue(undefined),
+          get: vi.fn().mockResolvedValue({ geminiApiKey: 'test-key' } as any),
+          set: vi.fn().mockResolvedValue(undefined as any),
         },
       },
     };
@@ -35,11 +35,11 @@ describe('GeminiService', () => {
 
   it('should check availability based on API key', async () => {
     (service as any).apiKey = null;
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ geminiApiKey: '' });
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ geminiApiKey: '' } as any);
     const available = await service.isAvailable();
     expect(available).toBe(false);
 
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ geminiApiKey: 'key' });
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ geminiApiKey: 'key' } as any);
     const available2 = await service.isAvailable();
     expect(available2).toBe(true);
   });

@@ -16,7 +16,7 @@ describe('ChromeAIService', () => {
   });
 
   it('should check availability via message proxy', async () => {
-    vi.mocked(chrome.runtime.sendMessage).mockResolvedValue({ success: true });
+    vi.mocked(chrome.runtime.sendMessage).mockResolvedValue({ success: true } as any);
     const available = await service.isAvailable();
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
       type: MessageTypes.CHECK_CHROME_AI_AVAILABILITY,
@@ -48,7 +48,7 @@ describe('ChromeAIService', () => {
           { tabId: 3, groupNames: ['G3'] },
         ],
       }),
-    });
+    } as any);
 
     const results = await smallBatchService.categorizeTabs(tabs, ['Existing']);
 
@@ -61,7 +61,7 @@ describe('ChromeAIService', () => {
     vi.mocked(chrome.runtime.sendMessage).mockResolvedValue({
       success: true,
       text: JSON.stringify({ similarTabIds: [2] }),
-    });
+    } as any);
 
     const reference = { id: 1, title: 'R', url: 'u1' };
     const candidates = [{ id: 2, title: 'C', url: 'u2' }];
@@ -74,9 +74,9 @@ describe('ChromeAIService', () => {
     vi.mocked(chrome.runtime.sendMessage).mockResolvedValue({
       success: true,
       text: JSON.stringify({ windowName: 'Project' }),
-    });
+    } as any);
 
-    const name = await service.generateWindowName([{ title: 'T', url: 'u' }], []);
+    const name = await service.generateWindowName([{ id: 1, title: 'T', url: 'u' }], []);
     expect(name).toBe('Project');
   });
 });

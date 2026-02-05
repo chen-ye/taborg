@@ -23,7 +23,7 @@
 - [x] Task: Implement E2E test for basic Tab Selection and Manual Grouping. [checkpoint: 64030]
 - [x] Task: Conductor - User Manual Verification 'Phase 3: E2E Testing Framework' (Protocol in workflow.md)
 
-## Phase 4: Verification and Finalization
-- [ ] Task: Run full test suite and verify >80% coverage across target directories.
-- [ ] Task: Ensure all tests pass linting and type-checking (`yarn lint` and `yarn compile`).
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Verification and Finalization' (Protocol in workflow.md)
+## Phase 4: Verification and Finalization [checkpoint: 65427]
+- [x] Task: Run full test suite and verify >80% coverage across target directories. [checkpoint: 65160]
+- [x] Task: Ensure all tests pass linting and type-checking (`yarn lint` and `yarn compile`). [checkpoint: 65427]
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Verification and Finalization' (Protocol in workflow.md)

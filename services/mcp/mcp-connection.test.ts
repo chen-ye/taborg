@@ -30,17 +30,17 @@ describe('McpConnectionService', () => {
     (globalThis as any).chrome = {
       storage: {
         local: {
-          get: vi.fn().mockResolvedValue({}),
+          get: vi.fn().mockResolvedValue({} as any),
         },
         sync: {
-          get: vi.fn().mockResolvedValue({}),
+          get: vi.fn().mockResolvedValue({} as any),
         },
         onChanged: {
           addListener: vi.fn(),
         },
       },
       identity: {
-        getProfileUserInfo: vi.fn().mockResolvedValue({ email: 'test@example.com' }),
+        getProfileUserInfo: vi.fn().mockResolvedValue({ email: 'test@example.com' } as any),
       },
       runtime: {
         getManifest: () => ({ version: '1.0.0' }),
@@ -56,18 +56,22 @@ describe('McpConnectionService', () => {
 
   it('should connect and transition to connected', async () => {
     service.init();
+    // wait for async connect
     await new Promise(r => setTimeout(r, 10));
     
-    if (lastWs && lastWs.onopen) lastWs.onopen();
+    lastWs?.onopen?.();
     expect(service.status.get()).toBe('connected');
   });
 
   it('should handle registration and send notifications when connected', async () => {
     service.init();
     await new Promise(r => setTimeout(r, 10));
-    if (lastWs && lastWs.onopen) lastWs.onopen();
+    lastWs?.onopen?.();
 
-    service.registerTool({ name: 'test-tool', description: 'desc' }, async () => ({ content: [] }));
+    service.registerTool(
+      { name: 'test-tool', description: 'desc', inputSchema: { type: 'object' } }, 
+      async () => ({ content: [] })
+    );
     
     expect(lastWs?.send).toHaveBeenCalledWith(expect.stringContaining('notifications/tools/list_changed'));
   });
@@ -75,7 +79,7 @@ describe('McpConnectionService', () => {
   it('should handle JSON-RPC initialize request', async () => {
     service.init();
     await new Promise(r => setTimeout(r, 10));
-    if (lastWs && lastWs.onopen) lastWs.onopen();
+    lastWs?.onopen?.();
 
     const initRequest = JSON.stringify({
       jsonrpc: '2.0',
@@ -84,7 +88,7 @@ describe('McpConnectionService', () => {
       params: {}
     });
 
-    if (lastWs && lastWs.onmessage) lastWs.onmessage({ data: initRequest });
+    lastWs?.onmessage?.({ data: initRequest });
 
     expect(lastWs?.send).toHaveBeenCalledWith(expect.stringContaining('"result":'));
     expect(lastWs?.send).toHaveBeenCalledWith(expect.stringContaining('"protocolVersion":'));
@@ -92,11 +96,11 @@ describe('McpConnectionService', () => {
 
   it('should handle tool call requests', async () => {
     const handler = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'Success' }] });
-    service.registerTool({ name: 'my-tool', description: 'desc' }, handler);
+    service.registerTool({ name: 'my-tool', description: 'desc', inputSchema: { type: 'object' } }, handler);
     
     service.init();
     await new Promise(r => setTimeout(r, 10));
-    if (lastWs && lastWs.onopen) lastWs.onopen();
+    lastWs?.onopen?.();
 
     const callRequest = JSON.stringify({
       jsonrpc: '2.0',
@@ -105,7 +109,7 @@ describe('McpConnectionService', () => {
       params: { name: 'my-tool', arguments: { arg1: 'val' } }
     });
 
-    if (lastWs && lastWs.onmessage) lastWs.onmessage({ data: callRequest });
+    lastWs?.onmessage?.({ data: callRequest });
 
     // Wait for async handler
     await new Promise(r => setTimeout(r, 50));
@@ -117,7 +121,7 @@ describe('McpConnectionService', () => {
   it('should handle missing tool errors', async () => {
     service.init();
     await new Promise(r => setTimeout(r, 10));
-    if (lastWs && lastWs.onopen) lastWs.onopen();
+    lastWs?.onopen?.();
 
     const callRequest = JSON.stringify({
       jsonrpc: '2.0',
@@ -126,7 +130,7 @@ describe('McpConnectionService', () => {
       params: { name: 'unknown-tool' }
     });
 
-    if (lastWs && lastWs.onmessage) lastWs.onmessage({ data: callRequest });
+    lastWs?.onmessage?.({ data: callRequest });
 
     expect(lastWs?.send).toHaveBeenCalledWith(expect.stringContaining('"error":{"code":-32601'));
   });

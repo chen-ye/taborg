@@ -9,7 +9,7 @@ export const test = base.extend<{
   context: BrowserContext;
   extensionId: string;
 }>({
-  context: async ({}, use) => {
+  context: async (_params, use) => {
     const context = await chromium.launchPersistentContext('', {
       headless: true,
       args: [
