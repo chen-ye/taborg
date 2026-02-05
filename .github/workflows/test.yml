@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
       - name: Run unit tests
-        run: yarn test
+        run: yarn test:unit
 
   e2e-tests:
     runs-on: ubuntu-latest
@@ -37,7 +37,7 @@ jobs:
       - name: Build extension
         run: yarn build
       - name: Run E2E tests
-        run: xvfb-run yarn playwright test
+        run: xvfb-run yarn test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
