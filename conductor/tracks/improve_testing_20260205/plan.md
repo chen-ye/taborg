@@ -1,12 +1,12 @@
 # Implementation Plan: Improve Testing Infrastructure and Coverage
 
-## Phase 1: Audit and Unit Test Foundation
+## Phase 1: Audit and Unit Test Foundation [checkpoint: 73f130a]
 - [x] Task: Audit current test coverage and identify gaps in `services/` and `utils/`. [checkpoint: audit_done]
 - [x] Task: Improve unit tests for `services/tabs/tab-store.ts`. [checkpoint: 59930]
     - [x] Write tests for edge cases in tab grouping.
     - [x] Write tests for persistence logic.
 - [x] Task: Implement unit tests for `utils/ai-schemas.ts` and `utils/url-utils.ts`. [checkpoint: 59837]
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Audit and Unit Test Foundation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Audit and Unit Test Foundation' (Protocol in workflow.md)
 
 ## Phase 2: AI and Service Testing
 - [ ] Task: Implement unit tests for `services/ai/`.
