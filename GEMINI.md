@@ -98,7 +98,7 @@ model.
 
 - **Usage Pattern:**
 
-## Setup
+### Setup
 1.  **Enable Flags** (required for local development):
     * `chrome://flags/#optimization-guide-on-device-model` -> **Enabled**
     * `chrome://flags/#prompt-api-for-gemini-nano-multimodal-input` -> **Enabled**
@@ -108,11 +108,11 @@ model.
     npm install @types/dom-chromium-ai
     ```
 
-## Core API Usage
+### Core API Usage
 
 All operations utilize `window.ai.languageModel`.
 
-### 1. Check Model Availability
+#### 1. Check Model Availability
 Always check availability before usage. This step may trigger the model download.
 
 ```javascript
@@ -130,7 +130,7 @@ if (availability === 'no') {
 }
 ```
 
-### 2. Create a Session
+#### 2. Create a Session
 A session maintains the conversation history (context).
 
 ```javascript
@@ -146,7 +146,7 @@ const session = await window.ai.languageModel.create({
 });
 ```
 
-### 3. Prompting the Model
+#### 3. Prompting the Model
 There are two methods to retrieve responses:
 
 **A. Single Request (`prompt`)**
@@ -165,7 +165,7 @@ for await (const chunk of stream) {
 }
 ```
 
-### 4. Session Management
+#### 4. Session Management
 * **Token Usage**: specific limits apply to the context window.
     ```javascript
     console.log(`${session.inputUsage} / ${session.inputQuota}`);
@@ -179,9 +179,9 @@ for await (const chunk of stream) {
     session.destroy();
     ```
 
-## Advanced Features
+### Advanced Features
 
-### System Prompts & Roles
+#### System Prompts & Roles
 Define the model's persona using `initialPrompts`.
 
 ```javascript
@@ -194,7 +194,7 @@ const session = await window.ai.languageModel.create({
 });
 ```
 
-### Multimodal Input (Images & Audio)
+#### Multimodal Input (Images & Audio)
 The API supports prompts containing text, images (Blob, Canvas), and audio.
 
 ```javascript
@@ -215,9 +215,9 @@ const result = await session.prompt([
 ]);
 ```
 
-### Structured Output (JSON Schema)
+#### Structured Output (JSON Schema)
 Enforce valid JSON output by passing a schema.
-
+	
 ```javascript
 const schema = {
   type: "object",
@@ -235,8 +235,155 @@ const result = await session.prompt(
 const json = JSON.parse(result); 
 ```
 
-## Best Practices
+### Best Practices
 1.  **Avoid `window.ai()`**: Any tutorial referencing `await window.ai("prompt")` is obsolete. Use `window.ai.languageModel`.
 2.  **AbortSignals**: Implement `AbortController` in your `create()` and `prompt()` calls to handle user cancellation gracefully.
 3.  **Context Window**: Destroy and recreate sessions if they hit the token limit (`session.inputQuota`).
 4.  **WWorkers**: The API is currently **not** supported inside Web Workers.
+
+
+
+# Playwright Chrome Extension Testing Guide
+
+This guide outlines how to load and test Chrome Extensions (Manifest V3) using Playwright. Unlike standard web testing, extensions require a **Persistent Context** and specific launch arguments.
+
+## Core Concepts
+
+* **Persistent Context**: Extensions cannot be loaded in an incognito `browser.newContext()`. You must use `chromium.launchPersistentContext()`.
+* **Chromium Bundle**: Use the Chromium browser bundled with Playwright.
+* **Headless Mode**: Historically difficult, but now supported if you use `channel: 'chromium'` (or standard headed mode).
+
+## 1. Basic Setup (Raw Script)
+
+This approach is useful for simple scripts or debugging outside of a test runner.
+
+```javascript
+const { chromium } = require('playwright');
+const path = require('path');
+
+(async () => {
+  const pathToExtension = path.join(__dirname, 'my-extension'); // Folder containing manifest.json
+  const userDataDir = '/tmp/test-user-data-dir';
+
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    channel: 'chromium', // Allows headless execution
+    headless: true,      // Set to false to see the browser
+    args: [
+      `--disable-extensions-except=${pathToExtension}`,
+      `--load-extension=${pathToExtension}`
+    ]
+  });
+
+  // Handle Manifest V3 Service Worker
+  let [worker] = context.serviceWorkers();
+  if (!worker) {
+    worker = await context.waitForEvent('serviceworker');
+  }
+
+  console.log(`Extension loaded with ID: ${worker.url().split('/')[2]}`);
+
+  // Perform tests...
+  
+  await context.close();
+})();
+```
+
+## 2. Playwright Test Integration (Fixtures)
+
+For robust testing, use Playwright's test runner fixtures to handle the context setup and teardown automatically.
+
+### Step A: Define Fixtures (`fixtures.ts`)
+
+Create a custom test object that handles the extension loading and ID extraction.
+
+```typescript
+import { test as base, chromium, type BrowserContext } from '@playwright/test';
+import path from 'path';
+
+export const test = base.extend<{
+  context: BrowserContext;
+  extensionId: string;
+}>({
+  context: async ({ }, use) => {
+    const pathToExtension = path.join(__dirname, 'my-extension');
+    const context = await chromium.launchPersistentContext('', {
+      channel: 'chromium',
+      args: [
+        `--disable-extensions-except=${pathToExtension}`,
+        `--load-extension=${pathToExtension}`,
+      ],
+    });
+    
+    await use(context);
+    
+    await context.close();
+  },
+  extensionId: async ({ context }, use) => {
+    // Wait for the Manifest V3 Service Worker to initialize
+    let [worker] = context.serviceWorkers();
+    if (!worker) {
+      worker = await context.waitForEvent('serviceworker');
+    }
+    
+    // Extract ID from the worker URL (chrome-extension://<id>/...)
+    const extensionId = worker.url().split('/')[2];
+    await use(extensionId);
+  },
+});
+
+export const expect = test.expect;
+```
+
+### Step B: Write Tests
+
+Use the custom `test` and `extensionId` fixture to interact with your extension.
+
+```typescript
+import { test, expect } from './fixtures';
+
+test('verify content script modification', async ({ page }) => {
+  await page.goto('[https://example.com](https://example.com)');
+  await expect(page.locator('body')).toContainText('Modified by Extension');
+});
+
+test('test popup page', async ({ page, extensionId }) => {
+  // Navigate directly to the popup HTML page
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  
+  await expect(page.locator('h1')).toHaveText('My Extension Popup');
+  await page.click('#action-button');
+});
+```
+
+## 3. Testing Strategies
+
+### Background Pages (Service Workers)
+In Manifest V3, background scripts are Service Workers. You can evaluate code directly within the worker context.
+
+```typescript
+test('inspect service worker state', async ({ context }) => {
+  const [worker] = context.serviceWorkers();
+  
+  // Evaluate code inside the extension's background context
+  const storageValue = await worker.evaluate(() => {
+    return chrome.storage.local.get('myKey');
+  });
+});
+```
+
+### Content Scripts
+Test content scripts by navigating to a standard web page and asserting DOM changes.
+
+```typescript
+test('content script injection', async ({ page }) => {
+  await page.goto('[https://google.com](https://google.com)');
+  // Check if extension injected a specific element
+  await expect(page.locator('#my-extension-overlay')).toBeVisible();
+});
+```
+
+## 4. Known Limitations & Gotchas
+
+1.  **Browser Contexts**: You cannot create new contexts (`browser.newContext()`) inside the test. You must use the single `context` provided by `launchPersistentContext`.
+2.  **User Data Dir**: `launchPersistentContext` creates a temporary user data directory (if an empty string is passed) or uses a specified one. If the directory is locked by another Chrome instance, the test will fail.
+3.  **Headless Extensions**: While supported via `channel: 'chromium'`, specific extension APIs (like some `chrome.identity` flows) might behave differently or fail in headless mode compared to headed mode.
