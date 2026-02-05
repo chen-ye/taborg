@@ -30,6 +30,7 @@
     "@biomejs/biome": "^2.3.13",
     "@types/chrome": "^0.1.36",
     "@types/dom-chromium-ai": "^0.0.13",
+    "@vitest/coverage-v8": "4.0.18",
     "@wxt-dev/auto-icons": "^1.1.0",
     "crx": "^5.0.1",
     "happy-dom": "^20.4.0",

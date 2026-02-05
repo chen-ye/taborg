@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Improve Testing Infrastructure and Coverage**
+- [~] **Track: Improve Testing Infrastructure and Coverage**
   *Link: [./tracks/improve_testing_20260205/](./tracks/improve_testing_20260205/)*
