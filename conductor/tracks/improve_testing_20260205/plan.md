@@ -15,13 +15,13 @@
 - [x] Task: Implement unit tests for `services/mcp/` connection logic. [checkpoint: 049d58a]
 - [x] Task: Conductor - User Manual Verification 'Phase 2: AI and Service Testing' (Protocol in workflow.md)
 
-## Phase 3: E2E Testing Framework
-- [ ] Task: Configure Playwright for Chrome Extension E2E testing.
-    - [ ] Set up `playwright.config.ts`.
-    - [ ] Create E2E test utilities for extension loading.
-- [ ] Task: Implement E2E test for the Sidepanel hierarchy view.
-- [ ] Task: Implement E2E test for basic Tab Selection and Manual Grouping.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: E2E Testing Framework' (Protocol in workflow.md)
+## Phase 3: E2E Testing Framework [checkpoint: e2e_infra_ready]
+- [x] Task: Configure Playwright for Chrome Extension E2E testing. [checkpoint: 63984]
+    - [x] Set up `playwright.config.ts`.
+    - [x] Create E2E test utilities for extension loading.
+- [x] Task: Implement E2E test for the Sidepanel hierarchy view. [checkpoint: 64030]
+- [x] Task: Implement E2E test for basic Tab Selection and Manual Grouping. [checkpoint: 64030]
+- [x] Task: Conductor - User Manual Verification 'Phase 3: E2E Testing Framework' (Protocol in workflow.md)
 
 ## Phase 4: Verification and Finalization
 - [ ] Task: Run full test suite and verify >80% coverage across target directories.
