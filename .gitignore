@@ -27,3 +27,8 @@ web-ext.config.ts
 .yarn/install-state.gz
 
 server/dist
+
+# Playwright
+playwright-report/
+test-results/
+

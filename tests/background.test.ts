@@ -40,6 +40,7 @@ describe('Background Script', () => {
         onInstalled: createMockListener('onInstalled'),
         onMessage: createMockListener('onMessage'),
         getContexts: vi.fn().mockResolvedValue([]),
+        getManifest: () => ({ version: '1.0.0' }),
       },
       tabs: {
         ...fakeBrowser.tabs,
@@ -62,17 +63,22 @@ describe('Background Script', () => {
       tabGroups: {
         query: vi.fn().mockResolvedValue([]),
       },
+      identity: {
+        getProfileUserInfo: vi.fn().mockResolvedValue({ email: 'test@example.com' }),
+      },
     };
 
     // Mock WebSocket
-    (globalThis as any).WebSocket = vi.fn().mockImplementation(() => ({
-      onopen: null,
-      onclose: null,
-      onerror: null,
-      onmessage: null,
-      send: vi.fn(),
-      close: vi.fn(),
-    }));
+    (globalThis as any).WebSocket = class {
+      static OPEN = 1;
+      readyState = 1;
+      onopen = null;
+      onclose = null;
+      onerror = null;
+      onmessage = null;
+      send = vi.fn();
+      close = vi.fn();
+    };
   });
 
   const triggerOnCreated = (tab: any) => {
@@ -84,12 +90,6 @@ describe('Background Script', () => {
   const triggerOnUpdated = async (tabId: number, changeInfo: any, tab: any) => {
     // onUpdated is async in background.ts
     await Promise.all(listeners.onUpdated?.map((cb) => cb(tabId, changeInfo, tab)) || []);
-  };
-
-  const _triggerOnRemoved = (tabId: number) => {
-    listeners.onRemoved?.forEach((cb) => {
-      cb(tabId);
-    });
   };
 
   it('should trigger suggest for tab with openerTabId (link click)', async () => {
@@ -109,7 +109,8 @@ describe('Background Script', () => {
 
     expect(geminiService.categorizeTabs).toHaveBeenCalled();
     const stored = await fakeBrowser.storage.local.get('tab-suggestions');
-    expect(stored['tab-suggestions']['https://google.com']).toEqual(['Search']);
+    // Normalized URL in storage
+    expect(stored['tab-suggestions']['https://google.com/']).toEqual(['Search']);
   });
 
   it('should NOT trigger suggest for stand-alone new tab (direct navigation without new tab state tracked)', async () => {
@@ -147,7 +148,7 @@ describe('Background Script', () => {
 
     expect(geminiService.categorizeTabs).toHaveBeenCalled();
     const stored = await fakeBrowser.storage.local.get('tab-suggestions');
-    expect(stored['tab-suggestions']['https://news.com']).toEqual(['News']);
+    expect(stored['tab-suggestions']['https://news.com/']).toEqual(['News']);
   });
 
   it('should handle navigation back to new tab and then to a site', async () => {
@@ -174,6 +175,7 @@ describe('Background Script', () => {
     expect(geminiService.categorizeTabs).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ url: 'https://b.com' })]),
       expect.anything(),
+      undefined,
     );
   });
 });
