@@ -1,31 +1,39 @@
 import { test, expect } from './fixtures';
 
-test.describe('Tab Grouping', () => {
-  test('should select multiple tabs and group them manually', async ({ page, extensionId }) => {
+test.describe('Tab Grouping and AI Suggestions', () => {
+  test('should trigger autosuggest and apply a suggestion', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
 
-    // Select first two tabs
-    const tabItems = page.locator('tab-item');
-    await tabItems.nth(0).locator('sl-checkbox').click();
-    await tabItems.nth(1).locator('sl-checkbox').click();
+    // 1. Trigger Autosuggest
+    const autosuggestButton = page.getByRole('button', { name: 'Autosuggest' });
+    await expect(autosuggestButton).toBeVisible();
+    await autosuggestButton.click();
 
-    // Check control bar
-    const controlBar = page.locator('control-bar');
-    await expect(controlBar).toBeVisible();
+    // 2. Wait for suggestions to appear on a tab-item
+    // Since we are using mocks in unit tests, in E2E we rely on the built-in AI 
+    // or the configured API key. In a test environment, we might need to mock 
+    // the LLM response if we want a deterministic E2E test, 
+    // but for now let's check for the "processing" state or the appearance of tags.
+    
+    const firstTab = page.locator('tab-item').first();
+    
+    // Check if it enters processing state (shimmer animation)
+    // await expect(firstTab.locator('.tab-row')).toHaveClass(/processing/);
 
-    // Click "Organize" (or similar button for manual grouping)
-    // Looking at common UI patterns, there might be a "Group" button or menu
-    // For now, let's verify selection count in UI if visible
-    const selectionBadge = controlBar.locator('sl-badge');
-    await expect(selectionBadge).toContainText('2');
+    // Wait for a suggestion tag to appear (group-tag inside .suggestions)
+    const suggestionTag = firstTab.locator('.suggestions group-tag').first();
+    // Increase timeout as AI can be slow
+    await expect(suggestionTag).toBeVisible({ timeout: 15000 });
 
-    // Trigger manual grouping (placeholder for actual UI interaction)
-    // await page.getByRole('button', { name: 'Group' }).click();
-    // await page.getByPlaceholder('Group Name').fill('Test Group');
-    // await page.keyboard.press('Enter');
+    const groupName = await suggestionTag.textContent();
+    expect(groupName?.trim().length).toBeGreaterThan(0);
 
-    // Verify group creation (placeholder)
-    // const groupItem = page.locator('group-item', { hasText: 'Test Group' });
-    // await expect(groupItem).toBeVisible();
+    // 3. Apply the suggestion
+    await suggestionTag.click();
+
+    // 4. Verify the tab is now in a group
+    // In the tree, grouped tabs are children of a group-item
+    const groupItem = page.locator('group-item', { hasText: groupName?.trim() });
+    await expect(groupItem).toBeVisible();
   });
 });
