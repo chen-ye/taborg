@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { expect, test } from './fixtures';
 
 test.describe('Tab Grouping and AI Suggestions', () => {
   test('should trigger autosuggest and apply a suggestion', async ({ page, extensionId }) => {
@@ -10,23 +10,23 @@ test.describe('Tab Grouping and AI Suggestions', () => {
     await autosuggestButton.click();
 
     // 2. Wait for suggestions to appear on a tab-item
-    // Since we are using mocks in unit tests, in E2E we rely on the built-in AI 
-    // or the configured API key. In a test environment, we might need to mock 
-    // the LLM response if we want a deterministic E2E test, 
+    // Since we are using mocks in unit tests, in E2E we rely on the built-in AI
+    // or the configured API key. In a test environment, we might need to mock
+    // the LLM response if we want a deterministic E2E test,
     // but for now let's check for the "processing" state or the appearance of tags.
-    
+
     const firstTab = page.locator('tab-item').first();
-    
+
     // Check if it enters processing state (shimmer animation)
     // await expect(firstTab.locator('.tab-row')).toHaveClass(/processing/);
 
     // Wait for a suggestion tag to appear (group-tag inside .suggestions)
-    const suggestionTag = firstTab.locator('.suggestions group-tag').first();
-    // Increase timeout as AI can be slow
-    await expect(suggestionTag).toBeVisible({ timeout: 15000 });
+    const suggestionTag = firstTab.locator('.suggestions group-tag', { hasText: 'Search' });
+    // Increase timeout as AI can be slow (even mock needs time to trigger)
+    await expect(suggestionTag).toBeVisible({ timeout: 10000 });
 
     const groupName = await suggestionTag.textContent();
-    expect(groupName?.trim().length).toBeGreaterThan(0);
+    expect(groupName?.trim()).toBe('Search');
 
     // 3. Apply the suggestion
     await suggestionTag.click();

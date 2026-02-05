@@ -9,15 +9,49 @@ export const test = base.extend<{
   context: BrowserContext;
   extensionId: string;
 }>({
-  context: async (_params, use) => {
+  context: async ({}, use) => {
     const context = await chromium.launchPersistentContext('', {
-      headless: true,
+      headless: true, // Remains headless for CI, but configured for extension
       args: [
         `--disable-extensions-except=${pathToExtension}`,
         `--load-extension=${pathToExtension}`,
-        '--headless=new', // Try the new headless mode
+        '--headless=new',
       ],
     });
+
+    // Inject AI Mock into all pages (including offscreen)
+    await context.addInitScript(() => {
+      // Mock for Chrome Prompt API / LanguageModel
+      const mockSession = {
+        prompt: async (prompt: string) => {
+          console.log('[Mock AI] Received prompt:', prompt);
+          // Deterministic responses based on prompt content
+          if (prompt.includes('google.com')) {
+            return JSON.stringify({
+              suggestions: [{ tabId: 101, groupNames: ['Search'] }]
+            });
+          }
+          if (prompt.includes('news.com')) {
+            return JSON.stringify({
+              suggestions: [{ tabId: 103, groupNames: ['News'] }]
+            });
+          }
+          return JSON.stringify({ suggestions: [] });
+        },
+        destroy: () => {}
+      };
+
+      (window as any).LanguageModel = {
+        availability: async () => 'available',
+        create: async () => mockSession,
+      };
+      
+      // Also mock window.ai.languageModel just in case
+      (window as any).ai = {
+        languageModel: (window as any).LanguageModel
+      };
+    });
+
     await use(context);
     await context.close();
   },

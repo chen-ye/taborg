@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { expect, test } from './fixtures';
 
 test.describe('Sidepanel Hierarchy View', () => {
   test('should open sidepanel and display windows and tabs', async ({ page, extensionId }) => {
@@ -20,9 +20,9 @@ test.describe('Sidepanel Hierarchy View', () => {
     const firstTab = page.locator('tab-item').first();
     const tabTitle = await firstTab.locator('.title').textContent();
     const checkbox = firstTab.locator('sl-checkbox');
-    
+
     await checkbox.click();
-    
+
     // Open the "Selected" pane at the bottom
     const selectedDetails = page.locator('sl-details', { hasText: 'Selected' });
     await selectedDetails.click();
