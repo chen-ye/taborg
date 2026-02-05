@@ -8,12 +8,12 @@
 - [x] Task: Implement unit tests for `utils/ai-schemas.ts` and `utils/url-utils.ts`. [checkpoint: 59837]
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Audit and Unit Test Foundation' (Protocol in workflow.md)
 
-## Phase 2: AI and Service Testing
-- [ ] Task: Implement unit tests for `services/ai/`.
-    - [ ] Mock Chrome AI (Prompt API) responses.
-    - [ ] Mock Google Gemini API interactions.
-- [ ] Task: Implement unit tests for `services/mcp/` connection logic.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: AI and Service Testing' (Protocol in workflow.md)
+## Phase 2: AI and Service Testing [checkpoint: c894910]
+- [x] Task: Implement unit tests for `services/ai/`. [checkpoint: 049d58a]
+    - [x] Mock Chrome AI (Prompt API) responses.
+    - [x] Mock Google Gemini API interactions.
+- [x] Task: Implement unit tests for `services/mcp/` connection logic. [checkpoint: 049d58a]
+- [x] Task: Conductor - User Manual Verification 'Phase 2: AI and Service Testing' (Protocol in workflow.md)
 
 ## Phase 3: E2E Testing Framework
 - [ ] Task: Configure Playwright for Chrome Extension E2E testing.
