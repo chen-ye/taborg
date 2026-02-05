@@ -248,7 +248,14 @@ describe('TabStore', () => {
   });
 
   it('should identify similar tabs by domain', async () => {
-    const activeTab = { id: 1, title: 'Google Search', url: 'https://google.com/search', active: true, windowId: 1, groupId: -1 };
+    const activeTab = {
+      id: 1,
+      title: 'Google Search',
+      url: 'https://google.com/search',
+      active: true,
+      windowId: 1,
+      groupId: -1,
+    };
     const similarTab = { id: 2, title: 'Google Mail', url: 'https://google.com/mail', windowId: 1, groupId: -1 };
     const diffTab = { id: 3, title: 'Yahoo', url: 'https://yahoo.com/', windowId: 1, groupId: -1 };
 
@@ -269,7 +276,14 @@ describe('TabStore', () => {
   });
 
   it('should identify similar tabs by fuzzy title match', async () => {
-    const activeTab = { id: 1, title: 'React Documentation', url: 'https://react.dev/', active: true, windowId: 1, groupId: -1 };
+    const activeTab = {
+      id: 1,
+      title: 'React Documentation',
+      url: 'https://react.dev/',
+      active: true,
+      windowId: 1,
+      groupId: -1,
+    };
     const similarTab = { id: 2, title: 'React Hooks', url: 'https://medium.com/react-hooks', windowId: 1, groupId: -1 };
     const diffTab = { id: 3, title: 'Angular', url: 'https://angular.io/', windowId: 1, groupId: -1 };
 
@@ -290,20 +304,20 @@ describe('TabStore', () => {
 
   it('should persist selectedTabIds to storage', async () => {
     const setSpy = vi.spyOn(fakeBrowser.storage.local, 'set');
-    
+
     tabStore.setSelectedTabs(new Set([1, 2, 3]));
-    
+
     expect(tabStore.selectedTabIds.has(1)).toBe(true);
     // saveSelection has a 500ms debounce
-    await new Promise(r => setTimeout(r, 600));
+    await new Promise((r) => setTimeout(r, 600));
     expect(setSpy).toHaveBeenCalledWith({ 'selected-tabs': [1, 2, 3] });
   });
 
   it('should persist windowNames to storage', async () => {
     const setSpy = vi.spyOn(fakeBrowser.storage.local, 'set');
-    
+
     await tabStore.setWindowName(1, 'Work');
-    
+
     expect(tabStore.windowNames.get(1)).toBe('Work');
     expect(setSpy).toHaveBeenCalledWith({ 'window-names': { '1': 'Work' } });
   });
@@ -327,9 +341,9 @@ describe('TabStore', () => {
 
   it('should persist collapsedWindowIds to storage', async () => {
     const setSpy = vi.spyOn(fakeBrowser.storage.local, 'set');
-    
+
     await tabStore.setWindowCollapsed(1, true);
-    
+
     expect(tabStore.collapsedWindowIds.has(1)).toBe(true);
     expect(setSpy).toHaveBeenCalledWith({ 'collapsed-windows': [1] });
   });

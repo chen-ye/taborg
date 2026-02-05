@@ -25,7 +25,9 @@ describe('url-utils', () => {
     });
 
     it('should handle complex URLs', () => {
-      expect(normalizeUrl('https://user:pass@sub.example.co.uk:8080/path/to/file.html?q=1')).toBe('https://user:pass@sub.example.co.uk:8080/path/to/file.html');
+      expect(normalizeUrl('https://user:pass@sub.example.co.uk:8080/path/to/file.html?q=1')).toBe(
+        'https://user:pass@sub.example.co.uk:8080/path/to/file.html',
+      );
     });
   });
 });

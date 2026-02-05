@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { LLMManager } from './llm-manager';
-import { geminiService } from './gemini';
 import { chromeAIService } from './chrome-ai-service';
+import { geminiService } from './gemini';
+import { LLMManager } from './llm-manager';
 
 vi.mock('./gemini', () => ({
   geminiService: {
@@ -60,7 +60,10 @@ describe('LLMManager', () => {
   });
 
   it('should not fallback if fallback is disabled', async () => {
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ 'active-llm-provider': 'gemini', 'llm-fallback-enabled': false } as any);
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({
+      'active-llm-provider': 'gemini',
+      'llm-fallback-enabled': false,
+    } as any);
     manager = new LLMManager(); // Re-init to pick up settings
 
     vi.mocked(geminiService.isAvailable).mockResolvedValue(true);

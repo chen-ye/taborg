@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ChromeAIService } from './chrome-ai-service';
 import { MessageTypes } from '../../utils/message-types';
+import { ChromeAIService } from './chrome-ai-service';
 
 describe('ChromeAIService', () => {
   let service: ChromeAIService;

@@ -8,8 +8,8 @@ vi.mock('@google/genai', () => ({
   GoogleGenAI: class {
     models = {
       generateContent: generateContentMock,
-    }
-  }
+    };
+  },
 }));
 
 describe('GeminiService', () => {
