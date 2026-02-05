@@ -14,7 +14,12 @@ test.describe('Sidepanel Hierarchy View', () => {
     await expect(page.locator('tab-item').first()).toBeVisible();
   });
 
-  test('should toggle tab selection and show in Selected pane', async ({ page, extensionId }) => {
+  test('should toggle tab selection and show in Selected pane', async ({ page, context, extensionId }) => {
+    // Open a tab to select
+    const testTab = await context.newPage();
+    await testTab.goto('https://example.com');
+    await testTab.waitForLoadState('networkidle');
+
     await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
 
     const firstTab = page.locator('tab-item').first();

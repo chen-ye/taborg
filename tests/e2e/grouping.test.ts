@@ -1,7 +1,12 @@
 import { expect, test } from './fixtures';
 
 test.describe('Tab Grouping and AI Suggestions', () => {
-  test('should trigger autosuggest and apply a suggestion', async ({ page, extensionId }) => {
+  test('should trigger autosuggest and apply a suggestion', async ({ page, context, extensionId }) => {
+    // 0. Open a tab that matches the AI mock
+    const googleTab = await context.newPage();
+    await googleTab.goto('https://google.com');
+    await googleTab.waitForLoadState('networkidle');
+
     await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
 
     // 1. Trigger Autosuggest
