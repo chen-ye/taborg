@@ -47,8 +47,8 @@ export const main = () => {
   });
 
   const isNewTab = (url?: string) => {
+    if (!url) return false;
     return (
-      !url ||
       url === 'about:blank' ||
       url === 'chrome://newtab/' ||
       url === 'edge://newtab/' ||
@@ -57,7 +57,7 @@ export const main = () => {
   };
 
   chrome.tabs.onCreated.addListener((tab) => {
-    if (tab.id && (isNewTab(tab.url) || isNewTab(tab.pendingUrl))) {
+    if (tab.id && (isNewTab(tab.url) || isNewTab(tab.pendingUrl) || (!tab.url && !tab.pendingUrl))) {
       newTabIds.add(tab.id);
     }
   });
@@ -74,7 +74,7 @@ export const main = () => {
       });
     }
 
-    if (isNewTab(changeInfo.url) || isNewTab(tab.url)) {
+    if ((changeInfo.url && isNewTab(changeInfo.url)) || isNewTab(tab.url)) {
       newTabIds.add(tabId);
     }
 

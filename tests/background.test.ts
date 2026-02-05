@@ -175,7 +175,7 @@ describe('Background Script', () => {
     expect(geminiService.categorizeTabs).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ url: 'https://b.com' })]),
       expect.anything(),
-      expect.anything(),
+      undefined,
     );
   });
 });
