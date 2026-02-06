@@ -47,9 +47,12 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.21",
+    "@ai-sdk/openai": "^3.0.25",
     "@google/genai": "^1.38.0",
     "@lit-labs/signals": "^0.2.0",
     "@shoelace-style/shoelace": "^2.20.1",
+    "ai": "^6.0.74",
     "fuse.js": "^7.1.0",
     "lit": "^3.3.2",
     "signal-polyfill": "^0.2.2",
