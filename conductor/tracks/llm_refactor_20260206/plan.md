@@ -3,7 +3,7 @@
 ## Phase 1: Dependency Setup & Types
 - [x] Task: Install Vercel AI SDK dependencies (838e99c)
     - [ ] Run `yarn add ai @ai-sdk/google @ai-sdk/openai`
-- [ ] Task: Update LLM Types and Settings Schema
+- [x] Task: Update LLM Types and Settings Schema (4903af0)
     - [ ] Update `types/llm-types.ts` to include `openai` provider and model selection fields
     - [ ] Update settings schema/types to include `openaiBaseUrl`, `openaiModelId`, and `geminiModelId`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Dependency Setup & Types' (Protocol in workflow.md)
