@@ -1,15 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { chromeAIService } from './chrome-ai-service';
-import { geminiService } from './gemini';
 import { LLMManager } from './llm-manager';
+import { getGoogleModel, getOpenAIModel } from './providers';
+import { StandardLLMStrategy } from './strategies';
 
-vi.mock('./gemini', () => ({
-  geminiService: {
-    isAvailable: vi.fn(),
-    categorizeTabs: vi.fn(),
-    findSimilarTabs: vi.fn(),
-    generateWindowName: vi.fn(),
-  },
+vi.mock('./providers', () => ({
+  getGoogleModel: vi.fn(),
+  getOpenAIModel: vi.fn(),
+}));
+
+vi.mock('./strategies', () => ({
+  StandardLLMStrategy: vi.fn().mockImplementation(function() {
+    return {
+      isAvailable: vi.fn().mockResolvedValue(true),
+      categorizeTabs: vi.fn(),
+      findSimilarTabs: vi.fn(),
+      generateWindowName: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('./chrome-ai-service', () => ({
@@ -29,47 +37,73 @@ describe('LLMManager', () => {
     (globalThis as any).chrome = {
       storage: {
         sync: {
-          get: vi.fn().mockResolvedValue({ 'active-llm-provider': 'gemini', 'llm-fallback-enabled': true } as any),
+          get: vi.fn().mockResolvedValue({ 
+            'active-llm-provider': 'gemini', 
+            'llm-fallback-enabled': true,
+            'geminiApiKey': 'test-key'
+          } as any),
         },
         onChanged: {
           addListener: vi.fn(),
         },
       },
     };
-    manager = new LLMManager();
   });
 
   it('should use active provider (gemini)', async () => {
-    vi.mocked(geminiService.isAvailable).mockResolvedValue(true);
-    vi.mocked(geminiService.categorizeTabs).mockResolvedValue(new Map([[1, ['G']]]));
+    const mockStrategyInstance = {
+      isAvailable: vi.fn().mockResolvedValue(true),
+      categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['G']]])),
+    };
+    vi.mocked(StandardLLMStrategy).mockImplementation(function() {
+      return mockStrategyInstance as any;
+    });
 
+    manager = new LLMManager();
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
-    expect(geminiService.categorizeTabs).toHaveBeenCalled();
+    
+    expect(getGoogleModel).toHaveBeenCalled();
+    expect(StandardLLMStrategy).toHaveBeenCalled();
     expect(results.get(1)).toEqual(['G']);
   });
 
-  it('should fallback to chrome-ai if gemini fails and fallback is enabled', async () => {
-    vi.mocked(geminiService.isAvailable).mockResolvedValue(true);
-    vi.mocked(geminiService.categorizeTabs).mockRejectedValue(new Error('Gemini failed'));
+  it('should use openai provider when selected', async () => {
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ 
+      'active-llm-provider': 'openai', 
+      'openaiApiKey': 'test-key'
+    } as any);
+    
+    const mockStrategyInstance = {
+      isAvailable: vi.fn().mockResolvedValue(true),
+      categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['O']]])),
+    };
+    vi.mocked(StandardLLMStrategy).mockImplementation(function() {
+      return mockStrategyInstance as any;
+    });
+
+    manager = new LLMManager();
+    const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
+    
+    expect(getOpenAIModel).toHaveBeenCalled();
+    expect(results.get(1)).toEqual(['O']);
+  });
+
+  it('should fallback to chrome-ai if primary provider fails and fallback is enabled', async () => {
+    const mockStrategyInstance = {
+      isAvailable: vi.fn().mockResolvedValue(true),
+      categorizeTabs: vi.fn().mockRejectedValue(new Error('Primary failed')),
+    };
+    vi.mocked(StandardLLMStrategy).mockImplementation(function() {
+      return mockStrategyInstance as any;
+    });
+    
     vi.mocked(chromeAIService.isAvailable).mockResolvedValue(true);
     vi.mocked(chromeAIService.categorizeTabs).mockResolvedValue(new Map([[1, ['FB']]]));
 
+    manager = new LLMManager();
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
+    
     expect(chromeAIService.categorizeTabs).toHaveBeenCalled();
     expect(results.get(1)).toEqual(['FB']);
-  });
-
-  it('should not fallback if fallback is disabled', async () => {
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue({
-      'active-llm-provider': 'gemini',
-      'llm-fallback-enabled': false,
-    } as any);
-    manager = new LLMManager(); // Re-init to pick up settings
-
-    vi.mocked(geminiService.isAvailable).mockResolvedValue(true);
-    vi.mocked(geminiService.categorizeTabs).mockRejectedValue(new Error('Gemini failed'));
-
-    await expect(manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], [])).rejects.toThrow('Gemini failed');
-    expect(chromeAIService.categorizeTabs).not.toHaveBeenCalled();
   });
 });

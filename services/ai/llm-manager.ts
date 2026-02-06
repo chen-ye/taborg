@@ -1,20 +1,38 @@
-import type { LLMProvider, LLMService, TabData } from '../../types/llm-types';
+import type { LLMModelConfig, LLMProvider, LLMService, TabData } from '../../types/llm-types';
 import { chromeAIService } from './chrome-ai-service';
-import { geminiService } from './gemini';
+import { getGoogleModel, getOpenAIModel } from './providers';
+import { StandardLLMStrategy } from './strategies';
 
 export class LLMManager implements LLMService {
   private activeProvider: LLMProvider = 'gemini';
   private fallbackEnabled = false;
+  private modelConfig: LLMModelConfig = {};
+  private settingsPromise: Promise<void>;
 
   constructor() {
-    this.loadSettings();
+    this.settingsPromise = this.loadSettings();
     chrome.storage.onChanged.addListener(this.handleStorageChange);
   }
 
   private async loadSettings() {
-    const result = await chrome.storage.sync.get(['active-llm-provider', 'llm-fallback-enabled']);
+    const result = await chrome.storage.sync.get([
+      'active-llm-provider',
+      'llm-fallback-enabled',
+      'geminiApiKey',
+      'geminiModelId',
+      'openaiBaseUrl',
+      'openaiApiKey',
+      'openaiModelId',
+    ]);
     this.activeProvider = (result['active-llm-provider'] as LLMProvider) || 'gemini';
     this.fallbackEnabled = result['llm-fallback-enabled'] === true;
+    this.modelConfig = {
+      geminiApiKey: result.geminiApiKey,
+      geminiModelId: result.geminiModelId,
+      openaiBaseUrl: result.openaiBaseUrl,
+      openaiApiKey: result.openaiApiKey,
+      openaiModelId: result.openaiModelId,
+    };
   }
 
   private handleStorageChange = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
@@ -25,18 +43,50 @@ export class LLMManager implements LLMService {
       if (changes['llm-fallback-enabled']) {
         this.fallbackEnabled = changes['llm-fallback-enabled'].newValue as boolean;
       }
+      if (changes.geminiApiKey) this.modelConfig.geminiApiKey = changes.geminiApiKey.newValue;
+      if (changes.geminiModelId) this.modelConfig.geminiModelId = changes.geminiModelId.newValue;
+      if (changes.openaiBaseUrl) this.modelConfig.openaiBaseUrl = changes.openaiBaseUrl.newValue;
+      if (changes.openaiApiKey) this.modelConfig.openaiApiKey = changes.openaiApiKey.newValue;
+      if (changes.openaiModelId) this.modelConfig.openaiModelId = changes.openaiModelId.newValue;
     }
   };
 
-  private getService(provider: LLMProvider): LLMService {
-    return provider === 'chrome-ai' ? chromeAIService : geminiService;
+  private async getService(provider: LLMProvider): Promise<LLMService> {
+    await this.settingsPromise;
+    if (provider === 'chrome-ai') {
+      return chromeAIService;
+    }
+
+    try {
+      if (provider === 'gemini') {
+        const model = getGoogleModel(this.modelConfig);
+        return new StandardLLMStrategy(model);
+      }
+
+      if (provider === 'openai') {
+        const model = getOpenAIModel(this.modelConfig);
+        return new StandardLLMStrategy(model);
+      }
+    } catch (e) {
+      console.error(`Failed to initialize ${provider} service:`, e);
+    }
+
+    return chromeAIService;
   }
 
   async isAvailable(): Promise<boolean> {
-    const activeAvailable = await this.getService(this.activeProvider).isAvailable();
-    if (activeAvailable) return true;
-    if (this.fallbackEnabled && this.activeProvider === 'gemini') {
-      return chromeAIService.isAvailable();
+    try {
+      await this.settingsPromise;
+      const service = await this.getService(this.activeProvider);
+      const activeAvailable = await service.isAvailable();
+      if (activeAvailable) return true;
+    } catch (e) {
+      console.warn(`Active provider ${this.activeProvider} not available:`, e);
+    }
+
+    if (this.fallbackEnabled && this.activeProvider !== 'chrome-ai') {
+      const fallbackService = await this.getService('chrome-ai');
+      return fallbackService.isAvailable();
     }
     return false;
   }
@@ -46,14 +96,15 @@ export class LLMManager implements LLMService {
     fallbackOperation: (service: LLMService) => Promise<T>,
   ): Promise<T> {
     try {
-      const service = this.getService(this.activeProvider);
-      const available = await service.isAvailable();
-      if (!available) throw new Error(`${this.activeProvider} not available`);
+      await this.settingsPromise;
+      const service = await this.getService(this.activeProvider);
+      // We don't check isAvailable here again to avoid redundant calls, 
+      // the operation itself should fail if not available.
       return await operation(service);
     } catch (error) {
-      if (this.fallbackEnabled && this.activeProvider === 'gemini') {
+      if (this.fallbackEnabled && this.activeProvider !== 'chrome-ai') {
         console.warn('Primary LLM failed, attempting fallback to Chrome AI', error);
-        const fallbackService = chromeAIService;
+        const fallbackService = await this.getService('chrome-ai');
         if (await fallbackService.isAvailable()) {
           return await fallbackOperation(fallbackService);
         }
