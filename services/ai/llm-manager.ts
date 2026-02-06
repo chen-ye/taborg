@@ -1,8 +1,9 @@
 import type { LLMService, TabData } from '../../types/llm-types';
 import { chromeAIService } from './chrome-ai-service';
 import { geminiService } from './gemini';
+import { openAIService } from './openai';
 
-export type LLMProvider = 'gemini' | 'chrome-ai';
+export type LLMProvider = 'gemini' | 'chrome-ai' | 'openai';
 
 export class LLMManager implements LLMService {
   private activeProvider: LLMProvider = 'gemini';
@@ -31,13 +32,21 @@ export class LLMManager implements LLMService {
   };
 
   private getService(provider: LLMProvider): LLMService {
-    return provider === 'chrome-ai' ? chromeAIService : geminiService;
+    switch (provider) {
+      case 'chrome-ai':
+        return chromeAIService;
+      case 'openai':
+        return openAIService;
+      case 'gemini':
+      default:
+        return geminiService;
+    }
   }
 
   async isAvailable(): Promise<boolean> {
     const activeAvailable = await this.getService(this.activeProvider).isAvailable();
     if (activeAvailable) return true;
-    if (this.fallbackEnabled && this.activeProvider === 'gemini') {
+    if (this.fallbackEnabled && this.activeProvider !== 'chrome-ai') {
       return chromeAIService.isAvailable();
     }
     return false;
@@ -53,7 +62,7 @@ export class LLMManager implements LLMService {
       if (!available) throw new Error(`${this.activeProvider} not available`);
       return await operation(service);
     } catch (error) {
-      if (this.fallbackEnabled && this.activeProvider === 'gemini') {
+      if (this.fallbackEnabled && this.activeProvider !== 'chrome-ai') {
         console.warn('Primary LLM failed, attempting fallback to Chrome AI', error);
         const fallbackService = chromeAIService;
         if (await fallbackService.isAvailable()) {

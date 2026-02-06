@@ -52,6 +52,7 @@
     "@shoelace-style/shoelace": "^2.20.1",
     "fuse.js": "^7.1.0",
     "lit": "^3.3.2",
+    "openai": "^6.18.0",
     "signal-polyfill": "^0.2.2",
     "signal-utils": "^0.21.1"
   }

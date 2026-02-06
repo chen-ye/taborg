@@ -4926,6 +4926,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"openai@npm:^6.18.0":
+  version: 6.18.0
+  resolution: "openai@npm:6.18.0"
+  peerDependencies:
+    ws: ^8.18.0
+    zod: ^3.25 || ^4.0
+  peerDependenciesMeta:
+    ws:
+      optional: true
+    zod:
+      optional: true
+  bin:
+    openai: bin/cli
+  checksum: 10c0/82d2f315bcb8eef0f834a3741afc248f15d5a26d5ed4fc877650a7df254bac3cffba11d35ff30335db7901bd0b9a96fe9bfaee0c19278433e6b6a9928d2eaab9
+  languageName: node
+  linkType: hard
+
 "ora@npm:^8.2.0":
   version: 8.2.0
   resolution: "ora@npm:8.2.0"
@@ -6231,6 +6248,7 @@ __metadata:
     happy-dom: "npm:^20.4.0"
     husky: "npm:^9.1.7"
     lit: "npm:^3.3.2"
+    openai: "npm:^6.18.0"
     signal-polyfill: "npm:^0.2.2"
     signal-utils: "npm:^0.21.1"
     typescript: "npm:^5.9.3"

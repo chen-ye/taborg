@@ -2,6 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { geminiService } from '../services/ai/gemini.js';
+import { openAIService } from '../services/ai/openai.js';
 import type { ConnectionStatus } from '../services/mcp/mcp-connection.js';
 import type { AutoCategorizationMode } from '../types/llm-types.js';
 import { MessageTypes } from '../utils/message-types.js';
@@ -145,6 +146,10 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   // Use signals for granular state
   private geminiApiKey = new SettingState<string>('');
+  private openaiApiKey = new SettingState<string>('');
+  private openaiBaseUrl = new SettingState<string>('https://api.openai.com/v1');
+  private openaiModel = new SettingState<string>('gpt-4o');
+
   private predefinedGroups = new SettingState<string>('');
   private activeProvider = new SettingState<string>('gemini');
   private fallbackEnabled = new SettingState<boolean>(false);
@@ -159,7 +164,6 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   @query('sl-dialog') dialog!: SlDialog;
   @query('#mcp-enabled-switch') mcpEnabledSwitch!: SlSwitch;
-  @query('sl-input[type="password"]') apiKeyInput!: SlInput;
 
   constructor() {
     super();
@@ -179,10 +183,15 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     super.connectedCallback();
     window.addEventListener('open-settings', this.handleOpenSettings);
 
-    // Load API Key
+    // Load API Keys and settings
     await geminiService.loadApiKey();
+    await openAIService.loadSettings();
+
     const result = await chrome.storage.sync.get([
       'geminiApiKey',
+      'openaiApiKey',
+      'openaiBaseUrl',
+      'openaiModel',
       'predefined-groups',
       'active-llm-provider',
       'llm-fallback-enabled',
@@ -193,6 +202,19 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     if (result.geminiApiKey) {
       this.geminiApiKey.original.set(result.geminiApiKey as string);
       this.geminiApiKey.current.set('****************'); // Mask the key for display
+    }
+
+    if (result.openaiApiKey) {
+      this.openaiApiKey.original.set(result.openaiApiKey as string);
+      this.openaiApiKey.current.set('****************'); // Mask
+    }
+    if (result.openaiBaseUrl) {
+      this.openaiBaseUrl.original.set(result.openaiBaseUrl as string);
+      this.openaiBaseUrl.current.set(result.openaiBaseUrl as string);
+    }
+    if (result.openaiModel) {
+      this.openaiModel.original.set(result.openaiModel as string);
+      this.openaiModel.current.set(result.openaiModel as string);
     }
 
     if (result['active-llm-provider']) {
@@ -359,11 +381,46 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     `;
   }
 
-  private async saveApiKey(key: string) {
+  private async saveGeminiApiKey(key: string) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
       await geminiService.setApiKey(trimmed);
     }
+  }
+
+  private async saveOpenAiApiKey(key: string) {
+    const trimmed = key.trim();
+    if (trimmed && trimmed !== '****************') {
+      await openAIService.updateSettings(trimmed, this.openaiBaseUrl.current.get(), this.openaiModel.current.get());
+    }
+  }
+
+  private async saveOpenAiBaseUrl(url: string) {
+    const trimmed = url.trim();
+    // Re-save key as well (passing the current masked/unmasked value isn't ideal if we don't have the real key in memory...
+    // but updateSettings saves all 3.
+    // Issue: if key is masked '******', we shouldn't save it as '******'.
+    // `OpenAIService` caches the key. `loadSettings` loads it.
+    // If I just update the URL in storage, OpenAIService needs to know.
+    // Let's rely on storage events or better:
+    // `OpenAIService` handles `storage.onChanged`? It doesn't yet.
+    // I should probably make `OpenAIService` listen to storage changes or update it here.
+    // For now I'll just update storage and rely on reload, OR I can call updateSettings but I need the real key.
+
+    // Better approach: Update individual settings in storage, and let the service read them or manually update the service's specific field.
+    // The current `OpenAIService` `updateSettings` takes all 3.
+    // I should probably change `OpenAIService` to have `setApiKey`, `setBaseUrl`, `setModel`.
+    // OR just update storage directly here.
+
+    await chrome.storage.sync.set({ openaiBaseUrl: trimmed });
+    // And reload service
+    await openAIService.loadSettings();
+  }
+
+  private async saveOpenAiModel(model: string) {
+    const trimmed = model.trim();
+    await chrome.storage.sync.set({ openaiModel: trimmed });
+    await openAIService.loadSettings();
   }
 
   private async savePredefinedGroups(groupsText: string) {
@@ -398,6 +455,8 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   }
 
   render() {
+    const activeProvider = this.activeProvider.current.get();
+
     return html`
       <sl-dialog label="Settings" ?open=${this.open} @sl-after-hide=${() => {
         this.open = false;
@@ -407,7 +466,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
         <div class="setting-row">
             <sl-select
                 label="Active Provider"
-                value=${this.activeProvider.current.get()}
+                value=${activeProvider}
                 @sl-change=${(e: Event) => {
                   const val = (e.target as SlSelect).value as string;
                   this.activeProvider.update(val);
@@ -418,6 +477,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
                 class="setting-input"
             >
                 <sl-option value="gemini">Gemini API</sl-option>
+                <sl-option value="openai">OpenAI Compatible</sl-option>
                 <sl-option value="chrome-ai" ?disabled=${!this.chromeAIAvailable.get()}>
                     Chrome Built-in AI ${!this.chromeAIAvailable.get() ? '(Not Available)' : ''}
                 </sl-option>
@@ -436,19 +496,53 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
                   });
                 }}
             >
-                Fallback to Chrome AI if Gemini fails
+                Fallback to Chrome AI if Primary fails
             </sl-switch>
              ${this.renderStatus(this.fallbackEnabled)}
         </div>
 
-        <div class="section-title">Gemini API Key</div>
-        <p>Enter your <a href="https://aistudio.google.com/app/api-keys">Gemini API Key</a> to enable auto-organization features.</p>
+        ${
+          activeProvider === 'gemini'
+            ? html`
+            <div class="section-title">Gemini API Key</div>
+            <p>Enter your <a href="https://aistudio.google.com/app/api-keys">Gemini API Key</a> to enable auto-organization features.</p>
 
-          ${this.renderStringSetting('API Key', this.geminiApiKey, this.saveApiKey.bind(this), {
-            type: 'password',
-            placeholder: 'AIza...',
-            id: 'api-key-input',
-          })}
+            ${this.renderStringSetting('API Key', this.geminiApiKey, this.saveGeminiApiKey.bind(this), {
+              type: 'password',
+              placeholder: 'AIza...',
+              id: 'gemini-api-key-input',
+            })}
+          `
+            : ''
+        }
+
+        ${
+          activeProvider === 'openai'
+            ? html`
+            <div class="section-title">OpenAI Settings</div>
+            <p>Configure your OpenAI compatible provider (e.g., OpenAI, Ollama, LM Studio).</p>
+
+            ${this.renderStringSetting('API Key', this.openaiApiKey, this.saveOpenAiApiKey.bind(this), {
+              type: 'password',
+              placeholder: 'sk-...',
+              id: 'openai-api-key-input',
+            })}
+
+            ${this.renderStringSetting('Base URL', this.openaiBaseUrl, this.saveOpenAiBaseUrl.bind(this), {
+              placeholder: 'https://api.openai.com/v1',
+              id: 'openai-base-url-input',
+              helpText: 'The API endpoint base URL.',
+            })}
+
+             ${this.renderStringSetting('Model Name', this.openaiModel, this.saveOpenAiModel.bind(this), {
+               placeholder: 'gpt-4o',
+               id: 'openai-model-input',
+               helpText: 'The model ID to use.',
+             })}
+          `
+            : ''
+        }
+
 
           ${this.renderStringSetting(
             'Predefined Groups (comma-separated)',
