@@ -145,6 +145,10 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   // Use signals for granular state
   private geminiApiKey = new SettingState<string>('');
+  private geminiModelId = new SettingState<string>('gemini-1.5-flash');
+  private openaiBaseUrl = new SettingState<string>('');
+  private openaiApiKey = new SettingState<string>('');
+  private openaiModelId = new SettingState<string>('gpt-4o');
   private predefinedGroups = new SettingState<string>('');
   private activeProvider = new SettingState<string>('gemini');
   private fallbackEnabled = new SettingState<boolean>(false);
@@ -183,6 +187,10 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     await geminiService.loadApiKey();
     const result = await chrome.storage.sync.get([
       'geminiApiKey',
+      'geminiModelId',
+      'openaiBaseUrl',
+      'openaiApiKey',
+      'openaiModelId',
       'predefined-groups',
       'active-llm-provider',
       'llm-fallback-enabled',
@@ -193,6 +201,22 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     if (result.geminiApiKey) {
       this.geminiApiKey.original.set(result.geminiApiKey as string);
       this.geminiApiKey.current.set('****************'); // Mask the key for display
+    }
+    if (result.geminiModelId) {
+      this.geminiModelId.original.set(result.geminiModelId as string);
+      this.geminiModelId.current.set(result.geminiModelId as string);
+    }
+    if (result.openaiBaseUrl) {
+      this.openaiBaseUrl.original.set(result.openaiBaseUrl as string);
+      this.openaiBaseUrl.current.set(result.openaiBaseUrl as string);
+    }
+    if (result.openaiApiKey) {
+      this.openaiApiKey.original.set(result.openaiApiKey as string);
+      this.openaiApiKey.current.set('****************'); // Mask the key for display
+    }
+    if (result.openaiModelId) {
+      this.openaiModelId.original.set(result.openaiModelId as string);
+      this.openaiModelId.current.set(result.openaiModelId as string);
     }
 
     if (result['active-llm-provider']) {
@@ -366,6 +390,25 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     }
   }
 
+  private async saveGeminiModelId(id: string) {
+    await chrome.storage.sync.set({ geminiModelId: id });
+  }
+
+  private async saveOpenAIBaseUrl(url: string) {
+    await chrome.storage.sync.set({ openaiBaseUrl: url });
+  }
+
+  private async saveOpenAIApiKey(key: string) {
+    const trimmed = key.trim();
+    if (trimmed && trimmed !== '****************') {
+      await chrome.storage.sync.set({ openaiApiKey: trimmed });
+    }
+  }
+
+  private async saveOpenAIModelId(id: string) {
+    await chrome.storage.sync.set({ openaiModelId: id });
+  }
+
   private async savePredefinedGroups(groupsText: string) {
     const groups = groupsText
       .split(',')
@@ -418,6 +461,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
                 class="setting-input"
             >
                 <sl-option value="gemini">Gemini API</sl-option>
+                <sl-option value="openai">OpenAI Compatible API</sl-option>
                 <sl-option value="chrome-ai" ?disabled=${!this.chromeAIAvailable.get()}>
                     Chrome Built-in AI ${!this.chromeAIAvailable.get() ? '(Not Available)' : ''}
                 </sl-option>
@@ -436,19 +480,47 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
                   });
                 }}
             >
-                Fallback to Chrome AI if Gemini fails
+                Fallback to Chrome AI if Primary fails
             </sl-switch>
              ${this.renderStatus(this.fallbackEnabled)}
         </div>
 
-        <div class="section-title">Gemini API Key</div>
-        <p>Enter your <a href="https://aistudio.google.com/app/api-keys">Gemini API Key</a> to enable auto-organization features.</p>
+        <div class="section-title">Gemini API</div>
+        <p>Use Google's <a href="https://aistudio.google.com/app/api-keys">Gemini API</a> for powerful organization.</p>
 
           ${this.renderStringSetting('API Key', this.geminiApiKey, this.saveApiKey.bind(this), {
             type: 'password',
             placeholder: 'AIza...',
             id: 'api-key-input',
           })}
+
+          ${this.renderStringSetting('Model ID', this.geminiModelId, this.saveGeminiModelId.bind(this), {
+            placeholder: 'gemini-1.5-flash',
+            id: 'gemini-model-input',
+          })}
+
+        <div class="section-title">OpenAI Compatible API</div>
+        <p>Use local models (Ollama, LocalAI) or other OpenAI-compatible services.</p>
+
+          ${this.renderStringSetting('Base URL', this.openaiBaseUrl, this.saveOpenAIBaseUrl.bind(this), {
+            placeholder: 'http://localhost:11434/v1',
+            id: 'openai-url-input',
+            helpText: 'Optional for some services',
+          })}
+
+          ${this.renderStringSetting('API Key', this.openaiApiKey, this.saveOpenAIApiKey.bind(this), {
+            type: 'password',
+            placeholder: 'sk-...',
+            id: 'openai-key-input',
+            helpText: 'Not needed for most local services',
+          })}
+
+          ${this.renderStringSetting('Model ID', this.openaiModelId, this.saveOpenAIModelId.bind(this), {
+            placeholder: 'gpt-4o or llama3',
+            id: 'openai-model-input',
+          })}
+
+        <div class="section-title">General AI Settings</div>
 
           ${this.renderStringSetting(
             'Predefined Groups (comma-separated)',
