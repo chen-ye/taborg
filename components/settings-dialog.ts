@@ -146,6 +146,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   // Use signals for granular state
   private geminiApiKey = new SettingState<string>('');
+  private geminiModel = new SettingState<string>('gemini-2.0-flash-lite');
   private openaiApiKey = new SettingState<string>('');
   private openaiBaseUrl = new SettingState<string>('https://api.openai.com/v1');
   private openaiModel = new SettingState<string>('gpt-4o');
@@ -184,11 +185,12 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     window.addEventListener('open-settings', this.handleOpenSettings);
 
     // Load API Keys and settings
-    await geminiService.loadApiKey();
+    await geminiService.loadSettings();
     await openAIService.loadSettings();
 
     const result = await chrome.storage.sync.get([
       'geminiApiKey',
+      'geminiModel',
       'openaiApiKey',
       'openaiBaseUrl',
       'openaiModel',
@@ -202,6 +204,10 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     if (result.geminiApiKey) {
       this.geminiApiKey.original.set(result.geminiApiKey as string);
       this.geminiApiKey.current.set('****************'); // Mask the key for display
+    }
+    if (result.geminiModel) {
+      this.geminiModel.original.set(result.geminiModel as string);
+      this.geminiModel.current.set(result.geminiModel as string);
     }
 
     if (result.openaiApiKey) {
@@ -388,6 +394,15 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     }
   }
 
+  private async saveGeminiModel(model: string) {
+    const trimmed = model.trim();
+    // We update settings passing apiKey as well, but since we mask it,
+    // we should really separate save calls or cache key.
+    // For now, let's just save to storage and reload service, similar to OpenAI.
+    await chrome.storage.sync.set({ geminiModel: trimmed });
+    await geminiService.loadSettings();
+  }
+
   private async saveOpenAiApiKey(key: string) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
@@ -397,23 +412,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   private async saveOpenAiBaseUrl(url: string) {
     const trimmed = url.trim();
-    // Re-save key as well (passing the current masked/unmasked value isn't ideal if we don't have the real key in memory...
-    // but updateSettings saves all 3.
-    // Issue: if key is masked '******', we shouldn't save it as '******'.
-    // `OpenAIService` caches the key. `loadSettings` loads it.
-    // If I just update the URL in storage, OpenAIService needs to know.
-    // Let's rely on storage events or better:
-    // `OpenAIService` handles `storage.onChanged`? It doesn't yet.
-    // I should probably make `OpenAIService` listen to storage changes or update it here.
-    // For now I'll just update storage and rely on reload, OR I can call updateSettings but I need the real key.
-
-    // Better approach: Update individual settings in storage, and let the service read them or manually update the service's specific field.
-    // The current `OpenAIService` `updateSettings` takes all 3.
-    // I should probably change `OpenAIService` to have `setApiKey`, `setBaseUrl`, `setModel`.
-    // OR just update storage directly here.
-
     await chrome.storage.sync.set({ openaiBaseUrl: trimmed });
-    // And reload service
     await openAIService.loadSettings();
   }
 
@@ -476,11 +475,11 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
                 }}
                 class="setting-input"
             >
-                <sl-option value="gemini">Gemini API</sl-option>
-                <sl-option value="openai">OpenAI Compatible</sl-option>
                 <sl-option value="chrome-ai" ?disabled=${!this.chromeAIAvailable.get()}>
                     Chrome Built-in AI ${!this.chromeAIAvailable.get() ? '(Not Available)' : ''}
                 </sl-option>
+                <sl-option value="gemini">Gemini API</sl-option>
+                <sl-option value="openai">OpenAI Compatible</sl-option>
             </sl-select>
              ${this.renderStatus(this.activeProvider)}
         </div>
@@ -511,6 +510,12 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
               type: 'password',
               placeholder: 'AIza...',
               id: 'gemini-api-key-input',
+            })}
+
+            ${this.renderStringSetting('Model Name', this.geminiModel, this.saveGeminiModel.bind(this), {
+              placeholder: 'gemini-2.0-flash-lite',
+              id: 'gemini-model-input',
+              helpText: 'The model ID to use.',
             })}
           `
             : ''

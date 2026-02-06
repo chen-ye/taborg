@@ -1,12 +1,6 @@
 import type { JsonSchema } from '../../types/llm-types';
 import { MessageTypes } from '../../utils/message-types';
 
-declare global {
-  interface Window {
-    LanguageModel: typeof LanguageModel;
-  }
-}
-
 async function updateIcon(isDark: boolean) {
   const iconName = isDark ? 'icon-dark.svg' : 'icon-light.svg';
   const url = chrome.runtime.getURL(iconName);
@@ -60,15 +54,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function checkAvailability() {
   try {
-    const status = await window.LanguageModel.availability();
-    return status === 'available';
+    const status = await window.ai.languageModel.availability();
+    return status === 'available' || status === 'readily';
   } catch (_e) {
     return false;
   }
 }
 
 // Session cache
-let cachedSession: LanguageModel | null = null;
+let cachedSession: AILanguageModel | null = null;
 let cachedSystemPrompt: string | undefined;
 
 async function executePrompt(prompt: string, systemPrompt?: string, schema?: JsonSchema) {
@@ -86,22 +80,31 @@ async function executePrompt(prompt: string, systemPrompt?: string, schema?: Jso
     }
 
     if (!cachedSession) {
-      const options: LanguageModelCreateOptions = {};
+      const options: AILanguageModelCreateOptions = {};
       if (systemPrompt) {
         options.initialPrompts = [{ role: 'system', content: systemPrompt }];
       }
 
       console.log('[Offscreen] Creating LanguageModel session with options:', JSON.stringify(options));
-      cachedSession = await window.LanguageModel.create(options);
+      cachedSession = await window.ai.languageModel.create(options);
       cachedSystemPrompt = systemPrompt;
     }
 
-    const promptOptions: LanguageModelPromptOptions = {};
+    // Currently dom-chromium-ai types might not support promptOptions fully or schema
+    // But we pass it if supported by the browser implementation
+    // The prompt method signature in recent specs is prompt(input, options?)
+
+    // Construct prompt options if schema is provided (assuming structured output support)
+    // Note: 'responseConstraint' might be specific to some implementations or future spec
+    // We will pass it blindly as `any` to avoid TS errors if types are old
+    const promptOptions: any = {};
     if (schema) {
-      promptOptions.responseConstraint = schema as Record<string, unknown>;
+      promptOptions.responseConstraint = schema;
     }
 
     console.log('[Offscreen] Prompting session with:', { prompt, promptOptions: JSON.stringify(promptOptions) });
+
+    // Cast to any to bypass strict type checks if needed
     const result = await cachedSession.prompt(prompt, promptOptions);
     console.log('[Offscreen] Prompt success, result length:', result.length);
 

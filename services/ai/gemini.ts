@@ -4,16 +4,25 @@ import { CategorizationSchema, SimilaritySchema, WindowNameSchema } from '../../
 
 export class GeminiService implements LLMService {
   private apiKey: string | null = null;
+  private model: string = 'gemini-2.0-flash-lite';
 
   constructor() {
-    this.loadApiKey();
+    this.loadSettings();
   }
 
-  async loadApiKey() {
-    const result = await chrome.storage.sync.get('geminiApiKey');
+  async loadSettings() {
+    const result = await chrome.storage.sync.get(['geminiApiKey', 'geminiModel']);
     this.apiKey = result.geminiApiKey as string;
+    this.model = (result.geminiModel as string) || 'gemini-2.0-flash-lite';
   }
 
+  async updateSettings(apiKey: string, model: string) {
+    this.apiKey = apiKey;
+    this.model = model;
+    await chrome.storage.sync.set({ geminiApiKey: apiKey, geminiModel: model });
+  }
+
+  // Backwards compatibility/specific setter
   async setApiKey(key: string) {
     this.apiKey = key;
     await chrome.storage.sync.set({ geminiApiKey: key });
@@ -21,7 +30,7 @@ export class GeminiService implements LLMService {
 
   async isAvailable(): Promise<boolean> {
     if (!this.apiKey) {
-      await this.loadApiKey();
+      await this.loadSettings();
     }
     return !!this.apiKey;
   }
@@ -63,7 +72,7 @@ export class GeminiService implements LLMService {
 
     try {
       const result = await genAI.models.generateContent({
-        model: 'gemini-robotics-er-1.5-preview',
+        model: this.model,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
@@ -117,7 +126,7 @@ export class GeminiService implements LLMService {
 
     try {
       const result = await genAI.models.generateContent({
-        model: 'gemini-robotics-er-1.5-preview',
+        model: this.model,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
@@ -161,7 +170,7 @@ export class GeminiService implements LLMService {
 
     try {
       const result = await genAI.models.generateContent({
-        model: 'gemini-robotics-er-1.5-preview',
+        model: this.model,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',

@@ -28,9 +28,9 @@ describe('GeminiService', () => {
     service = new GeminiService();
   });
 
-  it('should load API key from storage', async () => {
-    await service.loadApiKey();
-    expect(chrome.storage.sync.get).toHaveBeenCalledWith('geminiApiKey');
+  it('should load settings from storage', async () => {
+    await service.loadSettings();
+    expect(chrome.storage.sync.get).toHaveBeenCalledWith(['geminiApiKey', 'geminiModel']);
   });
 
   it('should check availability based on API key', async () => {

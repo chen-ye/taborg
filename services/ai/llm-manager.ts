@@ -6,7 +6,7 @@ import { openAIService } from './openai';
 export type LLMProvider = 'gemini' | 'chrome-ai' | 'openai';
 
 export class LLMManager implements LLMService {
-  private activeProvider: LLMProvider = 'gemini';
+  private activeProvider: LLMProvider = 'chrome-ai';
   private fallbackEnabled = false;
 
   constructor() {
@@ -16,7 +16,7 @@ export class LLMManager implements LLMService {
 
   private async loadSettings() {
     const result = await chrome.storage.sync.get(['active-llm-provider', 'llm-fallback-enabled']);
-    this.activeProvider = (result['active-llm-provider'] as LLMProvider) || 'gemini';
+    this.activeProvider = (result['active-llm-provider'] as LLMProvider) || 'chrome-ai';
     this.fallbackEnabled = result['llm-fallback-enabled'] === true;
   }
 
