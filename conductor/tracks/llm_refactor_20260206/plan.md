@@ -20,7 +20,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Provider & Strategy Architecture' (Protocol in workflow.md) (809444a)
 
 ## Phase 3: LLMManager Refactor
-- [ ] Task: Update LLMManager
+- [x] Task: Update LLMManager (e7db59f)
     - [ ] Refactor `LLMManager` to select both the `LanguageModel` (Provider) AND the `LLMStrategy` (Batching behavior) based on the user's selected model/provider.
     - [ ] Update `llm-manager.test.ts` to verify correct strategy selection.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: LLMManager Refactor' (Protocol in workflow.md)

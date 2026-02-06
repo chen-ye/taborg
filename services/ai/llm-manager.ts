@@ -27,11 +27,11 @@ export class LLMManager implements LLMService {
     this.activeProvider = (result['active-llm-provider'] as LLMProvider) || 'gemini';
     this.fallbackEnabled = result['llm-fallback-enabled'] === true;
     this.modelConfig = {
-      geminiApiKey: result.geminiApiKey,
-      geminiModelId: result.geminiModelId,
-      openaiBaseUrl: result.openaiBaseUrl,
-      openaiApiKey: result.openaiApiKey,
-      openaiModelId: result.openaiModelId,
+      geminiApiKey: result.geminiApiKey as string | undefined,
+      geminiModelId: result.geminiModelId as string | undefined,
+      openaiBaseUrl: result.openaiBaseUrl as string | undefined,
+      openaiApiKey: result.openaiApiKey as string | undefined,
+      openaiModelId: result.openaiModelId as string | undefined,
     };
   }
 
@@ -43,11 +43,11 @@ export class LLMManager implements LLMService {
       if (changes['llm-fallback-enabled']) {
         this.fallbackEnabled = changes['llm-fallback-enabled'].newValue as boolean;
       }
-      if (changes.geminiApiKey) this.modelConfig.geminiApiKey = changes.geminiApiKey.newValue;
-      if (changes.geminiModelId) this.modelConfig.geminiModelId = changes.geminiModelId.newValue;
-      if (changes.openaiBaseUrl) this.modelConfig.openaiBaseUrl = changes.openaiBaseUrl.newValue;
-      if (changes.openaiApiKey) this.modelConfig.openaiApiKey = changes.openaiApiKey.newValue;
-      if (changes.openaiModelId) this.modelConfig.openaiModelId = changes.openaiModelId.newValue;
+      if (changes.geminiApiKey) this.modelConfig.geminiApiKey = changes.geminiApiKey.newValue as string | undefined;
+      if (changes.geminiModelId) this.modelConfig.geminiModelId = changes.geminiModelId.newValue as string | undefined;
+      if (changes.openaiBaseUrl) this.modelConfig.openaiBaseUrl = changes.openaiBaseUrl.newValue as string | undefined;
+      if (changes.openaiApiKey) this.modelConfig.openaiApiKey = changes.openaiApiKey.newValue as string | undefined;
+      if (changes.openaiModelId) this.modelConfig.openaiModelId = changes.openaiModelId.newValue as string | undefined;
     }
   };
 
