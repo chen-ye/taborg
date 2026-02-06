@@ -5,6 +5,7 @@ export interface TabData {
 }
 
 export type LLMProvider = 'gemini' | 'chrome-ai' | 'openai';
+export type LLMStrategyType = 'default' | 'standard' | 'batched';
 
 export interface LLMService {
   isAvailable(): Promise<boolean>;
@@ -23,6 +24,7 @@ export interface LLMModelConfig {
   openaiModelId?: string;
   openaiBaseUrl?: string;
   openaiApiKey?: string;
+  strategyOverride?: LLMStrategyType;
 }
 
 export type JsonSchema = {
