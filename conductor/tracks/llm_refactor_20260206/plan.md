@@ -9,13 +9,13 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Dependency Setup & Types' (Protocol in workflow.md) (c703ab4)
 
 ## Phase 2: Provider & Strategy Architecture
-- [ ] Task: Implement Provider Factories
+- [x] Task: Implement Provider Factories (cbe7c0e)
     - [ ] Create `services/ai/providers.ts` to instantiate AI SDK `LanguageModel` instances for Google and OpenAI with user-provided config.
-- [ ] Task: Create Strategy Base/Interface
+- [x] Task: Create Strategy Base/Interface (4c3a739)
     - [ ] Define a clear interface for `categorizeTabs` and other AI actions.
-- [ ] Task: Implement `StandardLLMStrategy`
+- [x] Task: Implement `StandardLLMStrategy` (4c3a739)
     - [ ] A strategy that handles requests in parallel or single large prompts (suited for Gemini/GPT-4).
-- [ ] Task: Implement `BatchedLLMStrategy`
+- [x] Task: Implement `BatchedLLMStrategy` (4c3a739)
     - [ ] A strategy optimized for smaller models (like Chrome Nano) that handles requests in smaller, controlled batches.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Provider & Strategy Architecture' (Protocol in workflow.md)
 

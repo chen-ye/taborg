@@ -6341,6 +6341,7 @@ __metadata:
     vite: "npm:^7.3.1"
     vitest: "npm:^4.0.18"
     wxt: "npm:^0.20.13"
+    zod: "npm:^4.3.6"
   languageName: unknown
   linkType: soft
 

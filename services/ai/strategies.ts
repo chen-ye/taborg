@@ -37,8 +37,7 @@ export class StandardLLMStrategy implements LLMService {
         You are a helpful assistant that organizes browser tabs.
 
         Here is a list of tabs:
-        ${tabs.map((t) => `- ID: ${t.id}, Title: "${t.title}", URL: "${t.url}"`).join('
-')}
+        ${tabs.map((t) => `- ID: ${t.id}, Title: "${t.title}", URL: "${t.url}"`).join('\n')}
 
         Here is a list of existing tab groups:
         ${allGroups.join(', ')}
@@ -71,8 +70,7 @@ export class StandardLLMStrategy implements LLMService {
         - URL: "${referenceTab.url}"
 
         Candidate Tabs:
-        ${candidateTabs.map((t) => `- ID: ${t.id}, Title: "${t.title}", URL: "${t.url}"`).join('
-')}
+        ${candidateTabs.map((t) => `- ID: ${t.id}, Title: "${t.title}", URL: "${t.url}"`).join('\n')}
 
         Identify which candidate tabs are similar to the Reference Tab based on:
         1. Same Domain/Website
@@ -94,8 +92,7 @@ export class StandardLLMStrategy implements LLMService {
         Here is the content of the window:
 
         Tabs:
-        ${tabs.map((t) => `- Title: "${t.title}", URL: "${t.url}"`).join('
-')}
+        ${tabs.map((t) => `- Title: "${t.title}", URL: "${t.url}"`).join('\n')}
 
         Tab Groups:
         ${groups.join(', ')}
