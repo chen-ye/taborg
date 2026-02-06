@@ -18,6 +18,7 @@ export interface LLMService {
 }
 
 export interface LLMModelConfig {
+  geminiApiKey?: string;
   geminiModelId?: string;
   openaiModelId?: string;
   openaiBaseUrl?: string;
