@@ -26,7 +26,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: LLMManager Refactor' (Protocol in workflow.md) (f6c6e2c)
 
 ## Phase 4: UI Integration
-- [ ] Task: Update Settings UI
+- [x] Task: Update Settings UI (54ac0a4)
     - [ ] Update `components/settings-dialog.ts` to include fields for Gemini Model ID, OpenAI Base URL, API Key, and Model ID.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: UI Integration' (Protocol in workflow.md)
 
