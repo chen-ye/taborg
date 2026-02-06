@@ -1,6 +1,6 @@
 # Implementation Plan: Declarative AI Configuration & Reliability Refactor
 
-## Phase 1: Infrastructure & Settings
+## Phase 1: Infrastructure & Settings [checkpoint: 32406b7]
 - [x] Task: Update LLM Types (58248c2)
     - [ ] Add `LLMStrategyType` ('default' | 'standard' | 'batched') to `types/llm-types.ts`
     - [ ] Add `strategyOverride` to `LLMModelConfig`
