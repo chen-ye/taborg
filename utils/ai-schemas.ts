@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export const CategorizationSchema = {
   type: 'object',
   properties: {
@@ -19,6 +21,15 @@ export const CategorizationSchema = {
   required: ['suggestions'],
 };
 
+export const CategorizationSchemaType = z.object({
+  suggestions: z.array(
+    z.object({
+      tabId: z.number(),
+      groupNames: z.array(z.string()),
+    }),
+  ),
+});
+
 export const SimilaritySchema = {
   type: 'object',
   properties: {
@@ -30,6 +41,10 @@ export const SimilaritySchema = {
   required: ['similarTabIds'],
 };
 
+export const SimilaritySchemaType = z.object({
+  similarTabIds: z.array(z.number()),
+});
+
 export const WindowNameSchema = {
   type: 'object',
   properties: {
@@ -37,3 +52,7 @@ export const WindowNameSchema = {
   },
   required: ['windowName'],
 };
+
+export const WindowNameSchemaType = z.object({
+  windowName: z.string(),
+});
