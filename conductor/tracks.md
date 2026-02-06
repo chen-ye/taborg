@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [~] **Track: OpenAI-Compatible LLM Service & Vercel AI SDK Transition**
+- [x] **Track: OpenAI-Compatible LLM Service & Vercel AI SDK Transition**
 *Link: [./tracks/llm_refactor_20260206/](./tracks/llm_refactor_20260206/)*
