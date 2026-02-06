@@ -1,12 +1,12 @@
 # Implementation Plan: OpenAI-Compatible LLM Service & Vercel AI SDK Transition
 
-## Phase 1: Dependency Setup & Types
+## Phase 1: Dependency Setup & Types [checkpoint: c703ab4]
 - [x] Task: Install Vercel AI SDK dependencies (838e99c)
     - [ ] Run `yarn add ai @ai-sdk/google @ai-sdk/openai`
 - [x] Task: Update LLM Types and Settings Schema (4903af0)
     - [ ] Update `types/llm-types.ts` to include `openai` provider and model selection fields
     - [ ] Update settings schema/types to include `openaiBaseUrl`, `openaiModelId`, and `geminiModelId`
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Dependency Setup & Types' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Dependency Setup & Types' (Protocol in workflow.md) (c703ab4)
 
 ## Phase 2: Provider & Strategy Architecture
 - [ ] Task: Implement Provider Factories
