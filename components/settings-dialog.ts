@@ -2,7 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import type { ConnectionStatus } from '../services/mcp/mcp-connection.js';
-import type { AutoCategorizationMode } from '../types/llm-types.js';
+import type { AutoCategorizationMode, LLMStrategyType } from '../types/llm-types.js';
 import { MessageTypes } from '../utils/message-types.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -150,6 +150,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private openaiModelId = new SettingState<string>('gpt-4o');
   private predefinedGroups = new SettingState<string>('');
   private activeProvider = new SettingState<string>('gemini');
+  private strategyOverride = new SettingState<LLMStrategyType>('default');
   private fallbackEnabled = new SettingState<boolean>(false);
   private autoCategorizationMode = new SettingState<AutoCategorizationMode>('initial');
   private chromeAIAvailable = new Signal.State(false);
@@ -191,6 +192,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
       'openaiModelId',
       'predefined-groups',
       'active-llm-provider',
+      'llm-strategy-override',
       'llm-fallback-enabled',
       'auto-categorization-mode',
       'mcp-instance-id',
@@ -220,6 +222,11 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     if (result['active-llm-provider']) {
       this.activeProvider.original.set(result['active-llm-provider'] as string);
       this.activeProvider.current.set(result['active-llm-provider'] as string);
+    }
+    if (result['llm-strategy-override']) {
+      const override = result['llm-strategy-override'] as LLMStrategyType;
+      this.strategyOverride.original.set(override);
+      this.strategyOverride.current.set(override);
     }
     if (result['llm-fallback-enabled']) {
       this.fallbackEnabled.original.set(!!result['llm-fallback-enabled']);
@@ -465,6 +472,26 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
                 </sl-option>
             </sl-select>
              ${this.renderStatus(this.activeProvider)}
+        </div>
+
+        <div class="setting-row">
+            <sl-select
+                label="Strategy Mode"
+                value=${this.strategyOverride.current.get()}
+                @sl-change=${(e: Event) => {
+                  const val = (e.target as SlSelect).value as LLMStrategyType;
+                  this.strategyOverride.update(val);
+                  this.strategyOverride.save(async (v) => {
+                    await chrome.storage.sync.set({ 'llm-strategy-override': v });
+                  });
+                }}
+                class="setting-input"
+            >
+                <sl-option value="default">Default</sl-option>
+                <sl-option value="standard">Standard (Single Request)</sl-option>
+                <sl-option value="batched">Batched (Multiple Requests)</sl-option>
+            </sl-select>
+             ${this.renderStatus(this.strategyOverride)}
         </div>
 
          <div class="setting-row">
