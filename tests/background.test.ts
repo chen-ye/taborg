@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { main } from '../entrypoints/background';
-import { geminiService } from '../services/ai/gemini';
+import { llmManager } from '../services/ai/llm-manager.js';
 
-// Mock geminiService
-vi.mock('../services/ai/gemini', () => ({
-  geminiService: {
+// Mock llmManager
+vi.mock('../services/ai/llm-manager.js', () => ({
+  llmManager: {
     categorizeTabs: vi.fn(),
     isAvailable: vi.fn().mockResolvedValue(true),
   },
@@ -103,11 +103,11 @@ describe('Background Script', () => {
       openerTabId: 99, // Opened from another tab
     };
 
-    (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['Search']]]));
+    (llmManager.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['Search']]]));
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
 
-    expect(geminiService.categorizeTabs).toHaveBeenCalled();
+    expect(llmManager.categorizeTabs).toHaveBeenCalled();
     const stored = await fakeBrowser.storage.local.get('tab-suggestions');
     // Normalized URL in storage
     expect(stored['tab-suggestions']['https://google.com/']).toEqual(['Search']);
@@ -124,7 +124,7 @@ describe('Background Script', () => {
     };
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
-    expect(geminiService.categorizeTabs).not.toHaveBeenCalled();
+    expect(llmManager.categorizeTabs).not.toHaveBeenCalled();
   });
 
   it('should trigger suggest for tab navigating away from new tab page', async () => {
@@ -142,11 +142,11 @@ describe('Background Script', () => {
       title: 'News',
     };
 
-    (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['News']]]));
+    (llmManager.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['News']]]));
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
 
-    expect(geminiService.categorizeTabs).toHaveBeenCalled();
+    expect(llmManager.categorizeTabs).toHaveBeenCalled();
     const stored = await fakeBrowser.storage.local.get('tab-suggestions');
     expect(stored['tab-suggestions']['https://news.com/']).toEqual(['News']);
   });
@@ -157,7 +157,7 @@ describe('Background Script', () => {
 
     // 1. Tab created normally (no suggestion)
     await triggerOnUpdated(tabId, { status: 'complete' }, { id: tabId, url: 'https://a.com' });
-    expect(geminiService.categorizeTabs).not.toHaveBeenCalled();
+    expect(llmManager.categorizeTabs).not.toHaveBeenCalled();
 
     // 2. Navigate to new tab
     await triggerOnUpdated(tabId, { url: 'chrome://newtab/' }, { id: tabId, url: 'chrome://newtab/' });
@@ -168,14 +168,13 @@ describe('Background Script', () => {
       url: 'https://b.com',
       title: 'B',
     };
-    (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['B']]]));
+    (llmManager.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['B']]]));
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
 
-    expect(geminiService.categorizeTabs).toHaveBeenCalledWith(
+    expect(llmManager.categorizeTabs).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ url: 'https://b.com' })]),
       expect.anything(),
-      undefined,
     );
   });
 });

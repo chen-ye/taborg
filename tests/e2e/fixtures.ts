@@ -23,15 +23,32 @@ export const test = base.extend<{
     await context.addInitScript(() => {
       const mockSession = {
         prompt: async (prompt: string) => {
-          console.log('[Mock AI] Prompt:', prompt);
-          return JSON.stringify({
-            suggestions: [
-              { tabId: 101, groupNames: ['Search'] },
-              { tabId: 102, groupNames: ['General'] },
-              { tabId: 103, groupNames: ['News'] },
-              { tabId: 104, groupNames: ['B'] },
-            ],
-          });
+          // Try to extract tab IDs from the prompt
+          let tabIds: number[] = [];
+          try {
+            if (prompt.includes('Input Tabs:')) {
+              const jsonPart = prompt.split('Input Tabs:')[1].split('Existing Groups:')[0].trim();
+              const tabs = JSON.parse(jsonPart);
+              tabIds = tabs.map((t: any) => t.id);
+            } else if (prompt.includes('- ID:')) {
+              // StandardLLMStrategy format
+              const matches = prompt.matchAll(/- ID: (\d+),/g);
+              tabIds = Array.from(matches).map(m => Number(m[1]));
+            }
+          } catch (e) {
+            // Silently fail for mock
+          }
+
+          if (tabIds.length === 0) {
+             tabIds = [101, 102, 103, 104];
+          }
+
+          const suggestions = tabIds.map(id => ({
+            tabId: id,
+            groupNames: prompt.includes('google.com') || prompt.includes('Google') ? ['Search'] : ['General']
+          }));
+
+          return JSON.stringify({ suggestions });
         },
         destroy: () => {},
       };

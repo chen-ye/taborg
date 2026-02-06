@@ -1,7 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { geminiService } from '../services/ai/gemini.js';
 import type { ConnectionStatus } from '../services/mcp/mcp-connection.js';
 import type { AutoCategorizationMode } from '../types/llm-types.js';
 import { MessageTypes } from '../utils/message-types.js';
@@ -183,8 +182,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     super.connectedCallback();
     window.addEventListener('open-settings', this.handleOpenSettings);
 
-    // Load API Key
-    await geminiService.loadApiKey();
+    // Load settings
     const result = await chrome.storage.sync.get([
       'geminiApiKey',
       'geminiModelId',
@@ -386,7 +384,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private async saveApiKey(key: string) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
-      await geminiService.setApiKey(trimmed);
+      await chrome.storage.sync.set({ geminiApiKey: trimmed });
     }
   }
 
