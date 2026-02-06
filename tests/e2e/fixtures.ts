@@ -21,14 +21,37 @@ export const test = base.extend<{
       const mockSession = {
         prompt: async (prompt: string) => {
           console.log('[Mock AI] Prompt:', prompt);
-          return JSON.stringify({
-            suggestions: [
-              { tabId: 101, groupNames: ['Search'] },
-              { tabId: 102, groupNames: ['General'] },
-              { tabId: 103, groupNames: ['News'] },
-              { tabId: 104, groupNames: ['B'] },
-            ],
-          });
+
+          // Parse the prompt to extract tab IDs
+          // The prompt format in ChromeAIService is:
+          // Input Tabs:
+          // [{"id":...,"title":...,"url":...}]
+
+          let suggestions: any[] = [];
+
+          try {
+            const inputTabsMatch = prompt.match(/Input Tabs:\s*(\[.*?\])/s);
+            if (inputTabsMatch && inputTabsMatch[1]) {
+              const tabs = JSON.parse(inputTabsMatch[1]);
+              suggestions = tabs.map((t: any) => ({
+                tabId: t.id,
+                groupNames: ['Search'], // Return 'Search' for all tabs to match test expectation
+              }));
+            } else {
+              // Fallback or other prompt types (e.g. similarity)
+              // For similarity, we might need other logic, but grouping test cares about this.
+              suggestions = [];
+            }
+          } catch (e) {
+            console.error('[Mock AI] Failed to parse prompt:', e);
+          }
+
+          if (suggestions.length === 0) {
+            // Fallback for non-categorization prompts or failure
+            return JSON.stringify({ suggestions: [] });
+          }
+
+          return JSON.stringify({ suggestions });
         },
         destroy: () => {},
       };
@@ -53,6 +76,12 @@ export const test = base.extend<{
 
     // Extract ID from the worker URL (chrome-extension://<id>/...)
     const extensionId = background.url().split('/')[2];
+
+    // Force 'chrome-ai' provider for tests so we use the mock
+    await background.evaluate(() => {
+      chrome.storage.sync.set({ 'active-llm-provider': 'chrome-ai' });
+    });
+
     await use(extensionId);
   },
 });
