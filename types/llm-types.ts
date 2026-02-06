@@ -4,6 +4,8 @@ export interface TabData {
   url: string;
 }
 
+export type LLMProvider = 'gemini' | 'chrome-ai' | 'openai';
+
 export interface LLMService {
   isAvailable(): Promise<boolean>;
   categorizeTabs(
@@ -13,6 +15,13 @@ export interface LLMService {
   ): Promise<Map<number, string[]>>;
   findSimilarTabs(referenceTab: TabData, candidateTabs: TabData[]): Promise<number[]>;
   generateWindowName(tabs: TabData[], groups: string[]): Promise<string>;
+}
+
+export interface LLMModelConfig {
+  geminiModelId?: string;
+  openaiModelId?: string;
+  openaiBaseUrl?: string;
+  openaiApiKey?: string;
 }
 
 export type JsonSchema = {

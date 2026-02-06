@@ -1,8 +1,6 @@
-import type { LLMService, TabData } from '../../types/llm-types';
+import type { LLMProvider, LLMService, TabData } from '../../types/llm-types';
 import { chromeAIService } from './chrome-ai-service';
 import { geminiService } from './gemini';
-
-export type LLMProvider = 'gemini' | 'chrome-ai';
 
 export class LLMManager implements LLMService {
   private activeProvider: LLMProvider = 'gemini';
