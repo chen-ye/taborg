@@ -9,7 +9,7 @@
     - [ ] Map dropdown to `llm-strategy-override` sync storage key
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Infrastructure & Settings' (Protocol in workflow.md)
 
-## Phase 2: Strategy & Provider Improvements
+## Phase 2: Strategy & Provider Improvements [checkpoint: dea87db]
 - [x] Task: Standardize `StandardLLMStrategy` Prompts (f4d58c8)
     - [ ] Update `services/ai/strategies.ts` to use `JSON.stringify` for tab data in the standard strategy
 - [x] Task: Relax OpenAI Key Constraint (f4d58c8)
