@@ -19,7 +19,7 @@
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Strategy & Provider Improvements' (Protocol in workflow.md)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Strategy & Provider Improvements' (Protocol in workflow.md)
 
-## Phase 3: LLMManager Core Refactor
+## Phase 3: LLMManager Core Refactor [checkpoint: 125d4a7]
 - [x] Task: Rewrite `LLMManager.loadSettings` (6ed3859)
     - [ ] Implement logical nullish assignment (`??=`) to prevent overwriting updates from concurrent listeners
 - [x] Task: Implement Active Service Caching (6ed3859)
