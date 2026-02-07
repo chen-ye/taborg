@@ -20,14 +20,15 @@
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Strategy & Provider Improvements' (Protocol in workflow.md)
 
 ## Phase 3: LLMManager Core Refactor
-- [ ] Task: Rewrite `LLMManager.loadSettings`
+- [x] Task: Rewrite `LLMManager.loadSettings` (6ed3859)
     - [ ] Implement logical nullish assignment (`??=`) to prevent overwriting updates from concurrent listeners
-- [ ] Task: Implement Active Service Caching
+- [x] Task: Implement Active Service Caching (6ed3859)
     - [ ] Update `LLMManager` to cache the current `LLMService` instance
     - [ ] Implement logic to invalidate/re-instantiate the cache only when provider-relevant settings change
-- [ ] Task: Refactor `LLMManager.getService`
+- [x] Task: Refactor `LLMManager.getService` (6ed3859)
     - [ ] Use the declarative configuration from `provider-config.ts` to build the active service
     - [ ] Apply the user's strategy override if present and compatible
+- [ ] Task: Conductor - User Manual Verification 'Phase 3: LLMManager Core Refactor' (Protocol in workflow.md)
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: LLMManager Core Refactor' (Protocol in workflow.md)
 
 ## Phase 4: Verification
