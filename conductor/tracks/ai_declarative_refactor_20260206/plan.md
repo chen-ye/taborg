@@ -10,12 +10,13 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Infrastructure & Settings' (Protocol in workflow.md)
 
 ## Phase 2: Strategy & Provider Improvements
-- [ ] Task: Standardize `StandardLLMStrategy` Prompts
+- [x] Task: Standardize `StandardLLMStrategy` Prompts (f4d58c8)
     - [ ] Update `services/ai/strategies.ts` to use `JSON.stringify` for tab data in the standard strategy
-- [ ] Task: Relax OpenAI Key Constraint
+- [x] Task: Relax OpenAI Key Constraint (f4d58c8)
     - [ ] Update `services/ai/providers.ts` to allow empty API keys if a `openaiBaseUrl` is present
-- [ ] Task: Create Declarative Config
+- [x] Task: Create Declarative Config (f4d58c8)
     - [ ] Create `services/ai/provider-config.ts` defining the mapping between providers and their instantiation logic (model getter + default strategy)
+- [ ] Task: Conductor - User Manual Verification 'Phase 2: Strategy & Provider Improvements' (Protocol in workflow.md)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Strategy & Provider Improvements' (Protocol in workflow.md)
 
 ## Phase 3: LLMManager Core Refactor
