@@ -32,8 +32,8 @@ describe('Provider Factories', () => {
       expect(model).toBeDefined();
     });
 
-    it('should return a model without API key if using localhost', () => {
-      const model = getOpenAIModel({ openaiBaseUrl: 'http://localhost:11434/v1' });
+    it('should return a model without API key if base URL is provided', () => {
+      const model = getOpenAIModel({ openaiBaseUrl: 'http://192.168.1.50:11434/v1' });
       expect(model).toBeDefined();
     });
   });
