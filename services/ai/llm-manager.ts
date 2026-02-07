@@ -3,8 +3,8 @@ import { CHROME_AI_PROVIDER_ID, CHROME_AI_SERVICE, PROVIDER_CONFIG } from './pro
 import { BatchedLLMStrategy, StandardLLMStrategy } from './strategies';
 
 export class LLMManager implements LLMService {
-  private activeProvider: LLMProvider = 'gemini';
-  private fallbackEnabled = false;
+  private activeProvider: LLMProvider | undefined;
+  private fallbackEnabled: boolean | undefined;
   private modelConfig: LLMModelConfig = {};
   private settingsPromise: Promise<void>;
   
@@ -129,7 +129,7 @@ export class LLMManager implements LLMService {
   async isAvailable(): Promise<boolean> {
     try {
       await this.settingsPromise;
-      const service = await this.getService(this.activeProvider);
+      const service = await this.getService(this.activeProvider!);
       const activeAvailable = await service.isAvailable();
       if (activeAvailable) return true;
     } catch (e) {
@@ -148,7 +148,7 @@ export class LLMManager implements LLMService {
   ): Promise<T> {
     try {
       await this.settingsPromise;
-      const service = await this.getService(this.activeProvider);
+      const service = await this.getService(this.activeProvider!);
       return await operation(service);
     } catch (error) {
       if (this.fallbackEnabled && this.activeProvider !== CHROME_AI_PROVIDER_ID) {
