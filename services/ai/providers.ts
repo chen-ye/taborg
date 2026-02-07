@@ -13,8 +13,7 @@ export function getGoogleModel(config: LLMModelConfig) {
 }
 
 export function getOpenAIModel(config: LLMModelConfig) {
-  if (!config.openaiApiKey && !config.openaiBaseUrl?.includes('localhost')) {
-    // API Key is optional for local endpoints (like Ollama)
+  if (!config.openaiApiKey && !config.openaiBaseUrl) {
     throw new Error('OpenAI API Key is required');
   }
   const openai = createOpenAI({
