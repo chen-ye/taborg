@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [~] **Track: Declarative AI Configuration & Reliability Refactor**
+- [x] **Track: Declarative AI Configuration & Reliability Refactor**
 *Link: [./tracks/ai_declarative_refactor_20260206/](./tracks/ai_declarative_refactor_20260206/)*
