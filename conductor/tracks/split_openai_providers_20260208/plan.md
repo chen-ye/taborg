@@ -10,10 +10,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Types and Provider Logic' (Protocol in workflow.md)
 
 ## Phase 2: UI Implementation
-- [ ] Task: Update `components/settings-dialog.ts` to include the "OpenAI (Custom)" provider option
-- [ ] Task: Update visibility logic in `settings-dialog.ts` to show/hide `openaiCustomBaseUrl`, `openaiCustomApiKey`, and `openaiCustomModelId` appropriately
-- [ ] Task: Verify settings persistence in `LLMManager` after UI changes
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: UI Implementation' (Protocol in workflow.md)
+- [x] Task: Update `components/settings-dialog.ts` to include the "OpenAI (Custom)" provider option 5599ca7
+- [x] Task: Update visibility logic in `settings-dialog.ts` to show/hide `openaiCustomBaseUrl`, `openaiCustomApiKey`, and `openaiCustomModelId` appropriately
+- [x] Task: Verify settings persistence in `LLMManager` after UI changes 5599ca7
+- [~] Task: Conductor - User Manual Verification 'Phase 2: UI Implementation' (Protocol in workflow.md)
 
 ## Phase 3: Final Verification and Cleanup
 - [ ] Task: Run full test suite (`npm test`)
