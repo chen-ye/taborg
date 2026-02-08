@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LLMManager } from './llm-manager';
-import { getGoogleModel, getOpenAIModel, getCustomOpenAIModel } from './providers';
+import { getCustomOpenAIModel, getGoogleModel, getOpenAIModel } from './providers';
 import { BatchedLLMStrategy, StandardLLMStrategy } from './strategies';
 
 // Mock objects with vi.hoisted
@@ -40,10 +40,10 @@ describe('LLMManager', () => {
     (globalThis as any).chrome = {
       storage: {
         sync: {
-          get: vi.fn().mockResolvedValue({ 
-            'active-llm-provider': 'gemini', 
+          get: vi.fn().mockResolvedValue({
+            'active-llm-provider': 'gemini',
             'llm-fallback-enabled': true,
-            'geminiApiKey': 'test-key'
+            geminiApiKey: 'test-key',
           } as any),
         },
         onChanged: {
@@ -59,10 +59,10 @@ describe('LLMManager', () => {
       findSimilarTabs: vi.fn(),
       generateWindowName: vi.fn(),
     };
-    
-    vi.mocked(StandardLLMStrategy).mockImplementation(function() { return mockStrategyInstance as any; });
-    vi.mocked(BatchedLLMStrategy).mockImplementation(function() { return mockStrategyInstance as any; });
-    
+
+    vi.mocked(StandardLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
+    vi.mocked(BatchedLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
+
     vi.mocked(getGoogleModel).mockReturnValue({} as any);
     vi.mocked(getOpenAIModel).mockReturnValue({} as any);
     vi.mocked(getCustomOpenAIModel).mockReturnValue({} as any);
@@ -75,7 +75,7 @@ describe('LLMManager', () => {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['G']]])),
     };
-    vi.mocked(StandardLLMStrategy).mockImplementation(function() { return mockStrategyInstance as any; });
+    vi.mocked(StandardLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
 
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
     expect(getGoogleModel).toHaveBeenCalled();
@@ -84,42 +84,44 @@ describe('LLMManager', () => {
   });
 
   it('should use openai-custom provider', async () => {
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ 
-      'active-llm-provider': 'openai-custom', 
-      'openaiCustomBaseUrl': 'http://custom:11434/v1'
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({
+      'active-llm-provider': 'openai-custom',
+      openaiCustomBaseUrl: 'http://custom:11434/v1',
     } as any);
 
     const mockStrategyInstance = {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['C']]])),
     };
-    vi.mocked(StandardLLMStrategy).mockImplementation(function() { return mockStrategyInstance as any; });
+    vi.mocked(StandardLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
 
     manager = new LLMManager();
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
-    
-    expect(getCustomOpenAIModel).toHaveBeenCalledWith(expect.objectContaining({
-      openaiCustomBaseUrl: 'http://custom:11434/v1'
-    }));
+
+    expect(getCustomOpenAIModel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        openaiCustomBaseUrl: 'http://custom:11434/v1',
+      }),
+    );
     expect(results.get(1)).toEqual(['C']);
   });
 
   it('should apply strategy override', async () => {
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ 
-      'active-llm-provider': 'gemini', 
-      'geminiApiKey': 'test-key',
-      'llm-strategy-override': 'batched'
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({
+      'active-llm-provider': 'gemini',
+      geminiApiKey: 'test-key',
+      'llm-strategy-override': 'batched',
     } as any);
-    
+
     const mockStrategyInstance = {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['B']]])),
     };
-    vi.mocked(BatchedLLMStrategy).mockImplementation(function() { return mockStrategyInstance as any; });
+    vi.mocked(BatchedLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
 
     manager = new LLMManager();
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
-    
+
     expect(BatchedLLMStrategy).toHaveBeenCalled();
     expect(StandardLLMStrategy).not.toHaveBeenCalled();
     expect(results.get(1)).toEqual(['B']);
@@ -130,8 +132,8 @@ describe('LLMManager', () => {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockRejectedValue(new Error('Primary failed')),
     };
-    vi.mocked(StandardLLMStrategy).mockImplementation(function() { return mockStrategyInstance as any; });
-    
+    vi.mocked(StandardLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
+
     vi.mocked(mockChromeAIService.isAvailable).mockResolvedValue(true);
     vi.mocked(mockChromeAIService.categorizeTabs).mockResolvedValue(new Map([[1, ['FB']]]));
 

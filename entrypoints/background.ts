@@ -1,6 +1,6 @@
 import { llmManager } from '../services/ai/llm-manager.js';
 import { listCustomModels, listGoogleModels, listOpenAIModels } from '../services/ai/providers.js';
-import { McpConnectionService, mcpService } from '../services/mcp/mcp-connection.js';
+import { mcpService } from '../services/mcp/mcp-connection.js';
 import { browserService } from '../services/tabs/browser-service.js';
 import { suggestionService } from '../services/tabs/suggestion-service.js';
 import type { AutoCategorizationMode, LLMModelConfig, LLMProvider } from '../types/llm-types.js';
@@ -173,7 +173,7 @@ export const main = () => {
     .catch((error) => console.error('Failed to set panel behavior:', error));
 
   // Handle messages from offscreen document and UI
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === MessageTypes.UPDATE_ICON && message.imageData) {
       // Reconstruct ImageData to ensure it's a valid object after message passing
       try {
@@ -215,7 +215,7 @@ export const main = () => {
   // init called in the promise chain above
 };
 
-function initializeMcpPrompts(instanceId: string) {
+function _initializeMcpPrompts(instanceId: string) {
   const resourceBase = `taborg://${instanceId}`;
   mcpService.registerPrompt(
     {
@@ -257,7 +257,7 @@ Then use the 'taborg_group_tabs' tool to organize tabs, or 'taborg_update_sugges
   );
 }
 
-function initializeMcpResources(instanceId: string) {
+function _initializeMcpResources(instanceId: string) {
   mcpService.registerResource(
     {
       uri: `taborg://${instanceId}/tabs`,
@@ -320,7 +320,7 @@ function initializeMcpResources(instanceId: string) {
     },
   );
 }
-function initializeMcpTools() {
+function _initializeMcpTools() {
   // Tools remain unchanged as they are scoped by valid server connection
   mcpService.registerTool(
     {

@@ -1,10 +1,6 @@
-import { generateText, Output, type LanguageModel } from 'ai';
+import { generateText, type LanguageModel, Output } from 'ai';
 import type { LLMService, TabData } from '../../types/llm-types';
-import {
-  CategorizationSchemaType,
-  SimilaritySchemaType,
-  WindowNameSchemaType
-} from '../../utils/ai-schemas';
+import { CategorizationSchemaType, SimilaritySchemaType, WindowNameSchemaType } from '../../utils/ai-schemas';
 
 /**
  * Standard strategy for robust LLMs (Gemini Pro, GPT-4, etc.)
@@ -110,7 +106,10 @@ export class StandardLLMStrategy implements LLMService {
 export class BatchedLLMStrategy implements LLMService {
   private batchSize = 5;
 
-  constructor(private model: LanguageModel, batchSize?: number) {
+  constructor(
+    private model: LanguageModel,
+    batchSize?: number,
+  ) {
     if (batchSize) this.batchSize = batchSize;
   }
 
@@ -131,7 +130,7 @@ export class BatchedLLMStrategy implements LLMService {
 
     for (let i = 0; i < tabs.length; i += this.batchSize) {
       const batch = tabs.slice(i, i + this.batchSize);
-      
+
       const { output } = await generateText({
         model: this.model,
         output: Output.object({ schema: CategorizationSchemaType }),
@@ -191,7 +190,7 @@ export class BatchedLLMStrategy implements LLMService {
   async generateWindowName(tabs: TabData[], groups: string[]): Promise<string> {
     // Window naming usually doesn't need batching as much since it's one summary,
     // but we can limit the number of tabs we describe to the model.
-    const limitedTabs = tabs.slice(0, 20); 
+    const limitedTabs = tabs.slice(0, 20);
 
     const { output } = await generateText({
       model: this.model,

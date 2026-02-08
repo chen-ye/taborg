@@ -1,7 +1,7 @@
 import type { LanguageModel } from 'ai';
 import type { LLMModelConfig, LLMProvider, LLMService } from '../../types/llm-types';
 import { chromeAIService } from './chrome-ai-service';
-import { getGoogleModel, getOpenAIModel, getCustomOpenAIModel } from './providers';
+import { getCustomOpenAIModel, getGoogleModel, getOpenAIModel } from './providers';
 import { StandardLLMStrategy } from './strategies';
 
 interface ProviderDefinition {

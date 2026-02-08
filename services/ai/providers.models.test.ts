@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { listGoogleModels, listOpenAIModels, listCustomModels } from './providers';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { listCustomModels, listGoogleModels, listOpenAIModels } from './providers';
 
 describe('Provider Model Listing', () => {
   beforeEach(() => {
@@ -19,7 +19,11 @@ describe('Provider Model Listing', () => {
       const mockResponse = {
         models: [
           { name: 'models/gemini-pro', displayName: 'Gemini Pro', supportedGenerationMethods: ['generateContent'] },
-          { name: 'models/gemini-1.5-flash', displayName: 'Gemini 1.5 Flash', supportedGenerationMethods: ['generateContent'] },
+          {
+            name: 'models/gemini-1.5-flash',
+            displayName: 'Gemini 1.5 Flash',
+            supportedGenerationMethods: ['generateContent'],
+          },
         ],
       };
       (global.fetch as any).mockResolvedValue({
@@ -30,7 +34,7 @@ describe('Provider Model Listing', () => {
       const models = await listGoogleModels({ geminiApiKey: 'test-key' });
       expect(models).toEqual(['gemini-pro', 'gemini-1.5-flash']);
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('https://generativelanguage.googleapis.com/v1beta/models')
+        expect.stringContaining('https://generativelanguage.googleapis.com/v1beta/models'),
       );
     });
   });
@@ -58,7 +62,7 @@ describe('Provider Model Listing', () => {
         'https://api.openai.com/v1/models',
         expect.objectContaining({
           headers: expect.objectContaining({ Authorization: 'Bearer test-key' }),
-        })
+        }),
       );
     });
   });
@@ -70,24 +74,19 @@ describe('Provider Model Listing', () => {
 
     it('should fetch and return model IDs from custom endpoint', async () => {
       const mockResponse = {
-        data: [
-          { id: 'llama3', object: 'model' },
-        ],
+        data: [{ id: 'llama3', object: 'model' }],
       };
       (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => mockResponse,
       });
 
-      const models = await listCustomModels({ 
+      const models = await listCustomModels({
         openaiCustomBaseUrl: 'http://localhost:11434/v1',
-        openaiCustomApiKey: 'custom-key'
+        openaiCustomApiKey: 'custom-key',
       });
       expect(models).toEqual(['llama3']);
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:11434/v1/models',
-        expect.anything()
-      );
+      expect(global.fetch).toHaveBeenCalledWith('http://localhost:11434/v1/models', expect.anything());
     });
   });
 });

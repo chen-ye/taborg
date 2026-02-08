@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { getGoogleModel, getOpenAIModel, getCustomOpenAIModel } from './providers';
+import { describe, expect, it } from 'vitest';
 import type { LLMModelConfig } from '../../types/llm-types';
+import { getCustomOpenAIModel, getGoogleModel, getOpenAIModel } from './providers';
 
 describe('Providers', () => {
   describe('getGoogleModel', () => {
@@ -35,9 +35,9 @@ describe('Providers', () => {
     });
 
     it('should return a model instance with correct configuration', () => {
-      const config: LLMModelConfig = { 
+      const config: LLMModelConfig = {
         openaiCustomBaseUrl: 'http://localhost:11434/v1',
-        openaiCustomApiKey: 'custom-key'
+        openaiCustomApiKey: 'custom-key',
       };
       const model = getCustomOpenAIModel(config);
       expect(model).toBeDefined();

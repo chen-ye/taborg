@@ -162,7 +162,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   @state() private geminiModels: string[] = [];
   @state() private openaiModels: string[] = [];
   @state() private openaiCustomModels: string[] = [];
-  
+
   @state() private geminiLoading = false;
   @state() private openaiLoading = false;
   @state() private openaiCustomLoading = false;
@@ -348,10 +348,10 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     label: string,
     setting: SettingState<string>,
     saveFn: (val: string) => Promise<void>,
-    opts: { 
-      type?: 'text' | 'password'; 
-      placeholder?: string; 
-      helpText?: string; 
+    opts: {
+      type?: 'text' | 'password';
+      placeholder?: string;
+      helpText?: string;
       id?: string;
       list?: string;
       loading?: boolean;
@@ -388,14 +388,19 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
            ${error ? html`<sl-icon slot="suffix" name="exclamation-circle" style="color: var(--sl-color-danger-600);" title=${error}></sl-icon>` : ''}
         </sl-input>
 
-        ${onRefresh ? html`
+        ${
+          onRefresh
+            ? html`
           <div class="setting-actions">
-             ${loading 
-               ? html`<sl-spinner style="font-size: var(--sl-font-size-large);"></sl-spinner>`
-               : html`<sl-icon-button name="arrow-clockwise" label="Refresh Models" @click=${onRefresh}></sl-icon-button>`
+             ${
+               loading
+                 ? html`<sl-spinner style="font-size: var(--sl-font-size-large);"></sl-spinner>`
+                 : html`<sl-icon-button name="arrow-clockwise" label="Refresh Models" @click=${onRefresh}></sl-icon-button>`
              }
           </div>
-        ` : ''}
+        `
+            : ''
+        }
 
         <div class="setting-actions">
           ${
@@ -467,7 +472,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private async saveOpenAICustomBaseUrl(url: string) {
     await chrome.storage.sync.set({ openaiCustomBaseUrl: url });
     if (this.openaiCustomBaseUrl.current.get()) {
-       this.fetchModels('openai-custom');
+      this.fetchModels('openai-custom');
     }
   }
 
@@ -476,7 +481,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     if (trimmed && trimmed !== '****************') {
       await chrome.storage.sync.set({ openaiCustomApiKey: trimmed });
       if (this.openaiCustomBaseUrl.current.get()) {
-         this.fetchModels('openai-custom');
+        this.fetchModels('openai-custom');
       }
     }
   }
@@ -504,28 +509,41 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     if (provider === 'gemini') {
       this.geminiLoading = true;
       this.geminiError = null;
-      config = { geminiApiKey: this.geminiApiKey.current.get() === '****************' ? this.geminiApiKey.original.get() : this.geminiApiKey.current.get() };
+      config = {
+        geminiApiKey:
+          this.geminiApiKey.current.get() === '****************'
+            ? this.geminiApiKey.original.get()
+            : this.geminiApiKey.current.get(),
+      };
     } else if (provider === 'openai') {
       this.openaiLoading = true;
       this.openaiError = null;
-      config = { openaiApiKey: this.openaiApiKey.current.get() === '****************' ? this.openaiApiKey.original.get() : this.openaiApiKey.current.get() };
+      config = {
+        openaiApiKey:
+          this.openaiApiKey.current.get() === '****************'
+            ? this.openaiApiKey.original.get()
+            : this.openaiApiKey.current.get(),
+      };
     } else if (provider === 'openai-custom') {
       this.openaiCustomLoading = true;
       this.openaiCustomError = null;
-      config = { 
+      config = {
         openaiCustomBaseUrl: this.openaiCustomBaseUrl.current.get(),
-        openaiCustomApiKey: this.openaiCustomApiKey.current.get() === '****************' ? this.openaiCustomApiKey.original.get() : this.openaiCustomApiKey.current.get()
+        openaiCustomApiKey:
+          this.openaiCustomApiKey.current.get() === '****************'
+            ? this.openaiCustomApiKey.original.get()
+            : this.openaiCustomApiKey.current.get(),
       };
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({ 
-        type: MessageTypes.FETCH_MODELS, 
-        provider, 
-        config 
+      const response = await chrome.runtime.sendMessage({
+        type: MessageTypes.FETCH_MODELS,
+        provider,
+        config,
       });
 
-      if (response && response.success) {
+      if (response?.success) {
         if (provider === 'gemini') this.geminiModels = response.models;
         else if (provider === 'openai') this.openaiModels = response.models;
         else if (provider === 'openai-custom') this.openaiCustomModels = response.models;
@@ -646,7 +664,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
               onRefresh: () => this.fetchModels('gemini'),
             })}
             <datalist id="gemini-models">
-              ${this.geminiModels.map(m => html`<option value=${m}></option>`)}
+              ${this.geminiModels.map((m) => html`<option value=${m}></option>`)}
             </datalist>
         </div>
 
@@ -669,7 +687,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
               onRefresh: () => this.fetchModels('openai'),
             })}
             <datalist id="openai-models">
-              ${this.openaiModels.map(m => html`<option value=${m}></option>`)}
+              ${this.openaiModels.map((m) => html`<option value=${m}></option>`)}
             </datalist>
         </div>
 
@@ -698,7 +716,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
               onRefresh: () => this.fetchModels('openai-custom'),
             })}
             <datalist id="openai-custom-models">
-              ${this.openaiCustomModels.map(m => html`<option value=${m}></option>`)}
+              ${this.openaiCustomModels.map((m) => html`<option value=${m}></option>`)}
             </datalist>
         </div>
 

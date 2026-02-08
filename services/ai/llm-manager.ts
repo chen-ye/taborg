@@ -7,7 +7,7 @@ export class LLMManager implements LLMService {
   private fallbackEnabled: boolean | undefined;
   private modelConfig: LLMModelConfig = {};
   private settingsPromise: Promise<void>;
-  
+
   // Cache for the active service instance
   private activeService: LLMService | null = null;
   private lastConfigHash: string = '';
@@ -31,11 +31,11 @@ export class LLMManager implements LLMService {
       'openaiCustomApiKey',
       'openaiCustomModelId',
     ]);
-    
+
     // Only set if not already updated by handleStorageChange (race condition fix)
     this.activeProvider ??= (result['active-llm-provider'] as LLMProvider) || 'gemini';
     this.fallbackEnabled ??= result['llm-fallback-enabled'] === true;
-    
+
     // Update model config with nullish assignment
     this.modelConfig.strategyOverride ??= result['llm-strategy-override'] as LLMStrategyType | undefined;
     this.modelConfig.geminiApiKey ??= result.geminiApiKey as string | undefined;
@@ -63,11 +63,16 @@ export class LLMManager implements LLMService {
         this.modelConfig.strategyOverride = changes['llm-strategy-override'].newValue as LLMStrategyType | undefined;
         configChanged = true;
       }
-      
+
       const configKeys: (keyof LLMModelConfig)[] = [
-        'geminiApiKey', 'geminiModelId', 
-        'openaiBaseUrl', 'openaiApiKey', 'openaiModelId',
-        'openaiCustomBaseUrl', 'openaiCustomApiKey', 'openaiCustomModelId'
+        'geminiApiKey',
+        'geminiModelId',
+        'openaiBaseUrl',
+        'openaiApiKey',
+        'openaiModelId',
+        'openaiCustomBaseUrl',
+        'openaiCustomApiKey',
+        'openaiCustomModelId',
       ];
 
       for (const key of configKeys) {
@@ -86,7 +91,7 @@ export class LLMManager implements LLMService {
   private createConfigHash(provider: LLMProvider): string {
     return JSON.stringify({
       provider,
-      ...this.modelConfig
+      ...this.modelConfig,
     });
   }
 
@@ -121,11 +126,11 @@ export class LLMManager implements LLMService {
       }
 
       const service = new StrategyClass(model);
-      
+
       // Update cache
       this.activeService = service;
       this.lastConfigHash = currentHash;
-      
+
       return service;
     } catch (e) {
       console.error(`Failed to initialize ${provider} service:`, e);

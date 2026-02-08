@@ -13,10 +13,7 @@ export const test = base.extend<{
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium', // Allows headless execution as per guide
       headless: true,
-      args: [
-        `--disable-extensions-except=${pathToExtension}`,
-        `--load-extension=${pathToExtension}`,
-      ],
+      args: [`--disable-extensions-except=${pathToExtension}`, `--load-extension=${pathToExtension}`],
     });
 
     // Inject AI Mock into all pages (including offscreen)
@@ -33,19 +30,19 @@ export const test = base.extend<{
             } else if (prompt.includes('- ID:')) {
               // StandardLLMStrategy format
               const matches = prompt.matchAll(/- ID: (\d+),/g);
-              tabIds = Array.from(matches).map(m => Number(m[1]));
+              tabIds = Array.from(matches).map((m) => Number(m[1]));
             }
-          } catch (e) {
+          } catch (_e) {
             // Silently fail for mock
           }
 
           if (tabIds.length === 0) {
-             tabIds = [101, 102, 103, 104];
+            tabIds = [101, 102, 103, 104];
           }
 
-          const suggestions = tabIds.map(id => ({
+          const suggestions = tabIds.map((id) => ({
             tabId: id,
-            groupNames: prompt.includes('google.com') || prompt.includes('Google') ? ['Search'] : ['General']
+            groupNames: prompt.includes('google.com') || prompt.includes('Google') ? ['Search'] : ['General'],
           }));
 
           return JSON.stringify({ suggestions });

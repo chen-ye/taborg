@@ -31,6 +31,7 @@ export function getCustomOpenAIModel(config: LLMModelConfig) {
     name: 'openai-compatible',
     baseURL: config.openaiCustomBaseUrl,
     apiKey: config.openaiCustomApiKey || 'not-needed',
+    supportsStructuredOutputs: true,
   });
   return openaiCompatible(config.openaiCustomModelId || 'gpt-4o');
 }
@@ -40,9 +41,7 @@ export async function listGoogleModels(config: LLMModelConfig): Promise<string[]
     throw new Error('Gemini API Key is required');
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models?key=${config.geminiApiKey}`
-  );
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${config.geminiApiKey}`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch models: ${response.statusText}`);
@@ -51,8 +50,8 @@ export async function listGoogleModels(config: LLMModelConfig): Promise<string[]
   const data = await response.json();
   // Filter for models that support 'generateContent' and clean up names
   return (data.models as Array<{ name: string; supportedGenerationMethods: string[] }>)
-    .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
-    .map(m => m.name.replace('models/', ''));
+    .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+    .map((m) => m.name.replace('models/', ''));
 }
 
 export async function listOpenAIModels(config: LLMModelConfig): Promise<string[]> {
@@ -71,7 +70,7 @@ export async function listOpenAIModels(config: LLMModelConfig): Promise<string[]
   }
 
   const data = await response.json();
-  return (data.data as Array<{ id: string }>).map(m => m.id);
+  return (data.data as Array<{ id: string }>).map((m) => m.id);
 }
 
 export async function listCustomModels(config: LLMModelConfig): Promise<string[]> {
@@ -81,7 +80,7 @@ export async function listCustomModels(config: LLMModelConfig): Promise<string[]
 
   // Ensure base URL doesn't end with a slash for cleaner concatenation
   const baseUrl = config.openaiCustomBaseUrl.replace(/\/$/, '');
-  
+
   const headers: Record<string, string> = {};
   if (config.openaiCustomApiKey) {
     headers.Authorization = `Bearer ${config.openaiCustomApiKey}`;
@@ -96,5 +95,5 @@ export async function listCustomModels(config: LLMModelConfig): Promise<string[]
   }
 
   const data = await response.json();
-  return (data.data as Array<{ id: string }>).map(m => m.id);
+  return (data.data as Array<{ id: string }>).map((m) => m.id);
 }

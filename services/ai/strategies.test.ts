@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { StandardLLMStrategy, BatchedLLMStrategy } from './strategies';
-import { generateText, Output } from 'ai';
-import { TabData } from '../../types/llm-types';
+import { generateText } from 'ai';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TabData } from '../../types/llm-types';
+import { BatchedLLMStrategy, StandardLLMStrategy } from './strategies';
 
 vi.mock('ai', () => ({
   generateText: vi.fn(),
@@ -53,19 +53,22 @@ describe('LLM Strategies', () => {
 
   describe('BatchedLLMStrategy', () => {
     it('should categorize tabs in batches', async () => {
-      (generateText as any).mockResolvedValue({
-        output: {
-          suggestions: [{ tabId: 1, groupNames: ['Batch1'] }],
-        },
-      }).mockResolvedValueOnce({
-        output: {
-          suggestions: [{ tabId: 1, groupNames: ['Batch1'] }],
-        },
-      }).mockResolvedValueOnce({
-        output: {
-          suggestions: [{ tabId: 2, groupNames: ['Batch2'] }],
-        },
-      });
+      (generateText as any)
+        .mockResolvedValue({
+          output: {
+            suggestions: [{ tabId: 1, groupNames: ['Batch1'] }],
+          },
+        })
+        .mockResolvedValueOnce({
+          output: {
+            suggestions: [{ tabId: 1, groupNames: ['Batch1'] }],
+          },
+        })
+        .mockResolvedValueOnce({
+          output: {
+            suggestions: [{ tabId: 2, groupNames: ['Batch2'] }],
+          },
+        });
 
       const strategy = new BatchedLLMStrategy(mockModel, 1); // Batch size 1
       const results = await strategy.categorizeTabs(mockTabs, []);
