@@ -16,6 +16,7 @@ import '@shoelace-style/shoelace/dist/components/option/option.js';
 import type { SlDialog, SlInput, SlSelect, SlSwitch } from '@shoelace-style/shoelace';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { Signal } from 'signal-polyfill';
+import { StorageKeys } from '../utils/storage-keys.js';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -200,71 +201,71 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
     // Load settings
     const result = await chrome.storage.sync.get([
-      'geminiApiKey',
-      'geminiModelId',
-      'openaiApiKey',
-      'openaiModelId',
-      'openaiCustomBaseUrl',
-      'openaiCustomApiKey',
-      'openaiCustomModelId',
-      'predefined-groups',
-      'active-llm-provider',
-      'llm-strategy-override',
-      'llm-fallback-enabled',
-      'auto-categorization-mode',
-      'mcp-instance-id',
+      StorageKeys.Sync.GEMINI_API_KEY,
+      StorageKeys.Sync.GEMINI_MODEL_ID,
+      StorageKeys.Sync.OPENAI_API_KEY,
+      StorageKeys.Sync.OPENAI_MODEL_ID,
+      StorageKeys.Sync.OPENAI_CUSTOM_BASE_URL,
+      StorageKeys.Sync.OPENAI_CUSTOM_API_KEY,
+      StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID,
+      StorageKeys.Sync.PREDEFINED_GROUPS,
+      StorageKeys.Sync.ACTIVE_LLM_PROVIDER,
+      StorageKeys.Sync.LLM_STRATEGY_OVERRIDE,
+      StorageKeys.Sync.LLM_FALLBACK_ENABLED,
+      StorageKeys.Sync.AUTO_CATEGORIZATION_MODE,
+      StorageKeys.Local.MCP_INSTANCE_ID,
     ]);
 
-    if (result.geminiApiKey) {
-      this.geminiApiKey.original.set(result.geminiApiKey as string);
+    if (result[StorageKeys.Sync.GEMINI_API_KEY]) {
+      this.geminiApiKey.original.set(result[StorageKeys.Sync.GEMINI_API_KEY] as string);
       this.geminiApiKey.current.set('****************'); // Mask the key for display
     }
-    if (result.geminiModelId) {
-      this.geminiModelId.original.set(result.geminiModelId as string);
-      this.geminiModelId.current.set(result.geminiModelId as string);
+    if (result[StorageKeys.Sync.GEMINI_MODEL_ID]) {
+      this.geminiModelId.original.set(result[StorageKeys.Sync.GEMINI_MODEL_ID] as string);
+      this.geminiModelId.current.set(result[StorageKeys.Sync.GEMINI_MODEL_ID] as string);
     }
-    if (result.openaiApiKey) {
-      this.openaiApiKey.original.set(result.openaiApiKey as string);
+    if (result[StorageKeys.Sync.OPENAI_API_KEY]) {
+      this.openaiApiKey.original.set(result[StorageKeys.Sync.OPENAI_API_KEY] as string);
       this.openaiApiKey.current.set('****************'); // Mask the key for display
     }
-    if (result.openaiModelId) {
-      this.openaiModelId.original.set(result.openaiModelId as string);
-      this.openaiModelId.current.set(result.openaiModelId as string);
+    if (result[StorageKeys.Sync.OPENAI_MODEL_ID]) {
+      this.openaiModelId.original.set(result[StorageKeys.Sync.OPENAI_MODEL_ID] as string);
+      this.openaiModelId.current.set(result[StorageKeys.Sync.OPENAI_MODEL_ID] as string);
     }
 
-    if (result.openaiCustomBaseUrl) {
-      this.openaiCustomBaseUrl.original.set(result.openaiCustomBaseUrl as string);
-      this.openaiCustomBaseUrl.current.set(result.openaiCustomBaseUrl as string);
+    if (result[StorageKeys.Sync.OPENAI_CUSTOM_BASE_URL]) {
+      this.openaiCustomBaseUrl.original.set(result[StorageKeys.Sync.OPENAI_CUSTOM_BASE_URL] as string);
+      this.openaiCustomBaseUrl.current.set(result[StorageKeys.Sync.OPENAI_CUSTOM_BASE_URL] as string);
     }
-    if (result.openaiCustomApiKey) {
-      this.openaiCustomApiKey.original.set(result.openaiCustomApiKey as string);
+    if (result[StorageKeys.Sync.OPENAI_CUSTOM_API_KEY]) {
+      this.openaiCustomApiKey.original.set(result[StorageKeys.Sync.OPENAI_CUSTOM_API_KEY] as string);
       this.openaiCustomApiKey.current.set('****************'); // Mask the key for display
     }
-    if (result.openaiCustomModelId) {
-      this.openaiCustomModelId.original.set(result.openaiCustomModelId as string);
-      this.openaiCustomModelId.current.set(result.openaiCustomModelId as string);
+    if (result[StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID]) {
+      this.openaiCustomModelId.original.set(result[StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID] as string);
+      this.openaiCustomModelId.current.set(result[StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID] as string);
     }
 
-    if (result['active-llm-provider']) {
-      this.activeProvider.original.set(result['active-llm-provider'] as string);
-      this.activeProvider.current.set(result['active-llm-provider'] as string);
+    if (result[StorageKeys.Sync.ACTIVE_LLM_PROVIDER]) {
+      this.activeProvider.original.set(result[StorageKeys.Sync.ACTIVE_LLM_PROVIDER] as string);
+      this.activeProvider.current.set(result[StorageKeys.Sync.ACTIVE_LLM_PROVIDER] as string);
     }
-    if (result['llm-strategy-override']) {
-      const override = result['llm-strategy-override'] as LLMStrategyType;
+    if (result[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE]) {
+      const override = result[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE] as LLMStrategyType;
       this.strategyOverride.original.set(override);
       this.strategyOverride.current.set(override);
     }
-    if (result['llm-fallback-enabled']) {
-      this.fallbackEnabled.original.set(!!result['llm-fallback-enabled']);
-      this.fallbackEnabled.current.set(!!result['llm-fallback-enabled']);
+    if (result[StorageKeys.Sync.LLM_FALLBACK_ENABLED]) {
+      this.fallbackEnabled.original.set(!!result[StorageKeys.Sync.LLM_FALLBACK_ENABLED]);
+      this.fallbackEnabled.current.set(!!result[StorageKeys.Sync.LLM_FALLBACK_ENABLED]);
     }
 
-    const mode = (result['auto-categorization-mode'] as AutoCategorizationMode) || 'initial';
+    const mode = (result[StorageKeys.Sync.AUTO_CATEGORIZATION_MODE] as AutoCategorizationMode) || 'initial';
     this.autoCategorizationMode.original.set(mode);
     this.autoCategorizationMode.current.set(mode);
 
     // Load Groups
-    const groups = result['predefined-groups'] as string[] | undefined;
+    const groups = result[StorageKeys.Sync.PREDEFINED_GROUPS] as string[] | undefined;
     if (groups && groups.length > 0) {
       this.predefinedGroups.original.set(groups.join(', '));
       this.predefinedGroups.current.set(groups.join(', '));
@@ -275,10 +276,10 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
     // Load instance ID or fetch default
     let instanceId: string;
-    const localResult = await chrome.storage.local.get('mcp-instance-id');
+    const localResult = await chrome.storage.local.get(StorageKeys.Local.MCP_INSTANCE_ID);
 
-    if (localResult['mcp-instance-id']) {
-      instanceId = localResult['mcp-instance-id'] as string;
+    if (localResult[StorageKeys.Local.MCP_INSTANCE_ID]) {
+      instanceId = localResult[StorageKeys.Local.MCP_INSTANCE_ID] as string;
     } else {
       try {
         const userInfo = await chrome.identity.getProfileUserInfo();
@@ -306,26 +307,27 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   }
 
   private async loadMcpSettings() {
-    const result = await chrome.storage.sync.get('mcp-enabled');
-    this.mcpEnabled = result['mcp-enabled'] !== false; // Default to true
+    const result = await chrome.storage.sync.get(StorageKeys.Sync.MCP_ENABLED);
+    this.mcpEnabled = result[StorageKeys.Sync.MCP_ENABLED] !== false; // Default to true
   }
 
   private async startObservingMcp() {
     // Initial fetch
-    const session = await chrome.storage.session.get(['mcpStatus', 'mcpError']);
-    if (session.mcpStatus) this.mcpStatus = session.mcpStatus as ConnectionStatus;
-    if (session.mcpError) this.mcpError = session.mcpError as string;
+    const session = await chrome.storage.session.get([StorageKeys.Session.MCP_STATUS, StorageKeys.Session.MCP_ERROR]);
+    if (session[StorageKeys.Session.MCP_STATUS])
+      this.mcpStatus = session[StorageKeys.Session.MCP_STATUS] as ConnectionStatus;
+    if (session[StorageKeys.Session.MCP_ERROR]) this.mcpError = session[StorageKeys.Session.MCP_ERROR] as string;
 
     chrome.storage.onChanged.addListener(this.handleStorageChange);
   }
 
   private handleStorageChange = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
     if (areaName === 'session') {
-      if (changes.mcpStatus) {
-        this.mcpStatus = changes.mcpStatus.newValue as ConnectionStatus;
+      if (changes[StorageKeys.Session.MCP_STATUS]) {
+        this.mcpStatus = changes[StorageKeys.Session.MCP_STATUS].newValue as ConnectionStatus;
       }
-      if (changes.mcpError) {
-        this.mcpError = changes.mcpError.newValue as string | null;
+      if (changes[StorageKeys.Session.MCP_ERROR]) {
+        this.mcpError = changes[StorageKeys.Session.MCP_ERROR].newValue as string | null;
       }
     }
   };
@@ -340,7 +342,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   // Custom save for instance ID
   private async saveMcpInstanceId(id: string) {
-    await chrome.storage.local.set({ 'mcp-instance-id': id });
+    await chrome.storage.local.set({ [StorageKeys.Local.MCP_INSTANCE_ID]: id });
   }
 
   // Generic render helper for text settings
@@ -448,29 +450,29 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private async saveApiKey(key: string) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
-      await chrome.storage.sync.set({ geminiApiKey: trimmed });
+      await chrome.storage.sync.set({ [StorageKeys.Sync.GEMINI_API_KEY]: trimmed });
       this.fetchModels('gemini');
     }
   }
 
   private async saveGeminiModelId(id: string) {
-    await chrome.storage.sync.set({ geminiModelId: id });
+    await chrome.storage.sync.set({ [StorageKeys.Sync.GEMINI_MODEL_ID]: id });
   }
 
   private async saveOpenAIApiKey(key: string) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
-      await chrome.storage.sync.set({ openaiApiKey: trimmed });
+      await chrome.storage.sync.set({ [StorageKeys.Sync.OPENAI_API_KEY]: trimmed });
       this.fetchModels('openai');
     }
   }
 
   private async saveOpenAIModelId(id: string) {
-    await chrome.storage.sync.set({ openaiModelId: id });
+    await chrome.storage.sync.set({ [StorageKeys.Sync.OPENAI_MODEL_ID]: id });
   }
 
   private async saveOpenAICustomBaseUrl(url: string) {
-    await chrome.storage.sync.set({ openaiCustomBaseUrl: url });
+    await chrome.storage.sync.set({ [StorageKeys.Sync.OPENAI_CUSTOM_BASE_URL]: url });
     if (this.openaiCustomBaseUrl.current.get()) {
       this.fetchModels('openai-custom');
     }
@@ -479,7 +481,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private async saveOpenAICustomApiKey(key: string) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
-      await chrome.storage.sync.set({ openaiCustomApiKey: trimmed });
+      await chrome.storage.sync.set({ [StorageKeys.Sync.OPENAI_CUSTOM_API_KEY]: trimmed });
       if (this.openaiCustomBaseUrl.current.get()) {
         this.fetchModels('openai-custom');
       }
@@ -487,7 +489,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   }
 
   private async saveOpenAICustomModelId(id: string) {
-    await chrome.storage.sync.set({ openaiCustomModelId: id });
+    await chrome.storage.sync.set({ [StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID]: id });
   }
 
   private async savePredefinedGroups(groupsText: string) {
@@ -495,13 +497,13 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
       .split(',')
       .map((g) => g.trim())
       .filter((g) => g.length > 0);
-    await chrome.storage.sync.set({ 'predefined-groups': groups });
+    await chrome.storage.sync.set({ [StorageKeys.Sync.PREDEFINED_GROUPS]: groups });
   }
 
   private async toggleMcp(e: CustomEvent) {
     const enabled = (e.target as SlSwitch).checked;
     this.mcpEnabled = enabled;
-    await chrome.storage.sync.set({ 'mcp-enabled': enabled });
+    await chrome.storage.sync.set({ [StorageKeys.Sync.MCP_ENABLED]: enabled });
   }
 
   private async fetchModels(provider: string) {

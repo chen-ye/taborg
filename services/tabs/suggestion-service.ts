@@ -1,7 +1,8 @@
+import { StorageKeys } from '../../utils/storage-keys.js';
 import { normalizeUrl } from '../../utils/url-utils.js';
 
 export class SuggestionService {
-  private readonly STORAGE_KEY = 'tab-suggestions';
+  private readonly STORAGE_KEY = StorageKeys.Local.TAB_SUGGESTIONS;
 
   async getSuggestions(url: string): Promise<string[]> {
     const all = await this.getAllSuggestions();
@@ -15,19 +16,32 @@ export class SuggestionService {
   }
 
   async setSuggestions(url: string, suggestions: string[]): Promise<void> {
-    await this.setAllSuggestions({ [url]: suggestions });
+    await this.mergeAllSuggestions({ [url]: suggestions });
   }
 
+  private mergeQueue = Promise.resolve();
+
   async setAllSuggestions(map: Record<string, string[]>): Promise<void> {
-    const all = await this.getAllSuggestions();
-    // Merge new map into existing suggestions with deduplication
-    for (const [url, newSuggestions] of Object.entries(map)) {
-      const normalized = normalizeUrl(url);
-      const existing = all[normalized] || [];
-      const combined = new Set([...existing, ...newSuggestions]);
-      all[normalized] = Array.from(combined).sort((a, b) => a.localeCompare(b));
-    }
-    await chrome.storage.local.set({ [this.STORAGE_KEY]: all });
+    // Also chain full sets to ensure they don't race with merges
+    this.mergeQueue = this.mergeQueue.then(async () => {
+      await chrome.storage.local.set({ [this.STORAGE_KEY]: map });
+    });
+    return this.mergeQueue;
+  }
+
+  async mergeAllSuggestions(map: Record<string, string[]>): Promise<void> {
+    this.mergeQueue = this.mergeQueue.then(async () => {
+      const all = await this.getAllSuggestions();
+      // Merge new map into existing suggestions with deduplication
+      for (const [url, newSuggestions] of Object.entries(map)) {
+        const normalized = normalizeUrl(url);
+        const existing = all[normalized] || [];
+        const combined = new Set([...existing, ...newSuggestions]);
+        all[normalized] = Array.from(combined).sort((a, b) => a.localeCompare(b));
+      }
+      await chrome.storage.local.set({ [this.STORAGE_KEY]: all });
+    });
+    return this.mergeQueue;
   }
 
   async removeSuggestions(url: string): Promise<void> {
@@ -39,22 +53,36 @@ export class SuggestionService {
     }
   }
 
-  async pruneSuggestions(activeUrls: string[]): Promise<void> {
-    const all = await this.getAllSuggestions();
+  pruneSuggestions(
+    currentMap: Record<string, string[]>,
+    activeUrls: string[],
+    maxEntries = 500,
+  ): Record<string, string[]> {
     const activeNormalized = new Set(activeUrls.map((u) => normalizeUrl(u)));
-    let changed = false;
+    const newMap: Record<string, string[]> = {};
+    const otherKeys: string[] = [];
 
-    for (const storedUrl of Object.keys(all)) {
-      if (!activeNormalized.has(storedUrl)) {
-        delete all[storedUrl];
-        changed = true;
+    // 1. Keep all active URLs
+    for (const url of Object.keys(currentMap)) {
+      if (activeNormalized.has(url)) {
+        newMap[url] = currentMap[url];
+      } else {
+        otherKeys.push(url);
       }
     }
 
-    if (changed) {
-      console.log('Pruned suggestions');
-      await chrome.storage.local.set({ [this.STORAGE_KEY]: all });
+    // 2. Keep recently used inactive URLs up to limit
+    // Since we don't have timestamps, we'll rely on insertion order (Object.keys usually preserves it)
+    // We'll take the *last* N keys (most recently added)
+    const remainingSlots = maxEntries - Object.keys(newMap).length;
+    if (remainingSlots > 0) {
+      const retainedInactive = otherKeys.slice(-remainingSlots);
+      for (const url of retainedInactive) {
+        newMap[url] = currentMap[url];
+      }
     }
+
+    return newMap;
   }
 
   onChanged(callback: (map: Record<string, string[]>) => void): () => void {

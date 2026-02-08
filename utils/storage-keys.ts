@@ -1,0 +1,32 @@
+export const StorageKeys = {
+  Sync: {
+    PREDEFINED_GROUPS: 'predefined-groups',
+    AUTO_CATEGORIZATION_MODE: 'auto-categorization-mode',
+    ACTIVE_LLM_PROVIDER: 'active-llm-provider',
+    LLM_FALLBACK_ENABLED: 'llm-fallback-enabled',
+    LLM_STRATEGY_OVERRIDE: 'llm-strategy-override',
+    GEMINI_API_KEY: 'geminiApiKey',
+    GEMINI_MODEL_ID: 'geminiModelId',
+    OPENAI_BASE_URL: 'openaiBaseUrl',
+    OPENAI_API_KEY: 'openaiApiKey',
+    OPENAI_MODEL_ID: 'openaiModelId',
+    OPENAI_CUSTOM_BASE_URL: 'openaiCustomBaseUrl',
+    OPENAI_CUSTOM_API_KEY: 'openaiCustomApiKey',
+    OPENAI_CUSTOM_MODEL_ID: 'openaiCustomModelId',
+    MCP_ENABLED: 'mcp-enabled',
+  },
+  Local: {
+    TAB_SUGGESTIONS: 'tab-suggestions',
+    WINDOW_NAMES: 'window-names',
+    SELECTED_TABS: 'selected-tabs',
+    COLLAPSED_WINDOWS: 'collapsed-windows',
+    VIEW_OPTIONS: 'view-options',
+    FOLLOW_MODE: 'follow-mode',
+    MCP_INSTANCE_ID: 'mcp-instance-id',
+  },
+  Session: {
+    PROCESSING_TABS: 'processing-tabs',
+    MCP_STATUS: 'mcpStatus',
+    MCP_ERROR: 'mcpError',
+  },
+} as const;

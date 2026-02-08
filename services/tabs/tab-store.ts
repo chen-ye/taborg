@@ -3,6 +3,7 @@ import { Signal } from 'signal-polyfill';
 import { SignalArray } from 'signal-utils/array';
 import { SignalMap } from 'signal-utils/map';
 import { SignalSet } from 'signal-utils/set';
+import { StorageKeys } from '../../utils/storage-keys.js';
 import { normalizeUrl } from '../../utils/url-utils.js';
 import { browserService } from './browser-service';
 import { suggestionService } from './suggestion-service';
@@ -264,40 +265,40 @@ export class TabStore {
   }
 
   private async loadSelection(): Promise<Set<number>> {
-    const result = await chrome.storage.local.get('selected-tabs');
-    const selected = (result['selected-tabs'] as number[]) || [];
+    const result = await chrome.storage.local.get(StorageKeys.Local.SELECTED_TABS);
+    const selected = (result[StorageKeys.Local.SELECTED_TABS] as number[]) || [];
     return new Set(selected);
   }
 
   private async loadWindowNames(): Promise<Map<number, string>> {
-    const result = await chrome.storage.local.get('window-names');
-    const names = (result['window-names'] as Record<string, string>) || {};
+    const result = await chrome.storage.local.get(StorageKeys.Local.WINDOW_NAMES);
+    const names = (result[StorageKeys.Local.WINDOW_NAMES] as Record<string, string>) || {};
     // Convert string keys back to numbers
     return new Map(Object.entries(names).map(([k, v]) => [Number(k), v]));
   }
 
   private async loadCollapsedWindows(): Promise<Set<number>> {
-    const result = await chrome.storage.local.get('collapsed-windows');
-    const collapsed = (result['collapsed-windows'] as number[]) || [];
+    const result = await chrome.storage.local.get(StorageKeys.Local.COLLAPSED_WINDOWS);
+    const collapsed = (result[StorageKeys.Local.COLLAPSED_WINDOWS] as number[]) || [];
     return new Set(collapsed);
   }
 
   private async loadViewOptions(): Promise<void> {
-    const result = await chrome.storage.local.get('view-options');
-    const options = (result['view-options'] as ViewOptions) || { viewMode: 'compact' };
+    const result = await chrome.storage.local.get(StorageKeys.Local.VIEW_OPTIONS);
+    const options = (result[StorageKeys.Local.VIEW_OPTIONS] as ViewOptions) || { viewMode: 'compact' };
     this.viewOptions.set(options);
     this.viewOptions.set(options);
   }
 
   private async loadFollowMode(): Promise<void> {
-    const result = await chrome.storage.local.get('follow-mode');
-    const follow = (result['follow-mode'] as boolean) || false;
+    const result = await chrome.storage.local.get(StorageKeys.Local.FOLLOW_MODE);
+    const follow = (result[StorageKeys.Local.FOLLOW_MODE] as boolean) || false;
     this.followMode.set(follow);
   }
 
   private async loadProcessingState(): Promise<void> {
-    const result = await chrome.storage.session.get('processing-tabs');
-    const ids = (result['processing-tabs'] as number[]) || [];
+    const result = await chrome.storage.session.get(StorageKeys.Session.PROCESSING_TABS);
+    const ids = (result[StorageKeys.Session.PROCESSING_TABS] as number[]) || [];
     this.processingTabIds.set(new Set(ids));
   }
 
@@ -308,7 +309,7 @@ export class TabStore {
     }
     this.saveSelectionTimeout = window.setTimeout(async () => {
       this.saveSelectionTimeout = null;
-      await chrome.storage.local.set({ 'selected-tabs': Array.from(this.selectedTabIds.values()) });
+      await chrome.storage.local.set({ [StorageKeys.Local.SELECTED_TABS]: Array.from(this.selectedTabIds.values()) });
     }, 500);
   }
 
@@ -324,8 +325,7 @@ export class TabStore {
       // Pass original URL to service (it handles normalization internally too, but good to be explicit/consistent)
       changes[url] = sortedSuggestions;
     }
-    await suggestionService.setAllSuggestions(changes);
-    await suggestionService.setAllSuggestions(changes);
+    await suggestionService.mergeAllSuggestions(changes);
     console.log('Updated suggestionsUrlMap:', this.suggestionsUrlMap);
   }
 
@@ -340,8 +340,8 @@ export class TabStore {
     this.processingTabIds.set(current);
 
     // Persist to session storage so background script and other contexts see it
-    const result = await chrome.storage.session.get('processing-tabs');
-    const storageList = new Set((result['processing-tabs'] as number[]) || []);
+    const result = await chrome.storage.session.get(StorageKeys.Session.PROCESSING_TABS);
+    const storageList = new Set((result[StorageKeys.Session.PROCESSING_TABS] as number[]) || []);
 
     if (processing) {
       for (const id of ids) storageList.add(id);
@@ -349,7 +349,7 @@ export class TabStore {
       for (const id of ids) storageList.delete(id);
     }
 
-    await chrome.storage.session.set({ 'processing-tabs': Array.from(storageList) });
+    await chrome.storage.session.set({ [StorageKeys.Session.PROCESSING_TABS]: Array.from(storageList) });
   }
 
   async updateSuggestions(suggestionsByUrl: Map<string, string[]>) {
@@ -361,7 +361,7 @@ export class TabStore {
       changes[url] = sortedSuggestions;
     }
     // Incrementally save to storage
-    await suggestionService.setAllSuggestions(changes);
+    await suggestionService.mergeAllSuggestions(changes);
     console.log('Incrementally updated suggestions:', changes);
   }
 
@@ -488,21 +488,21 @@ export class TabStore {
 
     // Listen for storage changes (e.g. from background script)
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName === 'local' && changes['window-names']) {
+      if (areaName === 'local' && changes[StorageKeys.Local.WINDOW_NAMES]) {
         this.loadWindowNames().then((map) => {
           this.windowNames.clear();
           for (const [key, value] of map) this.windowNames.set(key, value);
           this.fetchAll();
         });
       }
-      if (areaName === 'local' && changes['collapsed-windows']) {
+      if (areaName === 'local' && changes[StorageKeys.Local.COLLAPSED_WINDOWS]) {
         this.loadCollapsedWindows().then((set) => {
           this.collapsedWindowIds.clear();
           for (const id of set) this.collapsedWindowIds.add(id);
         });
       }
-      if (areaName === 'session' && changes['processing-tabs']) {
-        const newValue = (changes['processing-tabs'].newValue as number[]) || [];
+      if (areaName === 'session' && changes[StorageKeys.Session.PROCESSING_TABS]) {
+        const newValue = (changes[StorageKeys.Session.PROCESSING_TABS].newValue as number[]) || [];
         this.processingTabIds.set(new Set(newValue));
       }
     });
@@ -747,7 +747,7 @@ export class TabStore {
     console.log('Updated windowNames:', this.windowNames);
 
     const namesObj = Object.fromEntries(this.windowNames.entries());
-    await chrome.storage.local.set({ 'window-names': namesObj });
+    await chrome.storage.local.set({ [StorageKeys.Local.WINDOW_NAMES]: namesObj });
 
     this.fetchAll();
   }
@@ -760,7 +760,9 @@ export class TabStore {
     }
     console.log('Updated collapsedWindowIds:', this.collapsedWindowIds);
 
-    await chrome.storage.local.set({ 'collapsed-windows': Array.from(this.collapsedWindowIds.values()) });
+    await chrome.storage.local.set({
+      [StorageKeys.Local.COLLAPSED_WINDOWS]: Array.from(this.collapsedWindowIds.values()),
+    });
   }
 
   async moveTabToWindow(tabId: number, windowId: number) {

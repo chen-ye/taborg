@@ -1,6 +1,7 @@
 import { generateText, type LanguageModel, Output } from 'ai';
 import type { LLMService, TabData } from '../../types/llm-types';
 import { CategorizationSchemaType, SimilaritySchemaType, WindowNameSchemaType } from '../../utils/ai-schemas';
+import { StorageKeys } from '../../utils/storage-keys.js';
 
 /**
  * Standard strategy for robust LLMs (Gemini Pro, GPT-4, etc.)
@@ -19,8 +20,8 @@ export class StandardLLMStrategy implements LLMService {
     onProgress?: (results: Map<number, string[]>) => void,
   ): Promise<Map<number, string[]>> {
     // Load predefined groups from settings (mimicking existing behavior)
-    const result = await chrome.storage.sync.get('predefined-groups');
-    const predefinedGroups = (result['predefined-groups'] as string[]) || [];
+    const result = await chrome.storage.sync.get(StorageKeys.Sync.PREDEFINED_GROUPS);
+    const predefinedGroups = (result[StorageKeys.Sync.PREDEFINED_GROUPS] as string[]) || [];
     const allGroups = Array.from(new Set([...predefinedGroups, ...existingGroups]));
 
     const { output } = await generateText({
@@ -124,8 +125,8 @@ export class BatchedLLMStrategy implements LLMService {
   ): Promise<Map<number, string[]>> {
     const resultMap = new Map<number, string[]>();
 
-    const result = await chrome.storage.sync.get('predefined-groups');
-    const predefinedGroups = (result['predefined-groups'] as string[]) || [];
+    const result = await chrome.storage.sync.get(StorageKeys.Sync.PREDEFINED_GROUPS);
+    const predefinedGroups = (result[StorageKeys.Sync.PREDEFINED_GROUPS] as string[]) || [];
     const allGroups = Array.from(new Set([...predefinedGroups, ...existingGroups]));
 
     for (let i = 0; i < tabs.length; i += this.batchSize) {

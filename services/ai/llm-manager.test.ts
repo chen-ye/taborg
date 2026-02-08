@@ -24,6 +24,38 @@ vi.mock('./strategies', () => ({
   BatchedLLMStrategy: vi.fn(),
 }));
 
+vi.mock('../../utils/storage-keys.js', () => ({
+  StorageKeys: {
+    Sync: {
+      ACTIVE_LLM_PROVIDER: 'active-llm-provider',
+      LLM_FALLBACK_ENABLED: 'llm-fallback-enabled',
+      LLM_STRATEGY_OVERRIDE: 'llm-strategy-override',
+      GEMINI_API_KEY: 'geminiApiKey',
+      GEMINI_MODEL_ID: 'geminiModelId',
+      OPENAI_BASE_URL: 'openaiBaseUrl',
+      OPENAI_API_KEY: 'openaiApiKey',
+      OPENAI_MODEL_ID: 'openaiModelId',
+      OPENAI_CUSTOM_BASE_URL: 'openaiCustomBaseUrl',
+      OPENAI_CUSTOM_API_KEY: 'openaiCustomApiKey',
+      OPENAI_CUSTOM_MODEL_ID: 'openaiCustomModelId',
+    },
+    Local: {
+      TAB_SUGGESTIONS: 'tab-suggestions',
+      WINDOW_NAMES: 'window-names',
+      SELECTED_TABS: 'selected-tabs',
+      COLLAPSED_WINDOWS: 'collapsed-windows',
+      VIEW_OPTIONS: 'view-options',
+      FOLLOW_MODE: 'follow-mode',
+      MCP_INSTANCE_ID: 'mcp-instance-id',
+    },
+    Session: {
+      PROCESSING_TABS: 'processing-tabs',
+      MCP_STATUS: 'mcpStatus',
+      MCP_ERROR: 'mcpError',
+    },
+  },
+}));
+
 vi.mock('./provider-config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./provider-config')>();
   return {
@@ -60,8 +92,13 @@ describe('LLMManager', () => {
       generateWindowName: vi.fn(),
     };
 
-    vi.mocked(StandardLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
-    vi.mocked(BatchedLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
+    // Use standard function for constructor compatibility
+    vi.mocked(StandardLLMStrategy).mockImplementation(function MockStrategy() {
+      return mockStrategyInstance as any;
+    });
+    vi.mocked(BatchedLLMStrategy).mockImplementation(function MockStrategy() {
+      return mockStrategyInstance as any;
+    });
 
     vi.mocked(getGoogleModel).mockReturnValue({} as any);
     vi.mocked(getOpenAIModel).mockReturnValue({} as any);
@@ -75,7 +112,9 @@ describe('LLMManager', () => {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['G']]])),
     };
-    vi.mocked(StandardLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
+    vi.mocked(StandardLLMStrategy).mockImplementation(function MockStrategy() {
+      return mockStrategyInstance as any;
+    });
 
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
     expect(getGoogleModel).toHaveBeenCalled();
@@ -93,7 +132,9 @@ describe('LLMManager', () => {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['C']]])),
     };
-    vi.mocked(StandardLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
+    vi.mocked(StandardLLMStrategy).mockImplementation(function MockStrategy() {
+      return mockStrategyInstance as any;
+    });
 
     manager = new LLMManager();
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
@@ -117,7 +158,9 @@ describe('LLMManager', () => {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['B']]])),
     };
-    vi.mocked(BatchedLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
+    vi.mocked(BatchedLLMStrategy).mockImplementation(function MockStrategy() {
+      return mockStrategyInstance as any;
+    });
 
     manager = new LLMManager();
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
@@ -132,7 +175,9 @@ describe('LLMManager', () => {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockRejectedValue(new Error('Primary failed')),
     };
-    vi.mocked(StandardLLMStrategy).mockImplementation(() => mockStrategyInstance as any);
+    vi.mocked(StandardLLMStrategy).mockImplementation(function MockStrategy() {
+      return mockStrategyInstance as any;
+    });
 
     vi.mocked(mockChromeAIService.isAvailable).mockResolvedValue(true);
     vi.mocked(mockChromeAIService.categorizeTabs).mockResolvedValue(new Map([[1, ['FB']]]));

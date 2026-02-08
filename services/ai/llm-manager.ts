@@ -1,4 +1,5 @@
 import type { LLMModelConfig, LLMProvider, LLMService, LLMStrategyType, TabData } from '../../types/llm-types';
+import { StorageKeys } from '../../utils/storage-keys.js';
 import { CHROME_AI_PROVIDER_ID, CHROME_AI_SERVICE, PROVIDER_CONFIG } from './provider-config';
 import { BatchedLLMStrategy, StandardLLMStrategy } from './strategies';
 
@@ -18,49 +19,58 @@ export class LLMManager implements LLMService {
   }
 
   private async loadSettings() {
-    const result = await chrome.storage.sync.get([
-      'active-llm-provider',
-      'llm-fallback-enabled',
-      'llm-strategy-override',
-      'geminiApiKey',
-      'geminiModelId',
-      'openaiBaseUrl',
-      'openaiApiKey',
-      'openaiModelId',
-      'openaiCustomBaseUrl',
-      'openaiCustomApiKey',
-      'openaiCustomModelId',
-    ]);
+    try {
+      const result = await chrome.storage.sync.get([
+        StorageKeys.Sync.ACTIVE_LLM_PROVIDER,
+        StorageKeys.Sync.LLM_FALLBACK_ENABLED,
+        StorageKeys.Sync.LLM_STRATEGY_OVERRIDE,
+        StorageKeys.Sync.GEMINI_API_KEY,
+        StorageKeys.Sync.GEMINI_MODEL_ID,
+        StorageKeys.Sync.OPENAI_BASE_URL,
+        StorageKeys.Sync.OPENAI_API_KEY,
+        StorageKeys.Sync.OPENAI_MODEL_ID,
+        StorageKeys.Sync.OPENAI_CUSTOM_BASE_URL,
+        StorageKeys.Sync.OPENAI_CUSTOM_API_KEY,
+        StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID,
+      ]);
 
-    // Only set if not already updated by handleStorageChange (race condition fix)
-    this.activeProvider ??= (result['active-llm-provider'] as LLMProvider) || 'gemini';
-    this.fallbackEnabled ??= result['llm-fallback-enabled'] === true;
+      // Only set if not already updated by handleStorageChange (race condition fix)
+      this.activeProvider ??= (result[StorageKeys.Sync.ACTIVE_LLM_PROVIDER] as LLMProvider) || 'gemini';
+      this.fallbackEnabled ??= result[StorageKeys.Sync.LLM_FALLBACK_ENABLED] === true;
 
-    // Update model config with nullish assignment
-    this.modelConfig.strategyOverride ??= result['llm-strategy-override'] as LLMStrategyType | undefined;
-    this.modelConfig.geminiApiKey ??= result.geminiApiKey as string | undefined;
-    this.modelConfig.geminiModelId ??= result.geminiModelId as string | undefined;
-    this.modelConfig.openaiBaseUrl ??= result.openaiBaseUrl as string | undefined;
-    this.modelConfig.openaiApiKey ??= result.openaiApiKey as string | undefined;
-    this.modelConfig.openaiModelId ??= result.openaiModelId as string | undefined;
-    this.modelConfig.openaiCustomBaseUrl ??= result.openaiCustomBaseUrl as string | undefined;
-    this.modelConfig.openaiCustomApiKey ??= result.openaiCustomApiKey as string | undefined;
-    this.modelConfig.openaiCustomModelId ??= result.openaiCustomModelId as string | undefined;
+      // Update model config with nullish assignment
+      this.modelConfig.strategyOverride ??= result[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE] as
+        | LLMStrategyType
+        | undefined;
+      this.modelConfig.geminiApiKey ??= result[StorageKeys.Sync.GEMINI_API_KEY] as string | undefined;
+      this.modelConfig.geminiModelId ??= result[StorageKeys.Sync.GEMINI_MODEL_ID] as string | undefined;
+      this.modelConfig.openaiBaseUrl ??= result[StorageKeys.Sync.OPENAI_BASE_URL] as string | undefined;
+      this.modelConfig.openaiApiKey ??= result[StorageKeys.Sync.OPENAI_API_KEY] as string | undefined;
+      this.modelConfig.openaiModelId ??= result[StorageKeys.Sync.OPENAI_MODEL_ID] as string | undefined;
+      this.modelConfig.openaiCustomBaseUrl ??= result[StorageKeys.Sync.OPENAI_CUSTOM_BASE_URL] as string | undefined;
+      this.modelConfig.openaiCustomApiKey ??= result[StorageKeys.Sync.OPENAI_CUSTOM_API_KEY] as string | undefined;
+      this.modelConfig.openaiCustomModelId ??= result[StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID] as string | undefined;
+    } catch (e) {
+      console.error('Failed to load settings:', e);
+      throw e;
+    }
   }
 
   private handleStorageChange = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
     if (areaName === 'sync') {
       let configChanged = false;
 
-      if (changes['active-llm-provider']) {
-        this.activeProvider = changes['active-llm-provider'].newValue as LLMProvider;
+      if (changes[StorageKeys.Sync.ACTIVE_LLM_PROVIDER]) {
+        this.activeProvider = changes[StorageKeys.Sync.ACTIVE_LLM_PROVIDER].newValue as LLMProvider;
         configChanged = true;
       }
-      if (changes['llm-fallback-enabled']) {
-        this.fallbackEnabled = changes['llm-fallback-enabled'].newValue as boolean;
+      if (changes[StorageKeys.Sync.LLM_FALLBACK_ENABLED]) {
+        this.fallbackEnabled = changes[StorageKeys.Sync.LLM_FALLBACK_ENABLED].newValue as boolean;
       }
-      if (changes['llm-strategy-override']) {
-        this.modelConfig.strategyOverride = changes['llm-strategy-override'].newValue as LLMStrategyType | undefined;
+      if (changes[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE]) {
+        this.modelConfig.strategyOverride = changes[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE].newValue as
+          | LLMStrategyType
+          | undefined;
         configChanged = true;
       }
 

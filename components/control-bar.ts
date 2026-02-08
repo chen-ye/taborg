@@ -2,7 +2,8 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { llmManager } from '../services/ai/llm-manager.js';
-import { type GroupNode, tabStore, type WindowNode } from '../services/tabs/tab-store.js';
+import { tabStore } from '../services/tabs/tab-store.js';
+import { MessageTypes } from '../utils/message-types.js';
 import { toast } from '../utils/toast.js';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -173,59 +174,19 @@ export class ControlBar extends SignalWatcher(LitElement) {
 
     this.organizing = true;
 
-    // Set processing state for all tabs
-    tabStore.setProcessing(
-      tabsToOrganize.map((t) => t.id),
-      true,
-    );
-
     try {
-      // Collect all group names for context
-      const allGroupNames = new Set<string>();
-      tabStore.windows.forEach((w: WindowNode) => {
-        w.groups.forEach((g: GroupNode) => {
-          if (g.title) allGroupNames.add(g.title);
-        });
+      // Send message to background to handle categorization
+      await chrome.runtime.sendMessage({
+        type: MessageTypes.CATEGORIZE_TABS,
+        tabIds: tabsToOrganize.map((t) => t.id),
       });
 
-      // 2. Call LLM Manager with incremental callback
-      await llmManager.categorizeTabs(
-        tabsToOrganize.map((t) => ({ id: t.id, title: t.title, url: t.url })),
-        Array.from(allGroupNames),
-        (batchResults: Map<number, string[]>) => {
-          // Process incremental results
-          const suggestionsByUrl = new Map<string, string[]>();
-          const processedIds: number[] = [];
-
-          for (const [tabId, groups] of batchResults.entries()) {
-            const tab = tabsToOrganize.find((t) => t.id === tabId);
-            if (tab?.url) {
-              suggestionsByUrl.set(tab.url, groups);
-            }
-            processedIds.push(tabId);
-          }
-
-          // Update store incrementally
-          tabStore.updateSuggestions(suggestionsByUrl);
-          // Clear processing state for finished tabs
-          tabStore.setProcessing(processedIds, false);
-        },
-      );
-
-      // Final cleanup usually handled by onProgress, but safe to ensure clear here if needed
-      // (Depends on if verify all are done. safely clear all specific IDs)
-      tabStore.setProcessing(
-        tabsToOrganize.map((t) => t.id),
-        false,
-      );
+      // We don't need to manually listen for progress here because
+      // TabStore is already listening to session storage for 'processing-tabs'
+      // and will update the UI state reactively.
     } catch (e) {
       console.error(e);
-      toast.error('Failed to organize tabs. Check your API key or AI settings.');
-      // Clear processing on error
-      tabStore.setProcessing(
-        tabsToOrganize.map((t) => t.id),
-        false,
-      );
+      toast.error('Failed to request tab organization.');
     } finally {
       this.organizing = false;
     }

@@ -47,6 +47,8 @@ describe('Background Script', () => {
         onUpdated: createMockListener('onUpdated'),
         onCreated: createMockListener('onCreated'),
         onRemoved: createMockListener('onRemoved'),
+        get: vi.fn(), // Mock get
+        query: vi.fn().mockResolvedValue([]), // Mock query
       },
       offscreen: {
         createDocument: vi.fn(),
@@ -67,6 +69,13 @@ describe('Background Script', () => {
         getProfileUserInfo: vi.fn().mockResolvedValue({ email: 'test@example.com' }),
       },
     };
+
+    (globalThis as any).chrome.storage.sync.get = vi.fn().mockResolvedValue({
+      'active-llm-provider': 'gemini',
+      'llm-fallback-enabled': true,
+      'auto-categorization-mode': 'initial',
+      geminiApiKey: 'test-key',
+    } as any);
 
     // Mock WebSocket
     (globalThis as any).WebSocket = class {
@@ -103,9 +112,25 @@ describe('Background Script', () => {
       openerTabId: 99, // Opened from another tab
     };
 
-    (llmManager.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['Search']]]));
+    vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
+
+    // Use implementation to call onProgress
+    (llmManager.categorizeTabs as any).mockImplementation(async (tabs: any, groups: any, onProgress: any) => {
+      const result = new Map([[tabId, ['Search']]]);
+      if (onProgress) await onProgress(result);
+      return result;
+    });
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
+
+    // Wait until storage is updated
+    await vi.waitUntil(
+      async () => {
+        const stored = await fakeBrowser.storage.local.get('tab-suggestions');
+        return !!stored['tab-suggestions']?.['https://google.com/'];
+      },
+      { timeout: 1000, interval: 10 },
+    );
 
     expect(llmManager.categorizeTabs).toHaveBeenCalled();
     const stored = await fakeBrowser.storage.local.get('tab-suggestions');
@@ -123,7 +148,10 @@ describe('Background Script', () => {
       openerTabId: undefined,
     };
 
+    vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
+
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
+
     expect(llmManager.categorizeTabs).not.toHaveBeenCalled();
   });
 
@@ -142,9 +170,23 @@ describe('Background Script', () => {
       title: 'News',
     };
 
-    (llmManager.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['News']]]));
+    vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
+
+    (llmManager.categorizeTabs as any).mockImplementation(async (tabs: any, groups: any, onProgress: any) => {
+      const result = new Map([[tabId, ['News']]]);
+      if (onProgress) await onProgress(result);
+      return result;
+    });
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
+
+    await vi.waitUntil(
+      async () => {
+        const stored = await fakeBrowser.storage.local.get('tab-suggestions');
+        return !!stored['tab-suggestions']?.['https://news.com/'];
+      },
+      { timeout: 1000, interval: 10 },
+    );
 
     expect(llmManager.categorizeTabs).toHaveBeenCalled();
     const stored = await fakeBrowser.storage.local.get('tab-suggestions');
@@ -156,10 +198,12 @@ describe('Background Script', () => {
     const tabId = 104;
 
     // 1. Tab created normally (no suggestion)
+    vi.mocked(chrome.tabs.get).mockResolvedValue({ id: tabId, url: 'https://a.com' } as any);
     await triggerOnUpdated(tabId, { status: 'complete' }, { id: tabId, url: 'https://a.com' });
     expect(llmManager.categorizeTabs).not.toHaveBeenCalled();
 
     // 2. Navigate to new tab
+    vi.mocked(chrome.tabs.get).mockResolvedValue({ id: tabId, url: 'chrome://newtab/' } as any);
     await triggerOnUpdated(tabId, { url: 'chrome://newtab/' }, { id: tabId, url: 'chrome://newtab/' });
 
     // 3. Navigate to new site
@@ -168,13 +212,30 @@ describe('Background Script', () => {
       url: 'https://b.com',
       title: 'B',
     };
-    (llmManager.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['B']]]));
+    vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
+
+    (llmManager.categorizeTabs as any).mockImplementation(async (tabs: any, groups: any, onProgress: any) => {
+      const result = new Map([[tabId, ['B']]]);
+      if (onProgress) await onProgress(result);
+      return result;
+    });
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
+
+    await vi.waitUntil(
+      async () => {
+        const calls = (llmManager.categorizeTabs as any).mock.calls;
+        if (calls.length === 0) return false;
+        // Also matching specific url if multiple calls happened? Not needed here.
+        return true;
+      },
+      { timeout: 1000, interval: 10 },
+    );
 
     expect(llmManager.categorizeTabs).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ url: 'https://b.com' })]),
       expect.anything(),
+      expect.anything(), // onProgress callback
     );
   });
 });
