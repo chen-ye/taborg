@@ -5,6 +5,7 @@ export const MessageTypes = {
   MCP_CONNECT: 'MCP_CONNECT',
   MCP_DISCONNECT: 'MCP_DISCONNECT',
   MCP_RETRY: 'MCP_RETRY',
+  FETCH_MODELS: 'FETCH_MODELS',
 } as const;
 
 export type MessageType = (typeof MessageTypes)[keyof typeof MessageTypes];

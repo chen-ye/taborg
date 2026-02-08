@@ -1,8 +1,9 @@
 import { llmManager } from '../services/ai/llm-manager.js';
+import { listCustomModels, listGoogleModels, listOpenAIModels } from '../services/ai/providers.js';
 import { McpConnectionService, mcpService } from '../services/mcp/mcp-connection.js';
 import { browserService } from '../services/tabs/browser-service.js';
 import { suggestionService } from '../services/tabs/suggestion-service.js';
-import type { AutoCategorizationMode } from '../types/llm-types.js';
+import type { AutoCategorizationMode, LLMModelConfig, LLMProvider } from '../types/llm-types.js';
 import { MessageTypes } from '../utils/message-types.js';
 
 export const main = () => {
@@ -171,8 +172,8 @@ export const main = () => {
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error) => console.error('Failed to set panel behavior:', error));
 
-  // Handle messages from offscreen document
-  chrome.runtime.onMessage.addListener((message) => {
+  // Handle messages from offscreen document and UI
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === MessageTypes.UPDATE_ICON && message.imageData) {
       // Reconstruct ImageData to ensure it's a valid object after message passing
       try {
@@ -183,50 +184,26 @@ export const main = () => {
       } catch (e) {
         console.error('Failed to set icon:', e);
       }
-    }
-  });
-
-  const updateBadge = async () => {
-    const tabs = await chrome.tabs.query({});
-    await chrome.action.setBadgeText({ text: tabs.length.toString() });
-    await chrome.action.setBadgeBackgroundColor({ color: '#777' });
-  };
-
-  chrome.tabs.onCreated.addListener(() => updateBadge());
-  chrome.tabs.onRemoved.addListener(() => updateBadge());
-  updateBadge();
-
-  McpConnectionService.getPersistedInstanceId().then((instanceId) => {
-    initializeMcpTools();
-    initializeMcpResources(instanceId);
-    initializeMcpPrompts(instanceId);
-    mcpService.init();
-  });
-
-  // Re-register resources when instance ID changes
-  chrome.storage.onChanged.addListener(async (changes, area) => {
-    if (area === 'local' && changes['mcp-instance-id']) {
-      const newId = await McpConnectionService.getPersistedInstanceId();
-      mcpService.clearRegistrations();
-      initializeMcpTools();
-      initializeMcpResources(newId);
-      initializeMcpPrompts(newId);
-      // Connection retry is handled by mcp-connection.ts
-    }
-  });
-
-  mcpService.onStatusChange((status) => {
-    chrome.storage.session.set({ mcpStatus: status });
-    updateBadge(); // Update badge on status change too
-  });
-
-  mcpService.onErrorChange((error) => {
-    chrome.storage.session.set({ mcpError: error });
-  });
-
-  // Handle MCP messages from sidepanel
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === MessageTypes.MCP_CONNECT) {
+    } else if (message.type === MessageTypes.FETCH_MODELS) {
+      const { provider, config } = message as { provider: LLMProvider; config: LLMModelConfig };
+      (async () => {
+        try {
+          let models: string[] = [];
+          if (provider === 'gemini') {
+            models = await listGoogleModels(config);
+          } else if (provider === 'openai') {
+            models = await listOpenAIModels(config);
+          } else if (provider === 'openai-custom') {
+            models = await listCustomModels(config);
+          }
+          sendResponse({ success: true, models });
+        } catch (error) {
+          console.error('Failed to fetch models:', error);
+          sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      })();
+      return true; // Keep channel open for async response
+    } else if (message.type === MessageTypes.MCP_CONNECT) {
       mcpService.setEnabled(true);
     } else if (message.type === MessageTypes.MCP_DISCONNECT) {
       mcpService.setEnabled(false);
