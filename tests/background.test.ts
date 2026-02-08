@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { main } from '../entrypoints/background';
-import { geminiService } from '../services/ai/gemini';
+import { llmManager } from '../services/ai/llm-manager.js';
 
-// Mock geminiService
-vi.mock('../services/ai/gemini', () => ({
-  geminiService: {
+// Mock llmManager
+vi.mock('../services/ai/llm-manager.js', () => ({
+  llmManager: {
     categorizeTabs: vi.fn(),
     isAvailable: vi.fn().mockResolvedValue(true),
   },
@@ -47,6 +47,8 @@ describe('Background Script', () => {
         onUpdated: createMockListener('onUpdated'),
         onCreated: createMockListener('onCreated'),
         onRemoved: createMockListener('onRemoved'),
+        get: vi.fn(), // Mock get
+        query: vi.fn().mockResolvedValue([]), // Mock query
       },
       offscreen: {
         createDocument: vi.fn(),
@@ -67,6 +69,13 @@ describe('Background Script', () => {
         getProfileUserInfo: vi.fn().mockResolvedValue({ email: 'test@example.com' }),
       },
     };
+
+    (globalThis as any).chrome.storage.sync.get = vi.fn().mockResolvedValue({
+      'active-llm-provider': 'gemini',
+      'llm-fallback-enabled': true,
+      'auto-categorization-mode': 'initial',
+      geminiApiKey: 'test-key',
+    } as any);
 
     // Mock WebSocket
     (globalThis as any).WebSocket = class {
@@ -103,11 +112,27 @@ describe('Background Script', () => {
       openerTabId: 99, // Opened from another tab
     };
 
-    (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['Search']]]));
+    vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
+
+    // Use implementation to call onProgress
+    (llmManager.categorizeTabs as any).mockImplementation(async (tabs: any, groups: any, onProgress: any) => {
+      const result = new Map([[tabId, ['Search']]]);
+      if (onProgress) await onProgress(result);
+      return result;
+    });
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
 
-    expect(geminiService.categorizeTabs).toHaveBeenCalled();
+    // Wait until storage is updated
+    await vi.waitUntil(
+      async () => {
+        const stored = await fakeBrowser.storage.local.get('tab-suggestions');
+        return !!stored['tab-suggestions']?.['https://google.com/'];
+      },
+      { timeout: 1000, interval: 10 },
+    );
+
+    expect(llmManager.categorizeTabs).toHaveBeenCalled();
     const stored = await fakeBrowser.storage.local.get('tab-suggestions');
     // Normalized URL in storage
     expect(stored['tab-suggestions']['https://google.com/']).toEqual(['Search']);
@@ -123,8 +148,11 @@ describe('Background Script', () => {
       openerTabId: undefined,
     };
 
+    vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
+
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
-    expect(geminiService.categorizeTabs).not.toHaveBeenCalled();
+
+    expect(llmManager.categorizeTabs).not.toHaveBeenCalled();
   });
 
   it('should trigger suggest for tab navigating away from new tab page', async () => {
@@ -142,11 +170,25 @@ describe('Background Script', () => {
       title: 'News',
     };
 
-    (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['News']]]));
+    vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
+
+    (llmManager.categorizeTabs as any).mockImplementation(async (tabs: any, groups: any, onProgress: any) => {
+      const result = new Map([[tabId, ['News']]]);
+      if (onProgress) await onProgress(result);
+      return result;
+    });
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
 
-    expect(geminiService.categorizeTabs).toHaveBeenCalled();
+    await vi.waitUntil(
+      async () => {
+        const stored = await fakeBrowser.storage.local.get('tab-suggestions');
+        return !!stored['tab-suggestions']?.['https://news.com/'];
+      },
+      { timeout: 1000, interval: 10 },
+    );
+
+    expect(llmManager.categorizeTabs).toHaveBeenCalled();
     const stored = await fakeBrowser.storage.local.get('tab-suggestions');
     expect(stored['tab-suggestions']['https://news.com/']).toEqual(['News']);
   });
@@ -156,10 +198,12 @@ describe('Background Script', () => {
     const tabId = 104;
 
     // 1. Tab created normally (no suggestion)
+    vi.mocked(chrome.tabs.get).mockResolvedValue({ id: tabId, url: 'https://a.com' } as any);
     await triggerOnUpdated(tabId, { status: 'complete' }, { id: tabId, url: 'https://a.com' });
-    expect(geminiService.categorizeTabs).not.toHaveBeenCalled();
+    expect(llmManager.categorizeTabs).not.toHaveBeenCalled();
 
     // 2. Navigate to new tab
+    vi.mocked(chrome.tabs.get).mockResolvedValue({ id: tabId, url: 'chrome://newtab/' } as any);
     await triggerOnUpdated(tabId, { url: 'chrome://newtab/' }, { id: tabId, url: 'chrome://newtab/' });
 
     // 3. Navigate to new site
@@ -168,14 +212,30 @@ describe('Background Script', () => {
       url: 'https://b.com',
       title: 'B',
     };
-    (geminiService.categorizeTabs as any).mockResolvedValue(new Map([[tabId, ['B']]]));
+    vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
+
+    (llmManager.categorizeTabs as any).mockImplementation(async (tabs: any, groups: any, onProgress: any) => {
+      const result = new Map([[tabId, ['B']]]);
+      if (onProgress) await onProgress(result);
+      return result;
+    });
 
     await triggerOnUpdated(tabId, { status: 'complete' }, tab);
 
-    expect(geminiService.categorizeTabs).toHaveBeenCalledWith(
+    await vi.waitUntil(
+      async () => {
+        const calls = (llmManager.categorizeTabs as any).mock.calls;
+        if (calls.length === 0) return false;
+        // Also matching specific url if multiple calls happened? Not needed here.
+        return true;
+      },
+      { timeout: 1000, interval: 10 },
+    );
+
+    expect(llmManager.categorizeTabs).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ url: 'https://b.com' })]),
       expect.anything(),
-      undefined,
+      expect.anything(), // onProgress callback
     );
   });
 });

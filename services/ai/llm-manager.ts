@@ -1,44 +1,165 @@
-import type { LLMService, TabData } from '../../types/llm-types';
-import { chromeAIService } from './chrome-ai-service';
-import { geminiService } from './gemini';
-
-export type LLMProvider = 'gemini' | 'chrome-ai';
+import type { LLMModelConfig, LLMProvider, LLMService, LLMStrategyType, TabData } from '../../types/llm-types';
+import { StorageKeys } from '../../utils/storage-keys.js';
+import { CHROME_AI_PROVIDER_ID, CHROME_AI_SERVICE, PROVIDER_CONFIG } from './provider-config';
+import { BatchedLLMStrategy, StandardLLMStrategy } from './strategies';
 
 export class LLMManager implements LLMService {
-  private activeProvider: LLMProvider = 'gemini';
-  private fallbackEnabled = false;
+  private activeProvider: LLMProvider | undefined;
+  private fallbackEnabled: boolean | undefined;
+  private modelConfig: LLMModelConfig = {};
+  private settingsPromise: Promise<void>;
+
+  // Cache for the active service instance
+  private activeService: LLMService | null = null;
+  private lastConfigHash: string = '';
 
   constructor() {
-    this.loadSettings();
+    this.settingsPromise = this.loadSettings();
     chrome.storage.onChanged.addListener(this.handleStorageChange);
   }
 
   private async loadSettings() {
-    const result = await chrome.storage.sync.get(['active-llm-provider', 'llm-fallback-enabled']);
-    this.activeProvider = (result['active-llm-provider'] as LLMProvider) || 'gemini';
-    this.fallbackEnabled = result['llm-fallback-enabled'] === true;
+    try {
+      const result = await chrome.storage.sync.get([
+        StorageKeys.Sync.ACTIVE_LLM_PROVIDER,
+        StorageKeys.Sync.LLM_FALLBACK_ENABLED,
+        StorageKeys.Sync.LLM_STRATEGY_OVERRIDE,
+        StorageKeys.Sync.GEMINI_API_KEY,
+        StorageKeys.Sync.GEMINI_MODEL_ID,
+        StorageKeys.Sync.OPENAI_BASE_URL,
+        StorageKeys.Sync.OPENAI_API_KEY,
+        StorageKeys.Sync.OPENAI_MODEL_ID,
+        StorageKeys.Sync.OPENAI_CUSTOM_BASE_URL,
+        StorageKeys.Sync.OPENAI_CUSTOM_API_KEY,
+        StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID,
+      ]);
+
+      // Only set if not already updated by handleStorageChange (race condition fix)
+      this.activeProvider ??= (result[StorageKeys.Sync.ACTIVE_LLM_PROVIDER] as LLMProvider) || 'gemini';
+      this.fallbackEnabled ??= result[StorageKeys.Sync.LLM_FALLBACK_ENABLED] === true;
+
+      // Update model config with nullish assignment
+      this.modelConfig.strategyOverride ??= result[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE] as
+        | LLMStrategyType
+        | undefined;
+      this.modelConfig.geminiApiKey ??= result[StorageKeys.Sync.GEMINI_API_KEY] as string | undefined;
+      this.modelConfig.geminiModelId ??= result[StorageKeys.Sync.GEMINI_MODEL_ID] as string | undefined;
+      this.modelConfig.openaiBaseUrl ??= result[StorageKeys.Sync.OPENAI_BASE_URL] as string | undefined;
+      this.modelConfig.openaiApiKey ??= result[StorageKeys.Sync.OPENAI_API_KEY] as string | undefined;
+      this.modelConfig.openaiModelId ??= result[StorageKeys.Sync.OPENAI_MODEL_ID] as string | undefined;
+      this.modelConfig.openaiCustomBaseUrl ??= result[StorageKeys.Sync.OPENAI_CUSTOM_BASE_URL] as string | undefined;
+      this.modelConfig.openaiCustomApiKey ??= result[StorageKeys.Sync.OPENAI_CUSTOM_API_KEY] as string | undefined;
+      this.modelConfig.openaiCustomModelId ??= result[StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID] as string | undefined;
+    } catch (e) {
+      console.error('Failed to load settings:', e);
+      throw e;
+    }
   }
 
   private handleStorageChange = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
     if (areaName === 'sync') {
-      if (changes['active-llm-provider']) {
-        this.activeProvider = changes['active-llm-provider'].newValue as LLMProvider;
+      let configChanged = false;
+
+      if (changes[StorageKeys.Sync.ACTIVE_LLM_PROVIDER]) {
+        this.activeProvider = changes[StorageKeys.Sync.ACTIVE_LLM_PROVIDER].newValue as LLMProvider;
+        configChanged = true;
       }
-      if (changes['llm-fallback-enabled']) {
-        this.fallbackEnabled = changes['llm-fallback-enabled'].newValue as boolean;
+      if (changes[StorageKeys.Sync.LLM_FALLBACK_ENABLED]) {
+        this.fallbackEnabled = changes[StorageKeys.Sync.LLM_FALLBACK_ENABLED].newValue as boolean;
+      }
+      if (changes[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE]) {
+        this.modelConfig.strategyOverride = changes[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE].newValue as
+          | LLMStrategyType
+          | undefined;
+        configChanged = true;
+      }
+
+      const configKeys: (keyof LLMModelConfig)[] = [
+        'geminiApiKey',
+        'geminiModelId',
+        'openaiBaseUrl',
+        'openaiApiKey',
+        'openaiModelId',
+        'openaiCustomBaseUrl',
+        'openaiCustomApiKey',
+        'openaiCustomModelId',
+      ];
+
+      for (const key of configKeys) {
+        if (changes[key]) {
+          this.modelConfig[key] = changes[key].newValue as any;
+          configChanged = true;
+        }
+      }
+
+      if (configChanged) {
+        this.activeService = null; // Invalidate cache
       }
     }
   };
 
-  private getService(provider: LLMProvider): LLMService {
-    return provider === 'chrome-ai' ? chromeAIService : geminiService;
+  private createConfigHash(provider: LLMProvider): string {
+    return JSON.stringify({
+      provider,
+      ...this.modelConfig,
+    });
+  }
+
+  private async getService(provider: LLMProvider): Promise<LLMService> {
+    await this.settingsPromise;
+
+    // Return cached service if valid
+    const currentHash = this.createConfigHash(provider);
+    if (this.activeService && this.lastConfigHash === currentHash) {
+      return this.activeService;
+    }
+
+    if (provider === CHROME_AI_PROVIDER_ID) {
+      return CHROME_AI_SERVICE;
+    }
+
+    const definition = PROVIDER_CONFIG[provider];
+    if (!definition) {
+      console.error(`Unknown provider: ${provider}, falling back to Chrome AI`);
+      return CHROME_AI_SERVICE;
+    }
+
+    try {
+      const model = definition.getModel(this.modelConfig);
+      let StrategyClass = definition.defaultStrategy;
+
+      // Apply override if set
+      if (this.modelConfig.strategyOverride === 'standard') {
+        StrategyClass = StandardLLMStrategy;
+      } else if (this.modelConfig.strategyOverride === 'batched') {
+        StrategyClass = BatchedLLMStrategy;
+      }
+
+      const service = new StrategyClass(model);
+
+      // Update cache
+      this.activeService = service;
+      this.lastConfigHash = currentHash;
+
+      return service;
+    } catch (e) {
+      console.error(`Failed to initialize ${provider} service:`, e);
+      return CHROME_AI_SERVICE;
+    }
   }
 
   async isAvailable(): Promise<boolean> {
-    const activeAvailable = await this.getService(this.activeProvider).isAvailable();
-    if (activeAvailable) return true;
-    if (this.fallbackEnabled && this.activeProvider === 'gemini') {
-      return chromeAIService.isAvailable();
+    try {
+      await this.settingsPromise;
+      const service = await this.getService(this.activeProvider!);
+      const activeAvailable = await service.isAvailable();
+      if (activeAvailable) return true;
+    } catch (e) {
+      console.warn(`Active provider ${this.activeProvider} not available:`, e);
+    }
+
+    if (this.fallbackEnabled && this.activeProvider !== CHROME_AI_PROVIDER_ID) {
+      return CHROME_AI_SERVICE.isAvailable();
     }
     return false;
   }
@@ -48,16 +169,14 @@ export class LLMManager implements LLMService {
     fallbackOperation: (service: LLMService) => Promise<T>,
   ): Promise<T> {
     try {
-      const service = this.getService(this.activeProvider);
-      const available = await service.isAvailable();
-      if (!available) throw new Error(`${this.activeProvider} not available`);
+      await this.settingsPromise;
+      const service = await this.getService(this.activeProvider!);
       return await operation(service);
     } catch (error) {
-      if (this.fallbackEnabled && this.activeProvider === 'gemini') {
+      if (this.fallbackEnabled && this.activeProvider !== CHROME_AI_PROVIDER_ID) {
         console.warn('Primary LLM failed, attempting fallback to Chrome AI', error);
-        const fallbackService = chromeAIService;
-        if (await fallbackService.isAvailable()) {
-          return await fallbackOperation(fallbackService);
+        if (await CHROME_AI_SERVICE.isAvailable()) {
+          return await fallbackOperation(CHROME_AI_SERVICE);
         }
       }
       throw error;

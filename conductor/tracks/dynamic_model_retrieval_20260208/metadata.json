@@ -1,0 +1,8 @@
+{
+  "track_id": "dynamic_model_retrieval_20260208",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-02-08T11:00:00Z",
+  "updated_at": "2026-02-08T11:00:00Z",
+  "description": "retrieve the list of models using the vercel ai sdk and populate the datalist input list properly"
+}
