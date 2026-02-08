@@ -75,4 +75,13 @@ describe('LLM Strategies', () => {
       expect(results.get(2)).toEqual(['Batch2']);
     });
   });
+
+  describe('Error Handling', () => {
+    it('should surface validation errors from generateText', async () => {
+      (generateText as any).mockRejectedValue(new Error('Schema validation failed'));
+
+      const strategy = new StandardLLMStrategy(mockModel);
+      await expect(strategy.categorizeTabs(mockTabs, [])).rejects.toThrow('Schema validation failed');
+    });
+  });
 });
