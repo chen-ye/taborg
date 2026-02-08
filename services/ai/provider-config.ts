@@ -1,7 +1,7 @@
 import type { LanguageModel } from 'ai';
 import type { LLMModelConfig, LLMProvider, LLMService } from '../../types/llm-types';
 import { chromeAIService } from './chrome-ai-service';
-import { getGoogleModel, getOpenAIModel } from './providers';
+import { getGoogleModel, getOpenAIModel, getCustomOpenAIModel } from './providers';
 import { StandardLLMStrategy } from './strategies';
 
 interface ProviderDefinition {
@@ -16,6 +16,10 @@ export const PROVIDER_CONFIG: Partial<Record<LLMProvider, ProviderDefinition>> =
   },
   openai: {
     getModel: getOpenAIModel,
+    defaultStrategy: StandardLLMStrategy,
+  },
+  'openai-custom': {
+    getModel: getCustomOpenAIModel,
     defaultStrategy: StandardLLMStrategy,
   },
 };
