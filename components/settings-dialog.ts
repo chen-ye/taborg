@@ -158,6 +158,19 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private chromeAIAvailable = new Signal.State(false);
   private mcpInstanceId = new SettingState<string>('');
 
+  // Model fetching state
+  @state() private geminiModels: string[] = [];
+  @state() private openaiModels: string[] = [];
+  @state() private openaiCustomModels: string[] = [];
+  
+  @state() private geminiLoading = false;
+  @state() private openaiLoading = false;
+  @state() private openaiCustomLoading = false;
+
+  @state() private geminiError: string | null = null;
+  @state() private openaiError: string | null = null;
+  @state() private openaiCustomError: string | null = null;
+
   @state() private mcpEnabled = true;
 
   @state() private mcpStatus: ConnectionStatus = 'disconnected';
@@ -279,6 +292,11 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
     this.loadMcpSettings();
     this.startObservingMcp();
+
+    // Fetch models if keys are present
+    if (this.geminiApiKey.original.get()) this.fetchModels('gemini');
+    if (this.openaiApiKey.original.get()) this.fetchModels('openai');
+    if (this.openaiCustomBaseUrl.original.get()) this.fetchModels('openai-custom');
   }
 
   disconnectedCallback() {
@@ -330,9 +348,18 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     label: string,
     setting: SettingState<string>,
     saveFn: (val: string) => Promise<void>,
-    opts: { type?: 'text' | 'password'; placeholder?: string; helpText?: string; id?: string } = {},
+    opts: { 
+      type?: 'text' | 'password'; 
+      placeholder?: string; 
+      helpText?: string; 
+      id?: string;
+      list?: string;
+      loading?: boolean;
+      error?: string | null;
+      onRefresh?: () => void;
+    } = {},
   ) {
-    const { type = 'text', placeholder, helpText, id } = opts;
+    const { type = 'text', placeholder, helpText, id, list, loading, error, onRefresh } = opts;
 
     return html`
       <div class="setting-row">
@@ -343,6 +370,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
           type=${type}
           placeholder=${ifDefined(placeholder)}
           help-text=${ifDefined(helpText)}
+          list=${ifDefined(list)}
           ?password-toggle=${type === 'password'}
           .value=${setting.current.get()}
           @sl-input=${(e: Event) => setting.update((e.target as SlInput).value)}
@@ -356,7 +384,18 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
               (e.target as HTMLElement).blur();
             }
           }}
-        ></sl-input>
+        >
+           ${error ? html`<sl-icon slot="suffix" name="exclamation-circle" style="color: var(--sl-color-danger-600);" title=${error}></sl-icon>` : ''}
+        </sl-input>
+
+        ${onRefresh ? html`
+          <div class="setting-actions">
+             ${loading 
+               ? html`<sl-spinner style="font-size: var(--sl-font-size-large);"></sl-spinner>`
+               : html`<sl-icon-button name="arrow-clockwise" label="Refresh Models" @click=${onRefresh}></sl-icon-button>`
+             }
+          </div>
+        ` : ''}
 
         <div class="setting-actions">
           ${
@@ -405,6 +444,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
       await chrome.storage.sync.set({ geminiApiKey: trimmed });
+      this.fetchModels('gemini');
     }
   }
 
@@ -416,6 +456,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
       await chrome.storage.sync.set({ openaiApiKey: trimmed });
+      this.fetchModels('openai');
     }
   }
 
@@ -425,12 +466,18 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   private async saveOpenAICustomBaseUrl(url: string) {
     await chrome.storage.sync.set({ openaiCustomBaseUrl: url });
+    if (this.openaiCustomBaseUrl.current.get()) {
+       this.fetchModels('openai-custom');
+    }
   }
 
   private async saveOpenAICustomApiKey(key: string) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
       await chrome.storage.sync.set({ openaiCustomApiKey: trimmed });
+      if (this.openaiCustomBaseUrl.current.get()) {
+         this.fetchModels('openai-custom');
+      }
     }
   }
 
@@ -450,6 +497,51 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     const enabled = (e.target as SlSwitch).checked;
     this.mcpEnabled = enabled;
     await chrome.storage.sync.set({ 'mcp-enabled': enabled });
+  }
+
+  private async fetchModels(provider: string) {
+    let config: any = {};
+    if (provider === 'gemini') {
+      this.geminiLoading = true;
+      this.geminiError = null;
+      config = { geminiApiKey: this.geminiApiKey.current.get() === '****************' ? this.geminiApiKey.original.get() : this.geminiApiKey.current.get() };
+    } else if (provider === 'openai') {
+      this.openaiLoading = true;
+      this.openaiError = null;
+      config = { openaiApiKey: this.openaiApiKey.current.get() === '****************' ? this.openaiApiKey.original.get() : this.openaiApiKey.current.get() };
+    } else if (provider === 'openai-custom') {
+      this.openaiCustomLoading = true;
+      this.openaiCustomError = null;
+      config = { 
+        openaiCustomBaseUrl: this.openaiCustomBaseUrl.current.get(),
+        openaiCustomApiKey: this.openaiCustomApiKey.current.get() === '****************' ? this.openaiCustomApiKey.original.get() : this.openaiCustomApiKey.current.get()
+      };
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({ 
+        type: MessageTypes.FETCH_MODELS, 
+        provider, 
+        config 
+      });
+
+      if (response && response.success) {
+        if (provider === 'gemini') this.geminiModels = response.models;
+        else if (provider === 'openai') this.openaiModels = response.models;
+        else if (provider === 'openai-custom') this.openaiCustomModels = response.models;
+      } else {
+        throw new Error(response?.error || 'Unknown error');
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (provider === 'gemini') this.geminiError = msg;
+      else if (provider === 'openai') this.openaiError = msg;
+      else if (provider === 'openai-custom') this.openaiCustomError = msg;
+    } finally {
+      if (provider === 'gemini') this.geminiLoading = false;
+      else if (provider === 'openai') this.openaiLoading = false;
+      else if (provider === 'openai-custom') this.openaiCustomLoading = false;
+    }
   }
 
   private handleRetryMcp() {
@@ -548,7 +640,14 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
             ${this.renderStringSetting('Model ID', this.geminiModelId, this.saveGeminiModelId.bind(this), {
               placeholder: 'gemini-1.5-flash',
               id: 'gemini-model-input',
+              list: 'gemini-models',
+              loading: this.geminiLoading,
+              error: this.geminiError,
+              onRefresh: () => this.fetchModels('gemini'),
             })}
+            <datalist id="gemini-models">
+              ${this.geminiModels.map(m => html`<option value=${m}></option>`)}
+            </datalist>
         </div>
 
         <div style="display: ${this.activeProvider.current.get() === 'openai' ? 'block' : 'none'}">
@@ -564,7 +663,14 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
             ${this.renderStringSetting('Model ID', this.openaiModelId, this.saveOpenAIModelId.bind(this), {
               placeholder: 'gpt-4o',
               id: 'openai-model-input',
+              list: 'openai-models',
+              loading: this.openaiLoading,
+              error: this.openaiError,
+              onRefresh: () => this.fetchModels('openai'),
             })}
+            <datalist id="openai-models">
+              ${this.openaiModels.map(m => html`<option value=${m}></option>`)}
+            </datalist>
         </div>
 
         <div style="display: ${this.activeProvider.current.get() === 'openai-custom' ? 'block' : 'none'}">
@@ -586,7 +692,14 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
             ${this.renderStringSetting('Model ID', this.openaiCustomModelId, this.saveOpenAICustomModelId.bind(this), {
               placeholder: 'gpt-4o or llama3',
               id: 'openai-custom-model-input',
+              list: 'openai-custom-models',
+              loading: this.openaiCustomLoading,
+              error: this.openaiCustomError,
+              onRefresh: () => this.fetchModels('openai-custom'),
             })}
+            <datalist id="openai-custom-models">
+              ${this.openaiCustomModels.map(m => html`<option value=${m}></option>`)}
+            </datalist>
         </div>
 
         <div class="section-title">General AI Settings</div>
