@@ -1,11 +1,11 @@
 # Implementation Plan: Dynamic Model Retrieval
 
-## Phase 1: Model Fetching Logic (TDD)
-- [~] Task: Implement `listModels` for Gemini, OpenAI, and OpenAI-Compatible in `services/ai/providers.ts`
-    - [ ] Write unit tests in `services/ai/providers.test.ts` to verify model retrieval logic (mocking SDK calls)
-    - [ ] Implement `listGoogleModels(config)`, `listOpenAIModels(config)`, and `listCustomModels(config)`
-- [~] Task: Add `FETCH_MODELS` message type and handle it in the background script/offscreen if necessary
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Model Fetching Logic' (Protocol in workflow.md)
+## Phase 1: Model Fetching Logic (TDD) [checkpoint: 6558257]
+- [x] Task: Implement `listModels` for Gemini, OpenAI, and OpenAI-Compatible in `services/ai/providers.ts` 32565df
+    - [x] Write unit tests in `services/ai/providers.test.ts` to verify model retrieval logic (mocking SDK calls)
+    - [x] Implement `listGoogleModels(config)`, `listOpenAIModels(config)`, and `listCustomModels(config)`
+- [x] Task: Add `FETCH_MODELS` message type and handle it in the background script/offscreen if necessary 32565df
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Model Fetching Logic' (Protocol in workflow.md)
 
 ## Phase 2: Settings Dialog Integration
 - [ ] Task: Update `SettingsDialog` state to manage model lists, loading status, and errors for each provider
