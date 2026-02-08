@@ -2,8 +2,8 @@
 
 ## Phase 1: Types and Provider Logic (TDD)
 - [x] Task: Update `LLMProvider` and `LLMModelConfig` interfaces in `types/llm-types.ts` 3458a96
-- [ ] Task: Update `getOpenAIModel` and implement `getCustomOpenAIModel` in `services/ai/providers.ts`
-    - [ ] Create/Update unit tests in `services/ai/providers.test.ts` to verify provider initialization
+- [x] Task: Update `getOpenAIModel` and implement `getCustomOpenAIModel` in `services/ai/providers.ts` 20e81fa
+    - [x] Create/Update unit tests in `services/ai/providers.test.ts` to verify provider initialization
 - [ ] Task: Update `PROVIDER_CONFIG` in `services/ai/provider-config.ts` to include `openai-custom`
 - [ ] Task: Update `LLMManager` in `services/ai/llm-manager.ts` to handle new configuration keys and the `openai-custom` provider
     - [ ] Update unit tests in `services/ai/llm-manager.test.ts`
