@@ -1,9 +1,6 @@
-import { generateObject, type LanguageModel } from 'ai';
+import { generateText, Output, type LanguageModel } from 'ai';
 import type { LLMService, TabData } from '../../types/llm-types';
 import {
-  CategorizationSchema,
-  SimilaritySchema,
-  WindowNameSchema,
   CategorizationSchemaType,
   SimilaritySchemaType,
   WindowNameSchemaType
@@ -30,9 +27,9 @@ export class StandardLLMStrategy implements LLMService {
     const predefinedGroups = (result['predefined-groups'] as string[]) || [];
     const allGroups = Array.from(new Set([...predefinedGroups, ...existingGroups]));
 
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model: this.model,
-      schema: CategorizationSchemaType,
+      output: Output.object({ schema: CategorizationSchemaType }),
       prompt: `
         You are a helpful assistant that organizes browser tabs.
 
@@ -49,7 +46,7 @@ export class StandardLLMStrategy implements LLMService {
     });
 
     const resultMap = new Map<number, string[]>();
-    for (const item of object.suggestions) {
+    for (const item of output.suggestions) {
       resultMap.set(Number(item.tabId), item.groupNames);
     }
     if (onProgress) {
@@ -59,9 +56,9 @@ export class StandardLLMStrategy implements LLMService {
   }
 
   async findSimilarTabs(referenceTab: TabData, candidateTabs: TabData[]): Promise<number[]> {
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model: this.model,
-      schema: SimilaritySchemaType,
+      output: Output.object({ schema: SimilaritySchemaType }),
       prompt: `
         You are a helpful assistant that identifies similar browser tabs.
 
@@ -79,13 +76,13 @@ export class StandardLLMStrategy implements LLMService {
       `,
     });
 
-    return object.similarTabIds || [];
+    return output.similarTabIds || [];
   }
 
   async generateWindowName(tabs: TabData[], groups: string[]): Promise<string> {
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model: this.model,
-      schema: WindowNameSchemaType,
+      output: Output.object({ schema: WindowNameSchemaType }),
       prompt: `
         You are a helpful assistant that names browser windows.
 
@@ -102,7 +99,7 @@ export class StandardLLMStrategy implements LLMService {
       `,
     });
 
-    return object.windowName || '';
+    return output.windowName || '';
   }
 }
 
@@ -135,9 +132,9 @@ export class BatchedLLMStrategy implements LLMService {
     for (let i = 0; i < tabs.length; i += this.batchSize) {
       const batch = tabs.slice(i, i + this.batchSize);
       
-      const { object } = await generateObject({
+      const { output } = await generateText({
         model: this.model,
-        schema: CategorizationSchemaType,
+        output: Output.object({ schema: CategorizationSchemaType }),
         system: `
           You are a browser tab organizer.
           Rules:
@@ -154,7 +151,7 @@ export class BatchedLLMStrategy implements LLMService {
       });
 
       const batchResults = new Map<number, string[]>();
-      for (const item of object.suggestions) {
+      for (const item of output.suggestions) {
         batchResults.set(Number(item.tabId), item.groupNames);
         resultMap.set(Number(item.tabId), item.groupNames);
       }
@@ -173,9 +170,9 @@ export class BatchedLLMStrategy implements LLMService {
     for (let i = 0; i < candidateTabs.length; i += this.batchSize) {
       const batch = candidateTabs.slice(i, i + this.batchSize);
 
-      const { object } = await generateObject({
+      const { output } = await generateText({
         model: this.model,
-        schema: SimilaritySchemaType,
+        output: Output.object({ schema: SimilaritySchemaType }),
         system: `Identify candidates similar to the reference (topic/domain/task).`,
         prompt: `
           Reference Tab: { "title": "${referenceTab.title}", "url": "${referenceTab.url}" }
@@ -183,8 +180,8 @@ export class BatchedLLMStrategy implements LLMService {
         `,
       });
 
-      if (object.similarTabIds) {
-        allSimilarIds.push(...object.similarTabIds);
+      if (output.similarTabIds) {
+        allSimilarIds.push(...output.similarTabIds);
       }
     }
 
@@ -196,9 +193,9 @@ export class BatchedLLMStrategy implements LLMService {
     // but we can limit the number of tabs we describe to the model.
     const limitedTabs = tabs.slice(0, 20); 
 
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model: this.model,
-      schema: WindowNameSchemaType,
+      output: Output.object({ schema: WindowNameSchemaType }),
       system: `Suggest a short (1-3 words) window name.`,
       prompt: `
         Tabs: ${JSON.stringify(limitedTabs.map((t) => ({ title: t.title, url: t.url })))}
@@ -206,6 +203,6 @@ export class BatchedLLMStrategy implements LLMService {
       `,
     });
 
-    return object.windowName || '';
+    return output.windowName || '';
   }
 }

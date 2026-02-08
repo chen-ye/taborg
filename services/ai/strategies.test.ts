@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StandardLLMStrategy, BatchedLLMStrategy } from './strategies';
-import { generateObject } from 'ai';
+import { generateText, Output } from 'ai';
 import { TabData } from '../../types/llm-types';
 
 vi.mock('ai', () => ({
-  generateObject: vi.fn(),
+  generateText: vi.fn(),
+  Output: {
+    object: vi.fn(),
+  },
 }));
 
 // Mock chrome storage
@@ -30,8 +33,8 @@ describe('LLM Strategies', () => {
 
   describe('StandardLLMStrategy', () => {
     it('should categorize tabs in a single request', async () => {
-      (generateObject as any).mockResolvedValue({
-        object: {
+      (generateText as any).mockResolvedValue({
+        output: {
           suggestions: [
             { tabId: 1, groupNames: ['Search'] },
             { tabId: 2, groupNames: ['Search'] },
@@ -42,7 +45,7 @@ describe('LLM Strategies', () => {
       const strategy = new StandardLLMStrategy(mockModel);
       const results = await strategy.categorizeTabs(mockTabs, []);
 
-      expect(generateObject).toHaveBeenCalledTimes(1);
+      expect(generateText).toHaveBeenCalledTimes(1);
       expect(results.get(1)).toEqual(['Search']);
       expect(results.get(2)).toEqual(['Search']);
     });
@@ -50,16 +53,16 @@ describe('LLM Strategies', () => {
 
   describe('BatchedLLMStrategy', () => {
     it('should categorize tabs in batches', async () => {
-      (generateObject as any).mockResolvedValue({
-        object: {
+      (generateText as any).mockResolvedValue({
+        output: {
           suggestions: [{ tabId: 1, groupNames: ['Batch1'] }],
         },
       }).mockResolvedValueOnce({
-        object: {
+        output: {
           suggestions: [{ tabId: 1, groupNames: ['Batch1'] }],
         },
       }).mockResolvedValueOnce({
-        object: {
+        output: {
           suggestions: [{ tabId: 2, groupNames: ['Batch2'] }],
         },
       });
@@ -67,7 +70,7 @@ describe('LLM Strategies', () => {
       const strategy = new BatchedLLMStrategy(mockModel, 1); // Batch size 1
       const results = await strategy.categorizeTabs(mockTabs, []);
 
-      expect(generateObject).toHaveBeenCalledTimes(2);
+      expect(generateText).toHaveBeenCalledTimes(2);
       expect(results.get(1)).toEqual(['Batch1']);
       expect(results.get(2)).toEqual(['Batch2']);
     });
