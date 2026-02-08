@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LLMManager } from './llm-manager';
-import { getGoogleModel, getOpenAIModel } from './providers';
+import { getGoogleModel, getOpenAIModel, getCustomOpenAIModel } from './providers';
 import { BatchedLLMStrategy, StandardLLMStrategy } from './strategies';
 
 // Mock objects with vi.hoisted
@@ -16,6 +16,7 @@ const { mockChromeAIService } = vi.hoisted(() => ({
 vi.mock('./providers', () => ({
   getGoogleModel: vi.fn(),
   getOpenAIModel: vi.fn(),
+  getCustomOpenAIModel: vi.fn(),
 }));
 
 vi.mock('./strategies', () => ({
@@ -64,6 +65,7 @@ describe('LLMManager', () => {
     
     vi.mocked(getGoogleModel).mockReturnValue({} as any);
     vi.mocked(getOpenAIModel).mockReturnValue({} as any);
+    vi.mocked(getCustomOpenAIModel).mockReturnValue({} as any);
 
     manager = new LLMManager();
   });
@@ -79,6 +81,27 @@ describe('LLMManager', () => {
     expect(getGoogleModel).toHaveBeenCalled();
     expect(StandardLLMStrategy).toHaveBeenCalled();
     expect(results.get(1)).toEqual(['G']);
+  });
+
+  it('should use openai-custom provider', async () => {
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({ 
+      'active-llm-provider': 'openai-custom', 
+      'openaiCustomBaseUrl': 'http://custom:11434/v1'
+    } as any);
+
+    const mockStrategyInstance = {
+      isAvailable: vi.fn().mockResolvedValue(true),
+      categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['C']]])),
+    };
+    vi.mocked(StandardLLMStrategy).mockImplementation(function() { return mockStrategyInstance as any; });
+
+    manager = new LLMManager();
+    const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
+    
+    expect(getCustomOpenAIModel).toHaveBeenCalledWith(expect.objectContaining({
+      openaiCustomBaseUrl: 'http://custom:11434/v1'
+    }));
+    expect(results.get(1)).toEqual(['C']);
   });
 
   it('should apply strategy override', async () => {

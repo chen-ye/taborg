@@ -27,6 +27,9 @@ export class LLMManager implements LLMService {
       'openaiBaseUrl',
       'openaiApiKey',
       'openaiModelId',
+      'openaiCustomBaseUrl',
+      'openaiCustomApiKey',
+      'openaiCustomModelId',
     ]);
     
     // Only set if not already updated by handleStorageChange (race condition fix)
@@ -40,6 +43,9 @@ export class LLMManager implements LLMService {
     this.modelConfig.openaiBaseUrl ??= result.openaiBaseUrl as string | undefined;
     this.modelConfig.openaiApiKey ??= result.openaiApiKey as string | undefined;
     this.modelConfig.openaiModelId ??= result.openaiModelId as string | undefined;
+    this.modelConfig.openaiCustomBaseUrl ??= result.openaiCustomBaseUrl as string | undefined;
+    this.modelConfig.openaiCustomApiKey ??= result.openaiCustomApiKey as string | undefined;
+    this.modelConfig.openaiCustomModelId ??= result.openaiCustomModelId as string | undefined;
   }
 
   private handleStorageChange = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
@@ -60,7 +66,8 @@ export class LLMManager implements LLMService {
       
       const configKeys: (keyof LLMModelConfig)[] = [
         'geminiApiKey', 'geminiModelId', 
-        'openaiBaseUrl', 'openaiApiKey', 'openaiModelId'
+        'openaiBaseUrl', 'openaiApiKey', 'openaiModelId',
+        'openaiCustomBaseUrl', 'openaiCustomApiKey', 'openaiCustomModelId'
       ];
 
       for (const key of configKeys) {
