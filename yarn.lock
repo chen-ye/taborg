@@ -40,6 +40,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ai-sdk/openai-compatible@npm:^2.0.28":
+  version: 2.0.28
+  resolution: "@ai-sdk/openai-compatible@npm:2.0.28"
+  dependencies:
+    "@ai-sdk/provider": "npm:3.0.8"
+    "@ai-sdk/provider-utils": "npm:4.0.14"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10c0/d8e18727dd90e2bda0278b18c4364ccb8f6711bae22de028c566c1c1b039997b78cfcd0d92d4993c88a72878b8e5a0a13ec462ec4b0e976795842ffbe87ed0f6
+  languageName: node
+  linkType: hard
+
 "@ai-sdk/openai@npm:^3.0.25":
   version: 3.0.25
   resolution: "@ai-sdk/openai@npm:3.0.25"
@@ -65,12 +77,34 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ai-sdk/provider-utils@npm:4.0.14":
+  version: 4.0.14
+  resolution: "@ai-sdk/provider-utils@npm:4.0.14"
+  dependencies:
+    "@ai-sdk/provider": "npm:3.0.8"
+    "@standard-schema/spec": "npm:^1.1.0"
+    eventsource-parser: "npm:^3.0.6"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10c0/613ec8c9efb2b3a5fd0083319e0e54e66737c071a0a7957be8248a23533325ba7a26149393a850a8e38c01bf62fe706f776687e01c3513d7558475a2856ca06e
+  languageName: node
+  linkType: hard
+
 "@ai-sdk/provider@npm:3.0.7":
   version: 3.0.7
   resolution: "@ai-sdk/provider@npm:3.0.7"
   dependencies:
     json-schema: "npm:^0.4.0"
   checksum: 10c0/2ff19daf26fb725857c5f1f28190c49878b84113aa5b551707814e98a8cddf104bd4549b2f491aa5ff07fe0cc2fd327429613f13fca5f83509775763a0474a9e
+  languageName: node
+  linkType: hard
+
+"@ai-sdk/provider@npm:3.0.8":
+  version: 3.0.8
+  resolution: "@ai-sdk/provider@npm:3.0.8"
+  dependencies:
+    json-schema: "npm:^0.4.0"
+  checksum: 10c0/c68637c0139a6ce8af17bac1d7d539f531860026237c5c971dcecda2daa8b1e42d8c05e1e664ece60c15edb325c0253fd5b091ee54d32f870a750a493acbb0b7
   languageName: node
   linkType: hard
 
@@ -6320,6 +6354,7 @@ __metadata:
   dependencies:
     "@ai-sdk/google": "npm:^3.0.21"
     "@ai-sdk/openai": "npm:^3.0.25"
+    "@ai-sdk/openai-compatible": "npm:^2.0.28"
     "@biomejs/biome": "npm:^2.3.13"
     "@google/genai": "npm:^1.38.0"
     "@lit-labs/signals": "npm:^0.2.0"
