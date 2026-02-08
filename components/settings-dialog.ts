@@ -145,9 +145,11 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   // Use signals for granular state
   private geminiApiKey = new SettingState<string>('');
   private geminiModelId = new SettingState<string>('gemini-1.5-flash');
-  private openaiBaseUrl = new SettingState<string>('');
   private openaiApiKey = new SettingState<string>('');
   private openaiModelId = new SettingState<string>('gpt-4o');
+  private openaiCustomBaseUrl = new SettingState<string>('');
+  private openaiCustomApiKey = new SettingState<string>('');
+  private openaiCustomModelId = new SettingState<string>('gpt-4o');
   private predefinedGroups = new SettingState<string>('');
   private activeProvider = new SettingState<string>('gemini');
   private strategyOverride = new SettingState<LLMStrategyType>('default');
@@ -187,9 +189,11 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     const result = await chrome.storage.sync.get([
       'geminiApiKey',
       'geminiModelId',
-      'openaiBaseUrl',
       'openaiApiKey',
       'openaiModelId',
+      'openaiCustomBaseUrl',
+      'openaiCustomApiKey',
+      'openaiCustomModelId',
       'predefined-groups',
       'active-llm-provider',
       'llm-strategy-override',
@@ -206,10 +210,6 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
       this.geminiModelId.original.set(result.geminiModelId as string);
       this.geminiModelId.current.set(result.geminiModelId as string);
     }
-    if (result.openaiBaseUrl) {
-      this.openaiBaseUrl.original.set(result.openaiBaseUrl as string);
-      this.openaiBaseUrl.current.set(result.openaiBaseUrl as string);
-    }
     if (result.openaiApiKey) {
       this.openaiApiKey.original.set(result.openaiApiKey as string);
       this.openaiApiKey.current.set('****************'); // Mask the key for display
@@ -217,6 +217,19 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     if (result.openaiModelId) {
       this.openaiModelId.original.set(result.openaiModelId as string);
       this.openaiModelId.current.set(result.openaiModelId as string);
+    }
+
+    if (result.openaiCustomBaseUrl) {
+      this.openaiCustomBaseUrl.original.set(result.openaiCustomBaseUrl as string);
+      this.openaiCustomBaseUrl.current.set(result.openaiCustomBaseUrl as string);
+    }
+    if (result.openaiCustomApiKey) {
+      this.openaiCustomApiKey.original.set(result.openaiCustomApiKey as string);
+      this.openaiCustomApiKey.current.set('****************'); // Mask the key for display
+    }
+    if (result.openaiCustomModelId) {
+      this.openaiCustomModelId.original.set(result.openaiCustomModelId as string);
+      this.openaiCustomModelId.current.set(result.openaiCustomModelId as string);
     }
 
     if (result['active-llm-provider']) {
@@ -399,10 +412,6 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     await chrome.storage.sync.set({ geminiModelId: id });
   }
 
-  private async saveOpenAIBaseUrl(url: string) {
-    await chrome.storage.sync.set({ openaiBaseUrl: url });
-  }
-
   private async saveOpenAIApiKey(key: string) {
     const trimmed = key.trim();
     if (trimmed && trimmed !== '****************') {
@@ -412,6 +421,21 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   private async saveOpenAIModelId(id: string) {
     await chrome.storage.sync.set({ openaiModelId: id });
+  }
+
+  private async saveOpenAICustomBaseUrl(url: string) {
+    await chrome.storage.sync.set({ openaiCustomBaseUrl: url });
+  }
+
+  private async saveOpenAICustomApiKey(key: string) {
+    const trimmed = key.trim();
+    if (trimmed && trimmed !== '****************') {
+      await chrome.storage.sync.set({ openaiCustomApiKey: trimmed });
+    }
+  }
+
+  private async saveOpenAICustomModelId(id: string) {
+    await chrome.storage.sync.set({ openaiCustomModelId: id });
   }
 
   private async savePredefinedGroups(groupsText: string) {
@@ -466,7 +490,8 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
                 class="setting-input"
             >
                 <sl-option value="gemini">Gemini API</sl-option>
-                <sl-option value="openai">OpenAI Compatible API</sl-option>
+                <sl-option value="openai">OpenAI API</sl-option>
+                <sl-option value="openai-custom">OpenAI (Custom)</sl-option>
                 <sl-option value="chrome-ai" ?disabled=${!this.chromeAIAvailable.get()}>
                     Chrome Built-in AI ${!this.chromeAIAvailable.get() ? '(Not Available)' : ''}
                 </sl-option>
@@ -510,40 +535,59 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
              ${this.renderStatus(this.fallbackEnabled)}
         </div>
 
-        <div class="section-title">Gemini API</div>
-        <p>Use Google's <a href="https://aistudio.google.com/app/api-keys">Gemini API</a> for powerful organization.</p>
+        <div style="display: ${this.activeProvider.current.get() === 'gemini' ? 'block' : 'none'}">
+          <div class="section-title">Gemini API</div>
+          <p>Use Google's <a href="https://aistudio.google.com/app/api-keys">Gemini API</a> for powerful organization.</p>
 
-          ${this.renderStringSetting('API Key', this.geminiApiKey, this.saveApiKey.bind(this), {
-            type: 'password',
-            placeholder: 'AIza...',
-            id: 'api-key-input',
-          })}
+            ${this.renderStringSetting('API Key', this.geminiApiKey, this.saveApiKey.bind(this), {
+              type: 'password',
+              placeholder: 'AIza...',
+              id: 'api-key-input',
+            })}
 
-          ${this.renderStringSetting('Model ID', this.geminiModelId, this.saveGeminiModelId.bind(this), {
-            placeholder: 'gemini-1.5-flash',
-            id: 'gemini-model-input',
-          })}
+            ${this.renderStringSetting('Model ID', this.geminiModelId, this.saveGeminiModelId.bind(this), {
+              placeholder: 'gemini-1.5-flash',
+              id: 'gemini-model-input',
+            })}
+        </div>
 
-        <div class="section-title">OpenAI Compatible API</div>
-        <p>Use local models (Ollama, LocalAI) or other OpenAI-compatible services.</p>
+        <div style="display: ${this.activeProvider.current.get() === 'openai' ? 'block' : 'none'}">
+          <div class="section-title">OpenAI API</div>
+          <p>Use standard OpenAI services (requires API key).</p>
 
-          ${this.renderStringSetting('Base URL', this.openaiBaseUrl, this.saveOpenAIBaseUrl.bind(this), {
-            placeholder: 'http://localhost:11434/v1',
-            id: 'openai-url-input',
-            helpText: 'Optional for some services',
-          })}
+            ${this.renderStringSetting('API Key', this.openaiApiKey, this.saveOpenAIApiKey.bind(this), {
+              type: 'password',
+              placeholder: 'sk-...',
+              id: 'openai-key-input',
+            })}
 
-          ${this.renderStringSetting('API Key', this.openaiApiKey, this.saveOpenAIApiKey.bind(this), {
-            type: 'password',
-            placeholder: 'sk-...',
-            id: 'openai-key-input',
-            helpText: 'Not needed for most local services',
-          })}
+            ${this.renderStringSetting('Model ID', this.openaiModelId, this.saveOpenAIModelId.bind(this), {
+              placeholder: 'gpt-4o',
+              id: 'openai-model-input',
+            })}
+        </div>
 
-          ${this.renderStringSetting('Model ID', this.openaiModelId, this.saveOpenAIModelId.bind(this), {
-            placeholder: 'gpt-4o or llama3',
-            id: 'openai-model-input',
-          })}
+        <div style="display: ${this.activeProvider.current.get() === 'openai-custom' ? 'block' : 'none'}">
+          <div class="section-title">OpenAI (Custom)</div>
+          <p>Use local models (Ollama, LocalAI) or other OpenAI-compatible services.</p>
+
+            ${this.renderStringSetting('Base URL', this.openaiCustomBaseUrl, this.saveOpenAICustomBaseUrl.bind(this), {
+              placeholder: 'http://localhost:11434/v1',
+              id: 'openai-custom-url-input',
+            })}
+
+            ${this.renderStringSetting('API Key', this.openaiCustomApiKey, this.saveOpenAICustomApiKey.bind(this), {
+              type: 'password',
+              placeholder: 'sk-...',
+              id: 'openai-custom-key-input',
+              helpText: 'Not needed for most local services',
+            })}
+
+            ${this.renderStringSetting('Model ID', this.openaiCustomModelId, this.saveOpenAICustomModelId.bind(this), {
+              placeholder: 'gpt-4o or llama3',
+              id: 'openai-custom-model-input',
+            })}
+        </div>
 
         <div class="section-title">General AI Settings</div>
 
