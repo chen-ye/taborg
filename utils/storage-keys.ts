@@ -13,6 +13,7 @@ export const StorageKeys = {
     OPENAI_CUSTOM_BASE_URL: 'openaiCustomBaseUrl',
     OPENAI_CUSTOM_API_KEY: 'openaiCustomApiKey',
     OPENAI_CUSTOM_MODEL_ID: 'openaiCustomModelId',
+    PROVIDER_ORDER: 'provider-order',
     MCP_ENABLED: 'mcp-enabled',
   },
   Local: {

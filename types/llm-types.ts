@@ -40,4 +40,9 @@ export type JsonSchema = {
   description?: string;
 };
 
+export interface ProviderSetting {
+  id: LLMProvider;
+  enabled: boolean;
+}
+
 export type AutoCategorizationMode = 'off' | 'initial' | 'always';

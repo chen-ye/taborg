@@ -2,7 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import type { ConnectionStatus } from '../services/mcp/mcp-connection.js';
-import type { AutoCategorizationMode, LLMStrategyType } from '../types/llm-types.js';
+import type { AutoCategorizationMode, LLMProvider, LLMStrategyType, ProviderSetting } from '../types/llm-types.js';
 import { MessageTypes } from '../utils/message-types.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -13,6 +13,7 @@ import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
+import '@shoelace-style/shoelace/dist/components/details/details.js';
 import type { SlDialog, SlInput, SlSelect, SlSwitch } from '@shoelace-style/shoelace';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { Signal } from 'signal-polyfill';
@@ -135,6 +136,113 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
        color: var(--sl-color-danger-600);
     }
 
+    /* Provider Accordion Styles */
+    .provider-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--sl-spacing-small);
+    }
+
+    .provider-wrapper {
+        transition: opacity 0.2s;
+    }
+
+    .provider-wrapper.dragging {
+        opacity: 0.5;
+    }
+
+    /* Customizing sl-details to look integrated */
+    .provider-details {
+        border: 1px solid var(--sl-color-neutral-200);
+        border-radius: var(--sl-border-radius-medium);
+        overflow: hidden;
+        background: var(--sl-color-neutral-0);
+    }
+
+    .provider-details::part(base) {
+        border: none;
+    }
+
+    .provider-details::part(header) {
+        background: var(--sl-color-neutral-50);
+    }
+
+    .provider-details::part(header):hover {
+        background: var(--sl-color-neutral-100);
+    }
+
+    .provider-details::part(content) {
+        padding: 0;
+        border-top: 1px solid var(--sl-color-neutral-200);
+    }
+
+    /* Using slot="summary" allows full control of the header layout */
+    .provider-summary {
+        display: flex;
+        align-items: center;
+        gap: var(--sl-spacing-small);
+        width: 100%;
+    }
+
+    .drag-handle {
+        color: var(--sl-color-neutral-400);
+        cursor: grab;
+        display: flex;
+        align-items: center;
+    }
+
+    .drag-handle:active {
+        cursor: grabbing;
+    }
+
+    .provider-name {
+        flex: 1;
+        font-weight: var(--sl-font-weight-semibold);
+        color: var(--sl-color-neutral-700);
+    }
+
+    .provider-controls {
+        display: flex;
+        align-items: center;
+        gap: var(--sl-spacing-x-small);
+    }
+
+    /* Hide default toggle icon since we might want our own or rely on valid details behavior?
+       Actually sl-details puts a chevron on the right by default.
+       Let's hide the default one if we want a custom look, or keep it.
+       The user wants 'accordion', standard sl-details has a chevron.
+       We can hide it if we want to clean up the right side or just let it be.
+       Let's keep it but ensure it doesn't conflict with our switch.
+    */
+    .provider-details::part(summary-icon) {
+        margin-left: var(--sl-spacing-small);
+    }
+
+    .provider-content-wrapper {
+        padding: var(--sl-spacing-medium);
+        display: flex;
+        flex-direction: column;
+        gap: var(--sl-spacing-small);
+    }
+
+    .sort-buttons {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .sort-btn {
+        font-size: 16px;
+        color: var(--sl-color-neutral-500);
+        padding: 0;
+        margin: 0;
+        line-height: 0.8;
+    }
+
+    .sort-btn::part(base) {
+        padding: 0;
+    }
+
     @keyframes fade-in {
       from { opacity: 0; transform: scale(0.8); }
       to { opacity: 1; transform: scale(1); }
@@ -152,12 +260,17 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private openaiCustomApiKey = new SettingState<string>('');
   private openaiCustomModelId = new SettingState<string>('gpt-4o');
   private predefinedGroups = new SettingState<string>('');
-  private activeProvider = new SettingState<string>('gemini');
+
+  // New Provider Order State
+  private providerOrder = new SettingState<ProviderSetting[]>([]);
+
   private strategyOverride = new SettingState<LLMStrategyType>('default');
-  private fallbackEnabled = new SettingState<boolean>(false);
   private autoCategorizationMode = new SettingState<AutoCategorizationMode>('initial');
   private chromeAIAvailable = new Signal.State(false);
   private mcpInstanceId = new SettingState<string>('');
+
+  // UI State for expansion
+  @state() private expandedProviders: Set<string> = new Set();
 
   // Model fetching state
   @state() private geminiModels: string[] = [];
@@ -176,6 +289,9 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   @state() private mcpStatus: ConnectionStatus = 'disconnected';
   @state() private mcpError: string | null = null;
+
+  // Drag and drop state
+  @state() private draggingIndex: number | null = null;
 
   @query('sl-dialog') dialog!: SlDialog;
   @query('#mcp-enabled-switch') mcpEnabledSwitch!: SlSwitch;
@@ -209,9 +325,8 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
       StorageKeys.Sync.OPENAI_CUSTOM_API_KEY,
       StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID,
       StorageKeys.Sync.PREDEFINED_GROUPS,
-      StorageKeys.Sync.ACTIVE_LLM_PROVIDER,
+      StorageKeys.Sync.PROVIDER_ORDER,
       StorageKeys.Sync.LLM_STRATEGY_OVERRIDE,
-      StorageKeys.Sync.LLM_FALLBACK_ENABLED,
       StorageKeys.Sync.AUTO_CATEGORIZATION_MODE,
       StorageKeys.Local.MCP_INSTANCE_ID,
     ]);
@@ -246,18 +361,26 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
       this.openaiCustomModelId.current.set(result[StorageKeys.Sync.OPENAI_CUSTOM_MODEL_ID] as string);
     }
 
-    if (result[StorageKeys.Sync.ACTIVE_LLM_PROVIDER]) {
-      this.activeProvider.original.set(result[StorageKeys.Sync.ACTIVE_LLM_PROVIDER] as string);
-      this.activeProvider.current.set(result[StorageKeys.Sync.ACTIVE_LLM_PROVIDER] as string);
+    if (result[StorageKeys.Sync.PROVIDER_ORDER]) {
+      const order = result[StorageKeys.Sync.PROVIDER_ORDER] as ProviderSetting[];
+      this.providerOrder.original.set(order);
+      this.providerOrder.current.set(order);
+    } else {
+      // Fallback default if not yet initialized/migrated (though LLMManager handles migration)
+      const defaultOrder: ProviderSetting[] = [
+        { id: 'gemini', enabled: true },
+        { id: 'openai', enabled: false },
+        { id: 'openai-custom', enabled: false },
+        { id: 'chrome-ai', enabled: false },
+      ];
+      this.providerOrder.original.set(defaultOrder);
+      this.providerOrder.current.set(defaultOrder);
     }
+
     if (result[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE]) {
       const override = result[StorageKeys.Sync.LLM_STRATEGY_OVERRIDE] as LLMStrategyType;
       this.strategyOverride.original.set(override);
       this.strategyOverride.current.set(override);
-    }
-    if (result[StorageKeys.Sync.LLM_FALLBACK_ENABLED]) {
-      this.fallbackEnabled.original.set(!!result[StorageKeys.Sync.LLM_FALLBACK_ENABLED]);
-      this.fallbackEnabled.current.set(!!result[StorageKeys.Sync.LLM_FALLBACK_ENABLED]);
     }
 
     const mode = (result[StorageKeys.Sync.AUTO_CATEGORIZATION_MODE] as AutoCategorizationMode) || 'initial';
@@ -330,6 +453,12 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
         this.mcpError = changes[StorageKeys.Session.MCP_ERROR].newValue as string | null;
       }
     }
+    // Update provider order if changed externally
+    if (areaName === 'sync' && changes[StorageKeys.Sync.PROVIDER_ORDER]) {
+      const newOrder = changes[StorageKeys.Sync.PROVIDER_ORDER].newValue as ProviderSetting[];
+      this.providerOrder.original.set(newOrder);
+      this.providerOrder.current.set(newOrder);
+    }
   };
 
   private handleOpenSettings = () => {
@@ -343,6 +472,10 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   // Custom save for instance ID
   private async saveMcpInstanceId(id: string) {
     await chrome.storage.local.set({ [StorageKeys.Local.MCP_INSTANCE_ID]: id });
+  }
+
+  private async saveProviderOrder(order: ProviderSetting[]) {
+    await chrome.storage.sync.set({ [StorageKeys.Sync.PROVIDER_ORDER]: order });
   }
 
   // Generic render helper for text settings
@@ -581,35 +714,260 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     }
   }
 
+  // Provider List Helpers
+
+  private toggleProviderExpanded(id: string, isOpen: boolean) {
+    const newSet = new Set(this.expandedProviders);
+    if (!isOpen) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    this.expandedProviders = newSet;
+  }
+
+  private async toggleProviderEnabled(id: LLMProvider, enabled: boolean) {
+    const currentOrder = [...this.providerOrder.current.get()];
+    const index = currentOrder.findIndex((p) => p.id === id);
+    if (index > -1) {
+      currentOrder[index] = { ...currentOrder[index], enabled };
+      this.providerOrder.update(currentOrder);
+      await this.providerOrder.save(this.saveProviderOrder.bind(this));
+    }
+  }
+
+  private moveProvider(index: number, direction: 'up' | 'down') {
+    const currentOrder = [...this.providerOrder.current.get()];
+    if (direction === 'up' && index > 0) {
+      [currentOrder[index], currentOrder[index - 1]] = [currentOrder[index - 1], currentOrder[index]];
+    } else if (direction === 'down' && index < currentOrder.length - 1) {
+      [currentOrder[index], currentOrder[index + 1]] = [currentOrder[index + 1], currentOrder[index]];
+    } else {
+      return;
+    }
+
+    this.providerOrder.update(currentOrder);
+    this.providerOrder.save(this.saveProviderOrder.bind(this));
+  }
+
+  // Drag and Drop Handlers
+  private handleDragStart(e: DragEvent, index: number) {
+    this.draggingIndex = index;
+    e.dataTransfer!.effectAllowed = 'move';
+    // Required for Firefox
+    e.dataTransfer!.setData('text/plain', String(index));
+    (e.target as HTMLElement).classList.add('dragging');
+  }
+
+  private handleDragOver(e: DragEvent, index: number) {
+    e.preventDefault();
+    if (this.draggingIndex === null || this.draggingIndex === index) return;
+
+    const currentOrder = [...this.providerOrder.current.get()];
+    const draggedItem = currentOrder[this.draggingIndex];
+
+    // Remove from old index
+    currentOrder.splice(this.draggingIndex, 1);
+    // Insert at new index
+    currentOrder.splice(index, 0, draggedItem);
+
+    this.providerOrder.update(currentOrder);
+    this.draggingIndex = index;
+  }
+
+  private handleDragEnd(e: DragEvent) {
+    this.draggingIndex = null;
+    (e.target as HTMLElement).classList.remove('dragging');
+    this.providerOrder.save(this.saveProviderOrder.bind(this));
+  }
+
+  private getProviderName(id: LLMProvider) {
+    switch (id) {
+      case 'gemini':
+        return 'Google Gemini';
+      case 'openai':
+        return 'OpenAI';
+      case 'openai-custom':
+        return 'OpenAI Compatible (Local)';
+      case 'chrome-ai':
+        return 'Chrome Built-in AI';
+      default:
+        return id;
+    }
+  }
+
+  private renderProviderContent(id: LLMProvider) {
+    switch (id) {
+      case 'gemini':
+        return html`
+                <p>Uses the <a href="https://aistudio.google.com/app/api-keys" target="_blank">Gemini API</a></p>
+                ${this.renderStringSetting('API Key', this.geminiApiKey, this.saveApiKey.bind(this), {
+                  type: 'password',
+                  placeholder: 'AIza...',
+                  id: 'api-key-input',
+                })}
+                ${this.renderStringSetting('Model ID', this.geminiModelId, this.saveGeminiModelId.bind(this), {
+                  placeholder: 'gemini-1.5-flash',
+                  id: 'gemini-model-input',
+                  list: 'gemini-models',
+                  loading: this.geminiLoading,
+                  error: this.geminiError,
+                  onRefresh: () => this.fetchModels('gemini'),
+                })}
+                <datalist id="gemini-models">
+                    ${this.geminiModels.map((m) => html`<option value=${m}></option>`)}
+                </datalist>
+              `;
+      case 'openai':
+        return html`
+                <p>Uses the standard <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API</a></p>
+                ${this.renderStringSetting('API Key', this.openaiApiKey, this.saveOpenAIApiKey.bind(this), {
+                  type: 'password',
+                  placeholder: 'sk-...',
+                  id: 'openai-key-input',
+                })}
+                ${this.renderStringSetting('Model ID', this.openaiModelId, this.saveOpenAIModelId.bind(this), {
+                  placeholder: 'gpt-4o',
+                  id: 'openai-model-input',
+                  list: 'openai-models',
+                  loading: this.openaiLoading,
+                  error: this.openaiError,
+                  onRefresh: () => this.fetchModels('openai'),
+                })}
+                <datalist id="openai-models">
+                    ${this.openaiModels.map((m) => html`<option value=${m}></option>`)}
+                </datalist>
+              `;
+      case 'openai-custom':
+        return html`
+                   <p>Use local models (Ollama, LocalAI) or other OpenAI-compatible services.</p>
+                    ${this.renderStringSetting(
+                      'Base URL',
+                      this.openaiCustomBaseUrl,
+                      this.saveOpenAICustomBaseUrl.bind(this),
+                      {
+                        placeholder: 'http://localhost:11434/v1',
+                        id: 'openai-custom-url-input',
+                      },
+                    )}
+                    ${this.renderStringSetting(
+                      'API Key',
+                      this.openaiCustomApiKey,
+                      this.saveOpenAICustomApiKey.bind(this),
+                      {
+                        type: 'password',
+                        placeholder: 'sk-...',
+                        id: 'openai-custom-key-input',
+                        helpText: 'Not needed for most local services',
+                      },
+                    )}
+                    ${this.renderStringSetting(
+                      'Model ID',
+                      this.openaiCustomModelId,
+                      this.saveOpenAICustomModelId.bind(this),
+                      {
+                        placeholder: 'gpt-4o or llama3',
+                        id: 'openai-custom-model-input',
+                        list: 'openai-custom-models',
+                        loading: this.openaiCustomLoading,
+                        error: this.openaiCustomError,
+                        onRefresh: () => this.fetchModels('openai-custom'),
+                      },
+                    )}
+                    <datalist id="openai-custom-models">
+                        ${this.openaiCustomModels.map((m) => html`<option value=${m}></option>`)}
+                    </datalist>
+                `;
+      case 'chrome-ai':
+        return html`
+                    <p>Uses the experimental Chrome Built-in AI (Gemini Nano).</p>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        Status:
+                        ${
+                          this.chromeAIAvailable.get()
+                            ? html`<sl-badge variant="success">Available</sl-badge>`
+                            : html`<sl-badge variant="danger">Not Available</sl-badge>`
+                        }
+                    </div>
+                `;
+      default:
+        return html`Unknown Provider`;
+    }
+  }
+
   render() {
     return html`
       <sl-dialog label="Settings" ?open=${this.open} @sl-after-hide=${() => {
         this.open = false;
       }}>
         <div class="content">
-        <div class="section-title">AI Provider</div>
-        <div class="setting-row">
-            <sl-select
-                label="Active Provider"
-                value=${this.activeProvider.current.get()}
-                @sl-change=${(e: Event) => {
-                  const val = (e.target as SlSelect).value as string;
-                  this.activeProvider.update(val);
-                  this.activeProvider.save(async (v) => {
-                    await chrome.storage.sync.set({ 'active-llm-provider': v });
-                  });
-                }}
-                class="setting-input"
-            >
-                <sl-option value="gemini">Gemini API</sl-option>
-                <sl-option value="openai">OpenAI API</sl-option>
-                <sl-option value="openai-custom">OpenAI (Custom)</sl-option>
-                <sl-option value="chrome-ai" ?disabled=${!this.chromeAIAvailable.get()}>
-                    Chrome Built-in AI ${!this.chromeAIAvailable.get() ? '(Not Available)' : ''}
-                </sl-option>
-            </sl-select>
-             ${this.renderStatus(this.activeProvider)}
+        <div class="section-title">AI Providers</div>
+        <p style="font-size: var(--sl-font-size-small); color: var(--sl-color-neutral-500); margin-top: -8px;">
+            Drag to reorder. If multiple providers are enabled, secondary providers will be used as fallbacks.
+        </p>
+
+        <div class="provider-list">
+            ${this.providerOrder.current.get().map(
+              (provider, index) => html`
+                <div
+                    class="provider-wrapper ${this.draggingIndex === index ? 'dragging' : ''}"
+                    draggable="true"
+                    @dragstart=${(e: DragEvent) => this.handleDragStart(e, index)}
+                    @dragover=${(e: DragEvent) => this.handleDragOver(e, index)}
+                    @dragend=${this.handleDragEnd}
+                >
+                    <sl-details
+                        ?open=${this.expandedProviders.has(provider.id)}
+                        @sl-show=${() => this.toggleProviderExpanded(provider.id, true)}
+                        @sl-hide=${() => this.toggleProviderExpanded(provider.id, false)}
+                        class="provider-details"
+                    >
+                        <div slot="summary" class="provider-summary">
+                            <div class="drag-handle" @mousedown=${(e: Event) => e.stopPropagation()}>
+                                <sl-icon name="grip-vertical"></sl-icon>
+                            </div>
+                            <div class="sort-buttons">
+                                <sl-icon-button
+                                    name="chevron-up"
+                                    class="sort-btn"
+                                    ?disabled=${index === 0}
+                                    @click=${(e: Event) => {
+                                      e.stopPropagation(); // Prevent toggling details
+                                      this.moveProvider(index, 'up');
+                                    }}
+                                ></sl-icon-button>
+                                <sl-icon-button
+                                    name="chevron-down"
+                                    class="sort-btn"
+                                    ?disabled=${index === this.providerOrder.current.get().length - 1}
+                                    @click=${(e: Event) => {
+                                      e.stopPropagation(); // Prevent toggling details
+                                      this.moveProvider(index, 'down');
+                                    }}
+                                ></sl-icon-button>
+                            </div>
+                            <div class="provider-name">
+                                ${this.getProviderName(provider.id)}
+                            </div>
+                            <div class="provider-controls" @click=${(e: Event) => e.stopPropagation()}>
+                                <sl-switch
+                                    ?checked=${provider.enabled}
+                                    @sl-change=${(e: Event) => this.toggleProviderEnabled(provider.id, (e.target as SlSwitch).checked)}
+                                ></sl-switch>
+                            </div>
+                        </div>
+                        <div class="provider-content-wrapper">
+                            ${this.renderProviderContent(provider.id)}
+                        </div>
+                    </sl-details>
+                </div>
+            `,
+            )}
         </div>
+
+        <div class="divider"></div>
+
+        <div class="section-title">General AI Settings</div>
 
         <div class="setting-row">
             <sl-select
@@ -630,99 +988,6 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
             </sl-select>
              ${this.renderStatus(this.strategyOverride)}
         </div>
-
-         <div class="setting-row">
-            <sl-switch
-                ?checked=${this.fallbackEnabled.current.get()}
-                @sl-change=${(e: Event) => {
-                  const checked = (e.target as SlSwitch).checked;
-                  this.fallbackEnabled.update(checked);
-                  this.fallbackEnabled.save(async (v) => {
-                    await chrome.storage.sync.set({ 'llm-fallback-enabled': v });
-                  });
-                }}
-            >
-                Fallback to Chrome AI if Primary fails
-            </sl-switch>
-             ${this.renderStatus(this.fallbackEnabled)}
-        </div>
-
-        <div style="display: ${this.activeProvider.current.get() === 'gemini' ? 'block' : 'none'}">
-          <div class="section-title">Gemini API</div>
-          <p>Use Google's <a href="https://aistudio.google.com/app/api-keys">Gemini API</a> for powerful organization.</p>
-
-            ${this.renderStringSetting('API Key', this.geminiApiKey, this.saveApiKey.bind(this), {
-              type: 'password',
-              placeholder: 'AIza...',
-              id: 'api-key-input',
-            })}
-
-            ${this.renderStringSetting('Model ID', this.geminiModelId, this.saveGeminiModelId.bind(this), {
-              placeholder: 'gemini-1.5-flash',
-              id: 'gemini-model-input',
-              list: 'gemini-models',
-              loading: this.geminiLoading,
-              error: this.geminiError,
-              onRefresh: () => this.fetchModels('gemini'),
-            })}
-            <datalist id="gemini-models">
-              ${this.geminiModels.map((m) => html`<option value=${m}></option>`)}
-            </datalist>
-        </div>
-
-        <div style="display: ${this.activeProvider.current.get() === 'openai' ? 'block' : 'none'}">
-          <div class="section-title">OpenAI API</div>
-          <p>Use standard OpenAI services (requires API key).</p>
-
-            ${this.renderStringSetting('API Key', this.openaiApiKey, this.saveOpenAIApiKey.bind(this), {
-              type: 'password',
-              placeholder: 'sk-...',
-              id: 'openai-key-input',
-            })}
-
-            ${this.renderStringSetting('Model ID', this.openaiModelId, this.saveOpenAIModelId.bind(this), {
-              placeholder: 'gpt-4o',
-              id: 'openai-model-input',
-              list: 'openai-models',
-              loading: this.openaiLoading,
-              error: this.openaiError,
-              onRefresh: () => this.fetchModels('openai'),
-            })}
-            <datalist id="openai-models">
-              ${this.openaiModels.map((m) => html`<option value=${m}></option>`)}
-            </datalist>
-        </div>
-
-        <div style="display: ${this.activeProvider.current.get() === 'openai-custom' ? 'block' : 'none'}">
-          <div class="section-title">OpenAI (Custom)</div>
-          <p>Use local models (Ollama, LocalAI) or other OpenAI-compatible services.</p>
-
-            ${this.renderStringSetting('Base URL', this.openaiCustomBaseUrl, this.saveOpenAICustomBaseUrl.bind(this), {
-              placeholder: 'http://localhost:11434/v1',
-              id: 'openai-custom-url-input',
-            })}
-
-            ${this.renderStringSetting('API Key', this.openaiCustomApiKey, this.saveOpenAICustomApiKey.bind(this), {
-              type: 'password',
-              placeholder: 'sk-...',
-              id: 'openai-custom-key-input',
-              helpText: 'Not needed for most local services',
-            })}
-
-            ${this.renderStringSetting('Model ID', this.openaiCustomModelId, this.saveOpenAICustomModelId.bind(this), {
-              placeholder: 'gpt-4o or llama3',
-              id: 'openai-custom-model-input',
-              list: 'openai-custom-models',
-              loading: this.openaiCustomLoading,
-              error: this.openaiCustomError,
-              onRefresh: () => this.fetchModels('openai-custom'),
-            })}
-            <datalist id="openai-custom-models">
-              ${this.openaiCustomModels.map((m) => html`<option value=${m}></option>`)}
-            </datalist>
-        </div>
-
-        <div class="section-title">General AI Settings</div>
 
           ${this.renderStringSetting(
             'Predefined Groups (comma-separated)',

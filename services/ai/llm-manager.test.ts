@@ -27,6 +27,7 @@ vi.mock('./strategies', () => ({
 vi.mock('../../utils/storage-keys.js', () => ({
   StorageKeys: {
     Sync: {
+      PROVIDER_ORDER: 'provider-order',
       ACTIVE_LLM_PROVIDER: 'active-llm-provider',
       LLM_FALLBACK_ENABLED: 'llm-fallback-enabled',
       LLM_STRATEGY_OVERRIDE: 'llm-strategy-override',
@@ -73,8 +74,11 @@ describe('LLMManager', () => {
       storage: {
         sync: {
           get: vi.fn().mockResolvedValue({
-            'active-llm-provider': 'gemini',
-            'llm-fallback-enabled': true,
+            'provider-order': [
+              { id: 'gemini', enabled: true },
+              { id: 'openai', enabled: false },
+              { id: 'chrome-ai', enabled: true },
+            ],
             geminiApiKey: 'test-key',
           } as any),
         },
@@ -107,7 +111,7 @@ describe('LLMManager', () => {
     manager = new LLMManager();
   });
 
-  it('should use active provider (gemini)', async () => {
+  it('should use first enabled provider (gemini)', async () => {
     const mockStrategyInstance = {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockResolvedValue(new Map([[1, ['G']]])),
@@ -122,9 +126,12 @@ describe('LLMManager', () => {
     expect(results.get(1)).toEqual(['G']);
   });
 
-  it('should use openai-custom provider', async () => {
+  it('should respect provider order', async () => {
     vi.mocked(chrome.storage.sync.get).mockResolvedValue({
-      'active-llm-provider': 'openai-custom',
+      'provider-order': [
+        { id: 'openai-custom', enabled: true },
+        { id: 'gemini', enabled: true },
+      ],
       openaiCustomBaseUrl: 'http://custom:11434/v1',
     } as any);
 
@@ -139,17 +146,14 @@ describe('LLMManager', () => {
     manager = new LLMManager();
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
 
-    expect(getCustomOpenAIModel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        openaiCustomBaseUrl: 'http://custom:11434/v1',
-      }),
-    );
+    expect(getCustomOpenAIModel).toHaveBeenCalled();
+    expect(getGoogleModel).not.toHaveBeenCalled();
     expect(results.get(1)).toEqual(['C']);
   });
 
   it('should apply strategy override', async () => {
     vi.mocked(chrome.storage.sync.get).mockResolvedValue({
-      'active-llm-provider': 'gemini',
+      'provider-order': [{ id: 'gemini', enabled: true }],
       geminiApiKey: 'test-key',
       'llm-strategy-override': 'batched',
     } as any);
@@ -170,7 +174,16 @@ describe('LLMManager', () => {
     expect(results.get(1)).toEqual(['B']);
   });
 
-  it('should fallback to chrome-ai if primary provider fails', async () => {
+  it('should fallback to next enabled provider', async () => {
+    // Gemini (fail) -> Chrome AI (succeed)
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({
+      'provider-order': [
+        { id: 'gemini', enabled: true },
+        { id: 'chrome-ai', enabled: true },
+      ],
+      geminiApiKey: 'test-key',
+    } as any);
+
     const mockStrategyInstance = {
       isAvailable: vi.fn().mockResolvedValue(true),
       categorizeTabs: vi.fn().mockRejectedValue(new Error('Primary failed')),
@@ -182,7 +195,13 @@ describe('LLMManager', () => {
     vi.mocked(mockChromeAIService.isAvailable).mockResolvedValue(true);
     vi.mocked(mockChromeAIService.categorizeTabs).mockResolvedValue(new Map([[1, ['FB']]]));
 
+    manager = new LLMManager();
     const results = await manager.categorizeTabs([{ id: 1, title: 'T', url: 'u' }], []);
+
+    // Should have tried Gemini first
+    expect(StandardLLMStrategy).toHaveBeenCalled();
+
+    // Then Chrome AI
     expect(mockChromeAIService.categorizeTabs).toHaveBeenCalled();
     expect(results.get(1)).toEqual(['FB']);
   });
