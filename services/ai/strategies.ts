@@ -36,7 +36,7 @@ export class StandardLLMStrategy implements LLMService {
         Here is a list of existing tab groups:
         ${allGroups.join(', ')}
 
-        For each tab, suggest up to 3 group names.
+        For each tab, suggest up to 3 group names. You MUST match the capitalization and formatting exactly.
         Prefer using existing group names if they fit well.
         If no existing group fits, create a new short, descriptive group name (e.g., "Dev", "News", "Social").
       `,
@@ -139,14 +139,13 @@ export class BatchedLLMStrategy implements LLMService {
           You are a browser tab organizer.
           Rules:
           1. Suggest 1-3 concise group names for each tab.
-          2. Reuse existing groups if possible.
+          2. Reuse existing groups if possible. You MUST match the capitalization and formatting exactly.
+          Existing Groups: ${JSON.stringify(allGroups)}
           3. Return ONLY a JSON object with a "suggestions" array.
         `,
         prompt: `
           Input Tabs:
           ${JSON.stringify(batch.map((t) => ({ id: t.id, title: t.title, url: t.url })))}
-
-          Existing Groups: ${JSON.stringify(allGroups)}
         `,
       });
 

@@ -10,25 +10,31 @@ export class ProcessingStateService {
   }
 
   async addTabs(tabIds: number[]): Promise<void> {
-    this.updateQueue = this.updateQueue.then(async () => {
+    const task = async () => {
       const current = await this.getProcessingTabs();
       for (const id of tabIds) {
         current.add(id);
       }
       await chrome.storage.session.set({ [this.STORAGE_KEY]: Array.from(current) });
-    });
-    return this.updateQueue;
+    };
+
+    const result = this.updateQueue.then(task);
+    this.updateQueue = result.catch(() => {});
+    return result;
   }
 
   async removeTabs(tabIds: number[]): Promise<void> {
-    this.updateQueue = this.updateQueue.then(async () => {
+    const task = async () => {
       const current = await this.getProcessingTabs();
       for (const id of tabIds) {
         current.delete(id);
       }
       await chrome.storage.session.set({ [this.STORAGE_KEY]: Array.from(current) });
-    });
-    return this.updateQueue;
+    };
+
+    const result = this.updateQueue.then(task);
+    this.updateQueue = result.catch(() => {});
+    return result;
   }
 }
 

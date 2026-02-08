@@ -3,6 +3,7 @@ import { Signal } from 'signal-polyfill';
 import { SignalArray } from 'signal-utils/array';
 import { SignalMap } from 'signal-utils/map';
 import { SignalSet } from 'signal-utils/set';
+import { MessageTypes } from '../../utils/message-types.js';
 import { StorageKeys } from '../../utils/storage-keys.js';
 import { normalizeUrl } from '../../utils/url-utils.js';
 import { browserService } from './browser-service';
@@ -46,7 +47,7 @@ export class TabStore {
   // State
   windows = new SignalArray<WindowNode>([]);
   selectedTabIds = new SignalSet<number>();
-  suggestionsUrlMap = new SignalMap<string, string[]>();
+  suggestionsUrlMap = new Signal.State(new Map<string, string[]>());
   processingTabIds = new Signal.State(new Set<number>()); // Changed for atomic updates
   windowNames = new SignalMap<number, string>();
   collapsedWindowIds = new SignalSet<number>();
@@ -232,7 +233,7 @@ export class TabStore {
       await this.loadProcessingState(); // Load initial processing state
 
       // Batch all signal updates together
-      for (const [key, value] of suggestionsMap) this.suggestionsUrlMap.set(key, value);
+      this.suggestionsUrlMap.set(suggestionsMap);
       for (const id of selectedIds) this.selectedTabIds.add(id);
       for (const [key, value] of windowNamesMap) this.windowNames.set(key, value);
       for (const id of collapsedWindowIdsSet) this.collapsedWindowIds.add(id);
@@ -313,22 +314,6 @@ export class TabStore {
     }, 500);
   }
 
-  async setSuggestions(suggestionsByUrl: Map<string, string[]>) {
-    const changes: Record<string, string[]> = {};
-    // Upsert URL map with sorted suggestions
-    for (const [url, suggestions] of suggestionsByUrl.entries()) {
-      // Sort alphabetically
-      const sortedSuggestions = suggestions.sort((a, b) => a.localeCompare(b));
-      // Store using normalized URL as key in map (to match service)
-      const normalized = normalizeUrl(url);
-      this.suggestionsUrlMap.set(normalized, sortedSuggestions);
-      // Pass original URL to service (it handles normalization internally too, but good to be explicit/consistent)
-      changes[url] = sortedSuggestions;
-    }
-    await suggestionService.mergeAllSuggestions(changes);
-    console.log('Updated suggestionsUrlMap:', this.suggestionsUrlMap);
-  }
-
   async setProcessing(ids: number[], processing: boolean) {
     // Optimistic update - Atomic
     const current = new Set(this.processingTabIds.get());
@@ -350,19 +335,6 @@ export class TabStore {
     }
 
     await chrome.storage.session.set({ [StorageKeys.Session.PROCESSING_TABS]: Array.from(storageList) });
-  }
-
-  async updateSuggestions(suggestionsByUrl: Map<string, string[]>) {
-    // Merge updates into existing map
-    const changes: Record<string, string[]> = {};
-    for (const [url, suggestions] of suggestionsByUrl.entries()) {
-      const sortedSuggestions = suggestions.sort((a, b) => a.localeCompare(b));
-      this.suggestionsUrlMap.set(url, sortedSuggestions);
-      changes[url] = sortedSuggestions;
-    }
-    // Incrementally save to storage
-    await suggestionService.mergeAllSuggestions(changes);
-    console.log('Incrementally updated suggestions:', changes);
   }
 
   async fetchAll() {
@@ -401,7 +373,7 @@ export class TabStore {
       if (t.id === undefined || t.windowId === undefined) continue;
 
       const normalizedUrl = t.url ? normalizeUrl(t.url) : '';
-      const suggestedGroups = normalizedUrl ? this.suggestionsUrlMap.get(normalizedUrl) : undefined;
+      const suggestedGroups = normalizedUrl ? this.suggestionsUrlMap.get().get(normalizedUrl) : undefined;
 
       const tabNode: TabNode = {
         id: t.id,
@@ -479,10 +451,9 @@ export class TabStore {
 
     // Subscribe to suggestion changes using the service
     suggestionService.onChanged((map) => {
-      this.suggestionsUrlMap.clear();
-      for (const [key, value] of Object.entries(map)) {
-        this.suggestionsUrlMap.set(key, value);
-      }
+      // Create a fresh map to trigger reactivity
+      const newMap = new Map(Object.entries(map));
+      this.suggestionsUrlMap.set(newMap);
       this.fetchAll();
     });
 
@@ -726,11 +697,15 @@ export class TabStore {
     const tabs = await browserService.getTabs();
     const tab = tabs.find((t) => t.id === tabId);
 
-    if (tab?.url && this.suggestionsUrlMap.has(tab.url)) {
-      this.suggestionsUrlMap.delete(tab.url);
-      console.log('Cleared suggestionsUrlMap for url:', tab.url, this.suggestionsUrlMap);
+    if (tab?.url) {
+      // Optimistic update
+      const currentMap = new Map(this.suggestionsUrlMap.get());
+      if (currentMap.has(tab.url)) {
+        currentMap.delete(tab.url);
+        this.suggestionsUrlMap.set(currentMap);
+      }
 
-      await suggestionService.removeSuggestions(tab.url);
+      chrome.runtime.sendMessage({ type: MessageTypes.CLEAR_SUGGESTIONS, url: tab.url });
     }
   }
 

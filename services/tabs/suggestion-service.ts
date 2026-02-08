@@ -23,14 +23,16 @@ export class SuggestionService {
 
   async setAllSuggestions(map: Record<string, string[]>): Promise<void> {
     // Also chain full sets to ensure they don't race with merges
-    this.mergeQueue = this.mergeQueue.then(async () => {
+    const task = async () => {
       await chrome.storage.local.set({ [this.STORAGE_KEY]: map });
-    });
-    return this.mergeQueue;
+    };
+    const result = this.mergeQueue.then(task);
+    this.mergeQueue = result.catch(() => {});
+    return result;
   }
 
   async mergeAllSuggestions(map: Record<string, string[]>): Promise<void> {
-    this.mergeQueue = this.mergeQueue.then(async () => {
+    const task = async () => {
       const all = await this.getAllSuggestions();
       // Merge new map into existing suggestions with deduplication
       for (const [url, newSuggestions] of Object.entries(map)) {
@@ -40,8 +42,11 @@ export class SuggestionService {
         all[normalized] = Array.from(combined).sort((a, b) => a.localeCompare(b));
       }
       await chrome.storage.local.set({ [this.STORAGE_KEY]: all });
-    });
-    return this.mergeQueue;
+    };
+
+    const result = this.mergeQueue.then(task);
+    this.mergeQueue = result.catch(() => {});
+    return result;
   }
 
   async removeSuggestions(url: string): Promise<void> {

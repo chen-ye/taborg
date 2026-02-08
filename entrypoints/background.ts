@@ -87,11 +87,10 @@ export const main = () => {
       if (validTabs.length === 0) return;
 
       // 3. Call LLM with progress tracking
-      await llmManager.categorizeTabs(
+      const finalSuggestions = await llmManager.categorizeTabs(
         validTabs.map((t) => ({ id: t?.id, title: t?.title, url: t?.url })),
         existingGroups,
         async (batchResults) => {
-          // 4. Incremental updates
           const updates: Record<string, string[]> = {};
           for (const [tabId, groups] of batchResults.entries()) {
             const tab = validTabs.find((t) => t?.id === tabId);
@@ -103,14 +102,24 @@ export const main = () => {
         },
       );
 
-      // 5. Pruning (Sequential)
-      const allTabs = await chrome.tabs.query({});
-      const activeUrls = allTabs.map((t) => t.url || '').filter((u) => u.startsWith('http'));
-      const allSuggestions = await suggestionService.getAllSuggestions();
-      const pruned = suggestionService.pruneSuggestions(allSuggestions, activeUrls);
+      const updates: Record<string, string[]> = {};
+      for (const [tabId, groups] of finalSuggestions.entries()) {
+        const tab = validTabs.find((t) => t?.id === tabId);
+        if (tab?.url) {
+          updates[tab.url] = groups;
+        }
+      }
+      await suggestionService.mergeAllSuggestions(updates);
 
-      // Atomic write of pruned map (which includes the new suggestions)
-      await suggestionService.setAllSuggestions(pruned);
+      // 5. Pruning (Sequential)
+      // const allTabs = await chrome.tabs.query({});
+      // const activeUrls = allTabs.map((t) => t.url || '').filter((u) => u.startsWith('http'));
+      // const allSuggestions = await suggestionService.getAllSuggestions();
+      // const pruned = suggestionService.pruneSuggestions(allSuggestions, activeUrls);
+
+      // // Atomic write of pruned map (which includes the new suggestions)
+      // await suggestionService.setAllSuggestions(pruned);
+      console.log(`[Auto-Categories] Done with tabs ${tabIds.join(', ')}`);
     } catch (e) {
       console.error('Categorization failed', e);
     } finally {
@@ -213,6 +222,11 @@ export const main = () => {
       mcpService.setEnabled(false);
     } else if (message.type === MessageTypes.MCP_RETRY) {
       mcpService.retryConnection();
+    } else if (message.type === MessageTypes.CLEAR_SUGGESTIONS) {
+      const { url } = message as { url: string };
+      if (url) {
+        suggestionService.removeSuggestions(url).catch((e) => console.error('Failed to clear suggestions:', e));
+      }
     }
   });
 

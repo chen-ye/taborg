@@ -211,7 +211,7 @@ export class TabItem extends SignalWatcher(LitElement) {
   @state() private hasDropdownOpened = false;
 
   render() {
-    const suggestedGroups = this.tab.url ? tabStore.suggestionsUrlMap.get(this.tab.url) : undefined;
+    const suggestedGroups = this.tab.url ? tabStore.suggestionsUrlMap.get().get(normalizeUrl(this.tab.url)) : undefined;
     const viewMode = tabStore.viewOptions.get().viewMode;
 
     const hasSuggestions = suggestedGroups && suggestedGroups.length > 0;
