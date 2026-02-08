@@ -1,13 +1,13 @@
 # Implementation Plan: Split OpenAI Provider
 
-## Phase 1: Types and Provider Logic (TDD)
+## Phase 1: Types and Provider Logic (TDD) [checkpoint: f6a754e]
 - [x] Task: Update `LLMProvider` and `LLMModelConfig` interfaces in `types/llm-types.ts` 3458a96
 - [x] Task: Update `getOpenAIModel` and implement `getCustomOpenAIModel` in `services/ai/providers.ts` 20e81fa
     - [x] Create/Update unit tests in `services/ai/providers.test.ts` to verify provider initialization
 - [x] Task: Update `PROVIDER_CONFIG` in `services/ai/provider-config.ts` to include `openai-custom` 2132b8c
 - [x] Task: Update `LLMManager` in `services/ai/llm-manager.ts` to handle new configuration keys and the `openai-custom` provider d742255
     - [x] Update unit tests in `services/ai/llm-manager.test.ts`
-- [~] Task: Conductor - User Manual Verification 'Phase 1: Types and Provider Logic' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Types and Provider Logic' (Protocol in workflow.md)
 
 ## Phase 2: UI Implementation
 - [ ] Task: Update `components/settings-dialog.ts` to include the "OpenAI (Custom)" provider option
