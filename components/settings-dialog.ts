@@ -14,6 +14,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/details/details.js';
+import '@shoelace-style/shoelace/dist/components/card/card.js';
 import type { SlDialog, SlInput, SlSelect, SlSwitch } from '@shoelace-style/shoelace';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { Signal } from 'signal-polyfill';
@@ -84,10 +85,39 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     }
 
     .section-title {
-        font-size: var(--sl-font-size-medium);
+        font-size: var(--sl-font-size-small);
         font-weight: var(--sl-font-weight-semibold);
+        color: var(--sl-color-neutral-600);
+        text-transform: uppercase;
+        letter-spacing: var(--sl-letter-spacing-loose);
         margin-bottom: var(--sl-spacing-x-small);
-        color: var(--sl-color-neutral-700);
+        margin-top: var(--sl-spacing-large);
+    }
+
+    .section-title:first-child {
+        margin-top: 0;
+    }
+
+    sl-card {
+        width: 100%;
+        border: 1px solid var(--sl-color-neutral-200);
+        box-shadow: none; /* Shoelace cards have shadow by default, maybe flat is better? keeping default for now or making flat per user preference if implied. User said "visually organize", cards usually imply containment. */
+    }
+
+    sl-card::part(base) {
+        border: 1px solid var(--sl-color-neutral-200);
+        box-shadow: none;
+    }
+
+    sl-card::part(header) {
+        display: none; /* Hide header if not used, or just don't populate it */
+    }
+
+    sl-card::part(body) {
+        padding: var(--sl-spacing-medium);
+        display: flex;
+        flex-direction: column;
+        gap: var(--sl-spacing-medium);
     }
 
     .status-row {
@@ -96,6 +126,8 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
         gap: var(--sl-spacing-medium);
         justify-content: space-between;
     }
+
+    /* ... rest of existing styles ... */
 
     .setting-row {
       display: flex;
@@ -897,8 +929,10 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
   render() {
     return html`
-      <sl-dialog label="Settings" ?open=${this.open} @sl-after-hide=${() => {
-        this.open = false;
+      <sl-dialog label="Settings" ?open=${this.open} @sl-after-hide=${(e: Event) => {
+        if (e.target === e.currentTarget) {
+          this.open = false;
+        }
       }}>
         <div class="content">
         <div class="section-title">AI Providers</div>
@@ -967,81 +1001,87 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
 
         <div class="divider"></div>
 
+        <div class="divider"></div>
+
         <div class="section-title">General AI Settings</div>
 
-        <div class="setting-row">
-            <sl-select
-                label="Strategy Mode"
-                value=${this.strategyOverride.current.get()}
-                @sl-change=${(e: Event) => {
-                  const val = (e.target as SlSelect).value as LLMStrategyType;
-                  this.strategyOverride.update(val);
-                  this.strategyOverride.save(async (v) => {
-                    await chrome.storage.sync.set({ 'llm-strategy-override': v });
-                  });
-                }}
-                class="setting-input"
-            >
-                <sl-option value="default">Default</sl-option>
-                <sl-option value="standard">Standard (Single Request)</sl-option>
-                <sl-option value="batched">Batched (Multiple Requests)</sl-option>
-            </sl-select>
-             ${this.renderStatus(this.strategyOverride)}
-        </div>
-
-          ${this.renderStringSetting(
-            'Predefined Groups (comma-separated)',
-            this.predefinedGroups,
-            this.savePredefinedGroups.bind(this),
-            {
-              placeholder: 'Work, Personal, Dev, News',
-              id: 'predefined-groups-input',
-              helpText: 'These group names will always be suggested as existing groups',
-            },
-          )}
-
-          <div class="setting-row">
-            <sl-select
-                label="Auto-Categorization Mode"
-                value=${this.autoCategorizationMode.current.get()}
-                @sl-change=${(e: Event) => {
-                  const val = (e.target as SlSelect).value as AutoCategorizationMode;
-                  this.autoCategorizationMode.update(val);
-                  this.autoCategorizationMode.save(async (v) => {
-                    await chrome.storage.sync.set({ 'auto-categorization-mode': v });
-                  });
-                }}
-                class="setting-input"
-            >
-                <sl-option value="off">Off</sl-option>
-                <sl-option value="initial">Initial (New Tabs Only)</sl-option>
-                <sl-option value="always">Always (On Navigation)</sl-option>
-            </sl-select>
-             ${this.renderStatus(this.autoCategorizationMode)}
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="section-title">MCP Server</div>
-          <p>Expose tab manipulation to LLMs via local MCP server (requires helper script).</p>
-
-          <div class="status-row">
-            <sl-switch
-              id="mcp-enabled-switch"
-              ?checked=${this.mcpEnabled}
-              @sl-change=${this.toggleMcp}
-            >Enable MCP Server</sl-switch>
-            <div style="display: flex; align-items: center; gap: var(--sl-spacing-small);">
-              <sl-badge variant=${this.getStatusColor(this.mcpStatus)}>${this.mcpStatus}</sl-badge>
-              <sl-icon-button
-                name="arrow-clockwise"
-                label="Reconnect MCP Server"
-                style="font-size: var(--sl-font-size-large);"
-                ?disabled=${!this.mcpEnabled}
-                @click=${this.handleRetryMcp}
-              ></sl-icon-button>
+        <sl-card>
+            <div class="setting-row">
+                <sl-select
+                    label="Strategy Mode"
+                    value=${this.strategyOverride.current.get()}
+                    @sl-change=${(e: Event) => {
+                      const val = (e.target as SlSelect).value as LLMStrategyType;
+                      this.strategyOverride.update(val);
+                      this.strategyOverride.save(async (v) => {
+                        await chrome.storage.sync.set({ 'llm-strategy-override': v });
+                      });
+                    }}
+                    class="setting-input"
+                >
+                    <sl-option value="default">Default</sl-option>
+                    <sl-option value="standard">Standard (Single Request)</sl-option>
+                    <sl-option value="batched">Batched (Multiple Requests)</sl-option>
+                </sl-select>
+                 ${this.renderStatus(this.strategyOverride)}
             </div>
-          </div>
+
+            ${this.renderStringSetting(
+              'Predefined Groups (comma-separated)',
+              this.predefinedGroups,
+              this.savePredefinedGroups.bind(this),
+              {
+                placeholder: 'Work, Personal, Dev, News',
+                id: 'predefined-groups-input',
+                helpText: 'These group names will always be suggested as existing groups',
+              },
+            )}
+
+            <div class="setting-row">
+                <sl-select
+                    label="Auto-Categorization Mode"
+                    value=${this.autoCategorizationMode.current.get()}
+                    @sl-change=${(e: Event) => {
+                      const val = (e.target as SlSelect).value as AutoCategorizationMode;
+                      this.autoCategorizationMode.update(val);
+                      this.autoCategorizationMode.save(async (v) => {
+                        await chrome.storage.sync.set({ 'auto-categorization-mode': v });
+                      });
+                    }}
+                    class="setting-input"
+                >
+                    <sl-option value="off">Off</sl-option>
+                    <sl-option value="initial">Initial (New Tabs Only)</sl-option>
+                    <sl-option value="always">Always (On Navigation)</sl-option>
+                </sl-select>
+                 ${this.renderStatus(this.autoCategorizationMode)}
+            </div>
+        </sl-card>
+
+        <div class="section-title">MCP Server</div>
+
+        <sl-card>
+            <p style="margin-top: 0; font-size: var(--sl-font-size-small); color: var(--sl-color-neutral-500);">
+                Expose tab manipulation to LLMs via local MCP server (requires helper script).
+            </p>
+
+            <div class="status-row">
+                <sl-switch
+                  id="mcp-enabled-switch"
+                  ?checked=${this.mcpEnabled}
+                  @sl-change=${this.toggleMcp}
+                >Enable MCP Server</sl-switch>
+                <div style="display: flex; align-items: center; gap: var(--sl-spacing-small);">
+                  <sl-badge variant=${this.getStatusColor(this.mcpStatus)}>${this.mcpStatus}</sl-badge>
+                  <sl-icon-button
+                    name="arrow-clockwise"
+                    label="Reconnect MCP Server"
+                    style="font-size: var(--sl-font-size-large);"
+                    ?disabled=${!this.mcpEnabled}
+                    @click=${this.handleRetryMcp}
+                  ></sl-icon-button>
+                </div>
+            </div>
 
            ${this.renderStringSetting('Instance ID', this.mcpInstanceId, this.saveMcpInstanceId.bind(this), {
              placeholder: 'default',
@@ -1050,6 +1090,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
            })}
 
           ${this.mcpError ? html`<div style="color: var(--sl-color-danger-600); font-size: var(--sl-font-size-small);">${this.mcpError}</div>` : ''}
+        </sl-card>
 
         </div>
         <div slot="footer">
