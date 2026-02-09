@@ -9,10 +9,41 @@ export const test = base.extend<{
   context: BrowserContext;
   extensionId: string;
 }>({
-  context: async ({}, use) => {
+  context: async (
+    {
+      headless,
+      viewport,
+      userAgent,
+      ignoreHTTPSErrors,
+      geolocation,
+      permissions,
+      bypassCSP,
+      deviceScaleFactor,
+      isMobile,
+      hasTouch,
+      javaScriptEnabled,
+      timezoneId,
+      locale,
+      offline,
+    },
+    use,
+  ) => {
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium', // Allows headless execution as per guide
-      headless: true,
+      headless,
+      viewport,
+      userAgent,
+      ignoreHTTPSErrors,
+      geolocation,
+      permissions,
+      bypassCSP,
+      deviceScaleFactor,
+      isMobile,
+      hasTouch,
+      javaScriptEnabled,
+      timezoneId,
+      locale,
+      offline,
       args: [`--disable-extensions-except=${pathToExtension}`, `--load-extension=${pathToExtension}`],
     });
 

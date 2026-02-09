@@ -124,41 +124,26 @@ export class TabStore {
   });
 
   activeTabId = new Signal.Computed(() => {
-    // Determine the active tab ID based on the current window and its tabs
-    let focusedWindow: WindowNode | undefined;
-    for (const w of this.windows) {
-      if (w.focused) {
-        focusedWindow = w;
-        break;
-      }
-    }
-
-    if (focusedWindow) {
-      for (const t of focusedWindow.tabs) {
-        if (t.active) return t.id;
-      }
-      for (const g of focusedWindow.groups) {
-        for (const t of g.tabs) {
-          if (t.active) return t.id;
+    const currentId = this.currentWindowId.get();
+    if (currentId !== undefined) {
+      const currentWindow = this.windows.find((w) => w.id === currentId);
+      if (currentWindow) {
+        // Check ungrouped tabs
+        for (const tab of currentWindow.tabs) {
+          if (tab.active) return tab.id;
+        }
+        // Check grouped tabs
+        for (const group of currentWindow.groups) {
+          for (const tab of group.tabs) {
+            if (tab.active) return tab.id;
+          }
         }
       }
     }
-
-    const currentId = this.currentWindowId.get();
-    if (currentId && (!focusedWindow || focusedWindow.id !== currentId)) {
-      const cw = this.windows.find((w) => w.id === currentId);
-      if (cw) {
-        for (const t of cw.tabs) if (t.active) return t.id;
-        for (const g of cw.groups) for (const t of g.tabs) if (t.active) return t.id;
-      }
-    }
-
     return undefined;
   });
 
   activeTab = new Signal.Computed(() => {
-    // Find the active tab in the focused window, or current window.
-    // We can reuse the logic from `activeTabId` but return the node.
     const id = this.activeTabId.get();
     if (id === undefined) return undefined;
 
