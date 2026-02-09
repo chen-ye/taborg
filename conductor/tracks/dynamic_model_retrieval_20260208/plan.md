@@ -14,7 +14,7 @@
 - [x] Task: Implement automatic fetching logic on configuration changes (sl-blur/save) f1198bb
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Settings Dialog Integration' (Protocol in workflow.md)
 
-## Phase 3: Verification and Polishing
+## Phase 3: Verification and Polishing [checkpoint: 4086638]
 - [x] Task: Verify that manual model ID entry still works (datalist behavior) f1198bb
 - [x] Task: Ensure errors are handled gracefully and don't block other setting operations f1198bb
 - [x] Task: Run full test suite and verify no regressions 183f97b (Unit tests passed; E2E skipped due to env)
