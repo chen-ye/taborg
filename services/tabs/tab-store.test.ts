@@ -100,7 +100,7 @@ describe('TabStore', () => {
       retries++;
     }
 
-    expect(store.suggestionsUrlMap.get('https://test.com/')).toEqual(['Group A']);
+    expect(store.suggestionsUrlMap.get().get('https://test.com/')).toEqual(['Group A']);
   });
 
   it('should toggle tab selection', async () => {

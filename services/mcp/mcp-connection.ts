@@ -7,6 +7,7 @@ import type {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Signal } from 'signal-polyfill';
+import { StorageKeys } from '../../utils/storage-keys.js';
 
 // A resource content item returned when reading a resource
 export interface ResourceContent {
@@ -105,12 +106,12 @@ export class McpConnectionService {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'sync') return;
 
-      if (changes['mcp-enabled']) {
-        const enabled = changes['mcp-enabled'].newValue as boolean;
+      if (changes[StorageKeys.Sync.MCP_ENABLED]) {
+        const enabled = changes[StorageKeys.Sync.MCP_ENABLED].newValue as boolean;
         this.setEnabled(enabled);
       }
 
-      if (changes['mcp-instance-id']) {
+      if (changes[StorageKeys.Local.MCP_INSTANCE_ID]) {
         if (this.isEnabled) {
           this.retryConnection();
         }
@@ -142,8 +143,8 @@ export class McpConnectionService {
 
   public static async getPersistedInstanceId(): Promise<string> {
     try {
-      const storedSettings = await chrome.storage.local.get('mcp-instance-id');
-      const instanceId = storedSettings['mcp-instance-id'] as string;
+      const storedSettings = await chrome.storage.local.get(StorageKeys.Local.MCP_INSTANCE_ID);
+      const instanceId = storedSettings[StorageKeys.Local.MCP_INSTANCE_ID] as string;
       if (instanceId) return instanceId;
 
       const userInfo = await chrome.identity.getProfileUserInfo();

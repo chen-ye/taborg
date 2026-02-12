@@ -1,9 +1,12 @@
 import { llmManager } from '../services/ai/llm-manager.js';
+import { listCustomModels, listGoogleModels, listOpenAIModels } from '../services/ai/providers.js';
 import { McpConnectionService, mcpService } from '../services/mcp/mcp-connection.js';
-import { browserService } from '../services/tabs/browser-service.js';
+import { browserService, type TabInfo } from '../services/tabs/browser-service.js';
+import { processingStateService } from '../services/tabs/processing-state-service.js';
 import { suggestionService } from '../services/tabs/suggestion-service.js';
-import type { AutoCategorizationMode } from '../types/llm-types.js';
+import type { AutoCategorizationMode, LLMModelConfig, LLMProvider } from '../types/llm-types.js';
 import { MessageTypes } from '../utils/message-types.js';
+import { StorageKeys } from '../utils/storage-keys.js';
 
 export const main = () => {
   // Create offscreen document to watch for theme changes
@@ -29,20 +32,18 @@ export const main = () => {
   const processedTabIds = new Set<number>();
   const newTabIds = new Set<number>();
   let autoCategorizationMode: AutoCategorizationMode = 'initial';
-  let updateCounter = 0;
-  const PRUNE_INTERVAL = 50;
 
   // Load initial settings
-  chrome.storage.sync.get('auto-categorization-mode').then((result) => {
-    if (result['auto-categorization-mode']) {
-      autoCategorizationMode = result['auto-categorization-mode'] as AutoCategorizationMode;
+  chrome.storage.sync.get(StorageKeys.Sync.AUTO_CATEGORIZATION_MODE).then((result) => {
+    if (result[StorageKeys.Sync.AUTO_CATEGORIZATION_MODE]) {
+      autoCategorizationMode = result[StorageKeys.Sync.AUTO_CATEGORIZATION_MODE] as AutoCategorizationMode;
     }
   });
 
   // Listen for setting changes
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'sync' && changes['auto-categorization-mode']) {
-      autoCategorizationMode = changes['auto-categorization-mode'].newValue as AutoCategorizationMode;
+    if (area === 'sync' && changes[StorageKeys.Sync.AUTO_CATEGORIZATION_MODE]) {
+      autoCategorizationMode = changes[StorageKeys.Sync.AUTO_CATEGORIZATION_MODE].newValue as AutoCategorizationMode;
     }
   });
 
@@ -62,18 +63,76 @@ export const main = () => {
     }
   });
 
-  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    // Increment update counter for pruning
-    updateCounter++;
-    if (updateCounter >= PRUNE_INTERVAL) {
-      updateCounter = 0;
-      // Prune asynchronously without awaiting
-      chrome.tabs.query({}).then((tabs) => {
-        const activeUrls = tabs.map((t) => t.url || '').filter((u) => u.startsWith('http'));
-        suggestionService.pruneSuggestions(activeUrls).catch((err) => console.error('Pruning failed:', err));
-      });
+  const processCategorization = async (tabIds: number[]) => {
+    if (tabIds.length === 0) return;
+
+    console.log(`[Auto-Categories] Processing tabs ${tabIds.join(', ')}`);
+
+    // 1. Set processing state
+    try {
+      await processingStateService.addTabs(tabIds);
+    } catch (e) {
+      console.error('Failed to set processing state', e);
     }
 
+    try {
+      // 2. Fetch context
+      const [groupsResult, tabs] = await Promise.all([
+        chrome.tabGroups.query({}),
+        Promise.all(tabIds.map((id) => browserService.getTab(id).catch(() => null))),
+      ]);
+      const existingGroups = groupsResult.map((g) => g.title || '').filter(Boolean);
+      const validTabs: TabInfo[] = tabs.filter((t) => t?.url?.startsWith('http')) as TabInfo[];
+
+      if (validTabs.length === 0) return;
+
+      // 3. Call LLM with progress tracking
+      const finalSuggestions = await llmManager.categorizeTabs(
+        validTabs.map((t) => ({ id: t?.id, title: t?.title, url: t?.url })),
+        existingGroups,
+        async (batchResults) => {
+          const updates: Record<string, string[]> = {};
+          for (const [tabId, groups] of batchResults.entries()) {
+            const tab = validTabs.find((t) => t?.id === tabId);
+            if (tab?.url) {
+              updates[tab.url] = groups;
+            }
+          }
+          await suggestionService.mergeAllSuggestions(updates);
+        },
+      );
+
+      const updates: Record<string, string[]> = {};
+      for (const [tabId, groups] of finalSuggestions.entries()) {
+        const tab = validTabs.find((t) => t?.id === tabId);
+        if (tab?.url) {
+          updates[tab.url] = groups;
+        }
+      }
+      await suggestionService.mergeAllSuggestions(updates);
+
+      // 5. Pruning (Sequential)
+      // const allTabs = await chrome.tabs.query({});
+      // const activeUrls = allTabs.map((t) => t.url || '').filter((u) => u.startsWith('http'));
+      // const allSuggestions = await suggestionService.getAllSuggestions();
+      // const pruned = suggestionService.pruneSuggestions(allSuggestions, activeUrls);
+
+      // // Atomic write of pruned map (which includes the new suggestions)
+      // await suggestionService.setAllSuggestions(pruned);
+      console.log(`[Auto-Categories] Done with tabs ${tabIds.join(', ')}`);
+    } catch (e) {
+      console.error('Categorization failed', e);
+    } finally {
+      // 6. Clear processing state
+      try {
+        await processingStateService.removeTabs(tabIds);
+      } catch (e) {
+        console.error('Failed to clear processing state', e);
+      }
+    }
+  };
+
+  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if ((changeInfo.url && isNewTab(changeInfo.url)) || isNewTab(tab.url)) {
       newTabIds.add(tabId);
     }
@@ -86,10 +145,7 @@ export const main = () => {
       // Skip if suggestions already exist
       const existing = await suggestionService.getSuggestions(tab.url);
       if (existing.length > 0) {
-        // If it was a new tab, we still want to clean up newTabIds
-        if (wasNewTab) {
-          newTabIds.delete(tabId);
-        }
+        if (wasNewTab) newTabIds.delete(tabId);
         return;
       }
 
@@ -98,7 +154,6 @@ export const main = () => {
       if (autoCategorizationMode === 'always') {
         shouldProcess = true;
       } else {
-        // 'initial' mode: process only if opened from another tab and not yet processed
         if ((tab.openerTabId || wasNewTab) && !isProcessed) {
           shouldProcess = true;
         }
@@ -106,55 +161,10 @@ export const main = () => {
 
       if (shouldProcess) {
         processedTabIds.add(tabId);
-        console.log(`[Auto-Categories] Processing tab ${tabId}`, {
-          url: tab.url,
-          wasNewTab,
-          opener: tab.openerTabId,
-          mode: autoCategorizationMode,
-        });
-
-        // Set processing state in session storage
-        try {
-          const result = await chrome.storage.session.get('processing-tabs');
-          const currentList = new Set((result['processing-tabs'] as number[]) || []);
-          currentList.add(tabId);
-          await chrome.storage.session.set({ 'processing-tabs': Array.from(currentList) });
-        } catch (e) {
-          console.error('Failed to set processing state', e);
-        }
-
-        try {
-          // Get existing groups from storage to pass to LLM
-          const groupsResult = await chrome.tabGroups.query({});
-          const existingGroups = groupsResult.map((g) => g.title || '').filter(Boolean);
-
-          const suggestions = await llmManager.categorizeTabs(
-            [{ id: tabId, title: tab.title || '', url: tab.url }],
-            existingGroups,
-          );
-
-          if (suggestions.has(tabId)) {
-            const newSuggestions = suggestions.get(tabId) || [];
-            // Use normalized URL is handled inside suggestionService
-            await suggestionService.setSuggestions(tab.url, newSuggestions);
-            console.log(`[Auto-Categories] Set suggestions for ${tabId}:`, newSuggestions);
-          }
-        } catch (e) {
-          console.error('Auto-suggest failed', e);
-        } finally {
-          // Clear processing state
-          try {
-            const result = await chrome.storage.session.get('processing-tabs');
-            const currentList = new Set((result['processing-tabs'] as number[]) || []);
-            currentList.delete(tabId);
-            await chrome.storage.session.set({ 'processing-tabs': Array.from(currentList) });
-          } catch (e) {
-            console.error('Failed to clear processing state', e);
-          }
-        }
+        // Call centralized function
+        processCategorization([tabId]);
       }
 
-      // Cleanup newTabIds for this tab as it is now navigated
       if (wasNewTab) {
         newTabIds.delete(tabId);
       }
@@ -171,8 +181,8 @@ export const main = () => {
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error) => console.error('Failed to set panel behavior:', error));
 
-  // Handle messages from offscreen document
-  chrome.runtime.onMessage.addListener((message) => {
+  // Handle messages from offscreen document and UI
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === MessageTypes.UPDATE_ICON && message.imageData) {
       // Reconstruct ImageData to ensure it's a valid object after message passing
       try {
@@ -182,6 +192,40 @@ export const main = () => {
         chrome.action.setIcon({ imageData });
       } catch (e) {
         console.error('Failed to set icon:', e);
+      }
+    } else if (message.type === MessageTypes.FETCH_MODELS) {
+      const { provider, config } = message as { provider: LLMProvider; config: LLMModelConfig };
+      (async () => {
+        try {
+          let models: string[] = [];
+          if (provider === 'gemini') {
+            models = await listGoogleModels(config);
+          } else if (provider === 'openai') {
+            models = await listOpenAIModels(config);
+          } else if (provider === 'openai-custom') {
+            models = await listCustomModels(config);
+          }
+          sendResponse({ success: true, models });
+        } catch (error) {
+          console.error('Failed to fetch models:', error);
+          sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      })();
+      return true; // Keep channel open for async response
+    } else if (message.type === MessageTypes.CATEGORIZE_TABS) {
+      const { tabIds } = message as { tabIds: number[] };
+      processCategorization(tabIds);
+      return false;
+    } else if (message.type === MessageTypes.MCP_CONNECT) {
+      mcpService.setEnabled(true);
+    } else if (message.type === MessageTypes.MCP_DISCONNECT) {
+      mcpService.setEnabled(false);
+    } else if (message.type === MessageTypes.MCP_RETRY) {
+      mcpService.retryConnection();
+    } else if (message.type === MessageTypes.CLEAR_SUGGESTIONS) {
+      const { url } = message as { url: string };
+      if (url) {
+        suggestionService.removeSuggestions(url).catch((e) => console.error('Failed to clear suggestions:', e));
       }
     }
   });
@@ -248,8 +292,8 @@ function initializeMcpPrompts(instanceId: string) {
     },
     async () => {
       // Load predefined groups from settings to include in instructions
-      const result = await chrome.storage.sync.get('predefined-groups');
-      const predefinedGroups = (result['predefined-groups'] as string[]) || [];
+      const result = await chrome.storage.sync.get(StorageKeys.Sync.PREDEFINED_GROUPS);
+      const predefinedGroups = (result[StorageKeys.Sync.PREDEFINED_GROUPS] as string[]) || [];
       const predefinedText =
         predefinedGroups.length > 0 ? `\nPredefined group names to prefer: ${predefinedGroups.join(', ')}` : '';
 

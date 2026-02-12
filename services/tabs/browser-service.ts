@@ -29,6 +29,7 @@ export interface WindowInfo {
   name?: string;
 }
 
+import { StorageKeys } from '../../utils/storage-keys.js';
 export function assertNonEmptyArray<T>(arr: T[]): asserts arr is [T, ...T[]] {
   if (arr.length === 0) {
     throw new Error('Array cannot be empty');
@@ -85,12 +86,12 @@ export class BrowserService {
   async setWindowName(windowId: number, name: string) {
     const names = await this.getWindowNames();
     names[windowId] = name;
-    await chrome.storage.local.set({ 'window-names': names });
+    await chrome.storage.local.set({ [StorageKeys.Local.WINDOW_NAMES]: names });
   }
 
   private async getWindowNames(): Promise<Record<number, string>> {
-    const result = await chrome.storage.local.get('window-names');
-    return (result['window-names'] as Record<number, string>) || {};
+    const result = await chrome.storage.local.get(StorageKeys.Local.WINDOW_NAMES);
+    return (result[StorageKeys.Local.WINDOW_NAMES] as Record<number, string>) || {};
   }
 
   async getTab(tabId: number): Promise<TabInfo> {
