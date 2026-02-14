@@ -56,27 +56,22 @@ jobs:
           yarn run pack
           mv ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}.crx ${{ env.DIRECTORY }}/${{env.PROJECT_NAME}}-${{ steps.get_version.outputs.version }}.crx
 
+      - name: Get Short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Determine Release Parameters
         id: release_params
         run: |
           if [ "${{ steps.check_tag.outputs.exists }}" == "true" ]; then
-            echo "tag_name=pre-release" >> "$GITHUB_OUTPUT"
+            echo "tag_name=v${{ steps.get_version.outputs.version }}-pre.${{ steps.vars.outputs.sha_short }}" >> "$GITHUB_OUTPUT"
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "name=Development Build" >> "$GITHUB_OUTPUT"
+            echo "name=Development Build (${{ steps.vars.outputs.sha_short }})" >> "$GITHUB_OUTPUT"
           else
             echo "tag_name=v${{ steps.get_version.outputs.version }}" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
             echo "name=v${{ steps.get_version.outputs.version }}" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Delete existing pre-releases
-        if: steps.release_params.outputs.prerelease == 'true'
-        run: |
-          gh release list --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName' | \
-          xargs -r -n 1 gh release delete --cleanup-tag -y || true
-          git tag -d pre-release 2>/dev/null || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
