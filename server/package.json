@@ -6,15 +6,19 @@
   "scripts": {
     "build": "tsc",
     "start": "node src/index.ts",
-    "dev": "node --watch src/index.ts"
+    "dev": "node --watch src/index.ts",
+    "startup:enable": "node src/register-startup.ts",
+    "startup:disable": "node src/register-startup.ts disable"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3",
+    "auto-launch": "^5.0.6",
     "express": "^5.2.1",
     "ws": "^8.19.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/auto-launch": "^5",
     "@types/express": "^5.0.6",
     "@types/node": "^25.1.0",
     "@types/ws": "^8.18.1",

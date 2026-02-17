@@ -1,0 +1,2 @@
+#!/bin/bash
+"/Users/cye/.fnm/node-versions/v24.11.1/installation/bin/node" "/Volumes/Projects/public/taborg/server/src/index.ts" "$@"

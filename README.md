@@ -115,7 +115,18 @@ your browser tabs.
 1. **Start the MCP Bridge Server**: The extension requires a local bridge server
    to communicate with the MCP client.
    ```bash
-   yarn workspace @taborg/server start
+   yarn server:start
+   ```
+
+   **Optional: Run on Startup**:
+   You can register the bridge to start automatically when you log in. This runs
+   the server as a background process (using `launchd` on macOS, Registry on Windows, or `.desktop` files on Linux).
+   ```bash
+   # Enable startup registration
+   yarn server:startup:enable
+
+   # Disable startup registration
+   yarn server:startup:disable
    ```
 
 2. **Enable in Extension**:

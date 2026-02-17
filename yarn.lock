@@ -1333,15 +1333,24 @@ __metadata:
   resolution: "@taborg/server@workspace:server"
   dependencies:
     "@modelcontextprotocol/sdk": "npm:^1.25.3"
+    "@types/auto-launch": "npm:^5"
     "@types/express": "npm:^5.0.6"
     "@types/node": "npm:^25.1.0"
     "@types/ws": "npm:^8.18.1"
+    auto-launch: "npm:^5.0.6"
     express: "npm:^5.2.1"
     typescript: "npm:^5.9.3"
     ws: "npm:^8.19.0"
     zod: "npm:^4.3.6"
   languageName: unknown
   linkType: soft
+
+"@types/auto-launch@npm:^5":
+  version: 5.0.5
+  resolution: "@types/auto-launch@npm:5.0.5"
+  checksum: 10c0/c0aa0f1bd048a5f51cc8619b9599095a4908f6349f0e0192300de46f76280f2f35e011d7d2e69296732f5beca6ba484e0aa992b3374ff55741292c34f3c094ae
+  languageName: node
+  linkType: hard
 
 "@types/body-parser@npm:*":
   version: 1.19.6
@@ -1845,6 +1854,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"applescript@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "applescript@npm:1.0.0"
+  checksum: 10c0/b535e7df97a3e1272d1b8e8c832494ba3933fbad879847cb83c8990c08aed5bcb097d2af200ba2e0754c3467c2367441706b7864173e1aa9ee4132f5189287f0
+  languageName: node
+  linkType: hard
+
 "archiver-utils@npm:^2.1.0":
   version: 2.1.0
   resolution: "archiver-utils@npm:2.1.0"
@@ -1972,6 +1988,19 @@ __metadata:
     stubborn-fs: "npm:^2.0.0"
     when-exit: "npm:^2.1.4"
   checksum: 10c0/c352ce2e247e4f9aec4e5f46b9720a3598a8241ba4ac7d067060cfd418051268976fec5c958b9d13cc1139b9f11076a8cbdb7837c2e15ca34d3dcceb9c1000b5
+  languageName: node
+  linkType: hard
+
+"auto-launch@npm:^5.0.6":
+  version: 5.0.6
+  resolution: "auto-launch@npm:5.0.6"
+  dependencies:
+    applescript: "npm:^1.0.0"
+    mkdirp: "npm:^0.5.1"
+    path-is-absolute: "npm:^1.0.0"
+    untildify: "npm:^3.0.2"
+    winreg: "npm:1.2.4"
+  checksum: 10c0/6eee118ba9f920a2cc8ed8a5ab0da6fb07a4bae9307af6b8133e79b4ecb007b10aa520b52051c44c28a973c3917b90eeb677882b05d05f1edfb25ffc86b9feac
   languageName: node
   linkType: hard
 
@@ -4698,7 +4727,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"minimist@npm:^1.2.0, minimist@npm:^1.2.8":
+"minimist@npm:^1.2.0, minimist@npm:^1.2.6, minimist@npm:^1.2.8":
   version: 1.2.8
   resolution: "minimist@npm:1.2.8"
   checksum: 10c0/19d3fcdca050087b84c2029841a093691a91259a47def2f18222f41e7645a0b7c44ef4b40e88a1e58a40c84d2ef0ee6047c55594d298146d0eb3f6b737c20ce6
@@ -4778,6 +4807,17 @@ __metadata:
   dependencies:
     minipass: "npm:^7.1.2"
   checksum: 10c0/5aad75ab0090b8266069c9aabe582c021ae53eb33c6c691054a13a45db3b4f91a7fb1bd79151e6b4e9e9a86727b522527c0a06ec7d45206b745d54cd3097bcec
+  languageName: node
+  linkType: hard
+
+"mkdirp@npm:^0.5.1":
+  version: 0.5.6
+  resolution: "mkdirp@npm:0.5.6"
+  dependencies:
+    minimist: "npm:^1.2.6"
+  bin:
+    mkdirp: bin/cmd.js
+  checksum: 10c0/e2e2be789218807b58abced04e7b49851d9e46e88a2f9539242cc8a92c9b5c3a0b9bab360bd3014e02a140fc4fbc58e31176c408b493f8a2a6f4986bd7527b01
   languageName: node
   linkType: hard
 
@@ -6632,6 +6672,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"untildify@npm:^3.0.2":
+  version: 3.0.3
+  resolution: "untildify@npm:3.0.3"
+  checksum: 10c0/4c73e47320a97226e4f16f1764cd7d9ee62ec41458bd23244d3bd8f11800270d7603a9099586158dd6b911fa65f51713ced5f8a724bb73c7fa33fb3426bcb32d
+  languageName: node
+  linkType: hard
+
 "update-notifier@npm:7.3.1":
   version: 7.3.1
   resolution: "update-notifier@npm:7.3.1"
@@ -6934,6 +6981,13 @@ __metadata:
   version: 0.0.12
   resolution: "winreg@npm:0.0.12"
   checksum: 10c0/148b6aca1c3e88badd0d2b77ee0a71f1033e22e1cfcb41b71a5bba9e97cb3e7b6a2ec6b00cf0397959a13d65577d9173932588b3cd57b3f2e774b77ad14394ba
+  languageName: node
+  linkType: hard
+
+"winreg@npm:1.2.4":
+  version: 1.2.4
+  resolution: "winreg@npm:1.2.4"
+  checksum: 10c0/25a687332e51a1928a61e0689f51a9cae9c2ff0788e984334ef6cc286b571125de186195040f746a1b74e8668590acd1a2b17521ece94b57d3c15f8afc8b67b2
   languageName: node
   linkType: hard
 

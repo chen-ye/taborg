@@ -26,7 +26,9 @@
     "prepare": "husky",
     "server:build": "yarn workspace @taborg/server build",
     "server:start": "yarn workspace @taborg/server start",
-    "server:dev": "yarn workspace @taborg/server dev"
+    "server:dev": "yarn workspace @taborg/server dev",
+    "server:startup:enable": "yarn workspace @taborg/server startup:enable",
+    "server:startup:disable": "yarn workspace @taborg/server startup:disable"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
