@@ -36,6 +36,68 @@ TabOrg provides AI assistance for tab management while retaining user control:
 - **Theme Support**: Adapts to system light or dark mode, including dynamic
   extension icons.
 
+## AI Configuration
+
+TabOrg supports multiple AI providers for organizing your tabs. Configure these
+in **Settings**.
+
+### Google Gemini
+
+1. Obtain an API Key from [Google AI Studio](https://aistudio.google.com/).
+2. Enter the key in the **Gemini API Key** field.
+3. (Optional) Customize the **Model ID** (default: `gemini-1.5-flash`).
+
+### OpenAI
+
+1. Obtain an API Key from [OpenAI Platform](https://platform.openai.com/).
+2. Enter the key in the **OpenAI API Key** field.
+3. (Optional) Customize the **Model ID** (default: `gpt-4o`).
+
+### Custom OpenAI (Local Models)
+
+Connect to local LLMs (like [Ollama](https://ollama.com/) or
+[LM Studio](https://lmstudio.ai/)) or other OpenAI-compatible endpoints.
+
+1. **Base URL**: Enter your server's endpoint (e.g., `http://localhost:11434/v1`
+   for Ollama).
+2. **API Key**: Enter your specific key if required.
+3. **Model ID**: Enter the model name you are running (e.g., `llama3`).
+
+### Chrome Built-in AI
+
+TabOrg can utilize Chrome's on-device Gemini Nano model for privacy-first,
+offline organization.
+
+**Prerequisites:**
+
+- **Chrome 133+**: This feature is stable (GA) in newer versions.
+- **Older Versions / Local Development**:
+  1. Go to `chrome://flags`.
+  2. Enable **Enables optimization guide on device**
+     (`#optimization-guide-on-device-model`).
+  3. Enable **Prompt API for Gemini Nano**
+     (`#prompt-api-for-gemini-nano-multimodal-input`).
+  4. Restart Chrome.
+
+## Configuration
+
+### Predefined Groups
+
+Define static group names that the AI should prioritize when organizing tabs.
+
+- Enter comma-separated names (e.g., `Work, Personal, Research`).
+- Matches are case-insensitive.
+
+### Auto-Categorization Mode
+
+Control when the AI automatically suggests tab groups:
+
+- **Initial**: Analyzes tabs only when they are first opened or when you
+  explicitly request organization.
+- **Always**: Continuously monitors and updates groupings (use with caution
+  regarding API usage).
+- **Off**: Only organizes when manually triggered.
+
 ## MCP Server
 
 TabOrg exposes a local
@@ -53,7 +115,18 @@ your browser tabs.
 1. **Start the MCP Bridge Server**: The extension requires a local bridge server
    to communicate with the MCP client.
    ```bash
-   yarn workspace @taborg/server start
+   yarn server:start
+   ```
+
+   **Optional: Run on Startup**:
+   You can register the bridge to start automatically when you log in. This runs
+   the server as a background process (using `launchd` on macOS, Registry on Windows, or `.desktop` files on Linux).
+   ```bash
+   # Enable startup registration
+   yarn server:startup:enable
+
+   # Disable startup registration
+   yarn server:startup:disable
    ```
 
 2. **Enable in Extension**:

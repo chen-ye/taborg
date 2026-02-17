@@ -4,6 +4,9 @@ export interface TabData {
   url: string;
 }
 
+export type LLMProvider = 'gemini' | 'chrome-ai' | 'openai' | 'openai-custom';
+export type LLMStrategyType = 'default' | 'standard' | 'batched';
+
 export interface LLMService {
   isAvailable(): Promise<boolean>;
   categorizeTabs(
@@ -15,6 +18,19 @@ export interface LLMService {
   generateWindowName(tabs: TabData[], groups: string[]): Promise<string>;
 }
 
+export interface LLMModelConfig {
+  geminiApiKey?: string;
+  geminiModelId?: string;
+  openaiModelId?: string;
+  /** @deprecated Use openaiCustomBaseUrl for openai-custom provider instead */
+  openaiBaseUrl?: string;
+  openaiApiKey?: string;
+  openaiCustomBaseUrl?: string;
+  openaiCustomApiKey?: string;
+  openaiCustomModelId?: string;
+  strategyOverride?: LLMStrategyType;
+}
+
 export type JsonSchema = {
   type: string;
   properties?: Record<string, JsonSchema>;
@@ -23,5 +39,10 @@ export type JsonSchema = {
   required?: string[];
   description?: string;
 };
+
+export interface ProviderSetting {
+  id: LLMProvider;
+  enabled: boolean;
+}
 
 export type AutoCategorizationMode = 'off' | 'initial' | 'always';
