@@ -142,14 +142,14 @@ your browser tabs.
      "mcpServers": {
        "taborg": {
          "command": "npx",
-         "args": ["-y", "mcp-proxy", "http://localhost:3000/mcp"]
+         "args": ["-y", "mcp-proxy", "http://localhost:3033/mcp"]
        }
      }
    }
    ```
    - **MCP Inspector**:
      ```bash
-     npx @modelcontextprotocol/inspector http://localhost:3000/default/mcp
+     npx @modelcontextprotocol/inspector http://localhost:3033/default/mcp
      ```
 
    - **Gemini CLI**:
@@ -157,10 +157,10 @@ your browser tabs.
      **Option 1: Using the CLI (Recommended)**
      ```bash
      # Connect to the default instance
-     gemini mcp add taborg http://localhost:3000/default/mcp
+     gemini mcp add taborg http://localhost:3033/default/mcp
 
      # OR connect to a specific profile (e.g., your email)
-     gemini mcp add taborg-work http://localhost:3000/your.email@example.com/mcp
+     gemini mcp add taborg-work http://localhost:3033/your.email@example.com/mcp
      ```
 
      **Option 2: Manual Configuration** Add to your `~/.gemini/settings.json`:
@@ -168,7 +168,7 @@ your browser tabs.
      {
        "mcpServers": {
          "taborg": {
-           "httpUrl": "http://localhost:3000/default/mcp"
+           "httpUrl": "http://localhost:3033/default/mcp"
          }
        }
      }

@@ -1,4 +1,5 @@
-import { createServer } from 'node:net';
+import type { Server } from 'node:http';
+import { createServer as createNetServer } from 'node:net';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import express from 'express';
@@ -7,7 +8,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 // Check if a port is in use
 function isPortInUse(port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const server = createServer();
+    const server = createNetServer();
     server.once('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
         resolve(true);
@@ -25,6 +26,7 @@ function isPortInUse(port: number): Promise<boolean> {
 
 class McpProxyServer {
   private wss: WebSocketServer | null = null;
+  private httpServer: Server | null = null;
   // Map<InstanceID, WebSocket>
   private instanceConnections: Map<string, WebSocket> = new Map();
 
@@ -37,30 +39,21 @@ class McpProxyServer {
 
   async start() {
     // Check if ports are already in use (another instance running)
-    const HTTP_PORT = Number(process.env.HTTP_PORT) || 3000;
-    const WS_PORT = Number(process.env.WS_PORT) || 3003;
+    const PORT = Number(process.env.PORT) || 3033;
+    const HOST = process.env.HOST || 'localhost';
 
-    const httpInUse = await isPortInUse(HTTP_PORT);
-    if (httpInUse) {
-      console.error(`MCP server already running on port ${HTTP_PORT}. Exiting gracefully.`);
+    const portInUse = await isPortInUse(PORT);
+    if (portInUse) {
+      console.error(`MCP server already running on port ${PORT}. Exiting gracefully.`);
       process.exit(0);
     }
 
-    const wsInUse = await isPortInUse(WS_PORT);
-    if (wsInUse) {
-      console.error(`WebSocket server already running on port ${WS_PORT}. Exiting gracefully.`);
-      process.exit(0);
-    }
+    this.setupHttpAndWsServer(PORT, HOST);
 
-    // Create WebSocket server now that we know port is free
-    this.wss = new WebSocketServer({ port: WS_PORT });
-    this.setupWebSocket();
-    this.setupHttpServer(HTTP_PORT);
-
-    console.error(`MCP Proxy Server running on HTTP port ${HTTP_PORT} and WS port ${WS_PORT}`);
+    console.error(`MCP Proxy Server running on http://${HOST}:${PORT}`);
   }
 
-  private setupHttpServer(port: number) {
+  private setupHttpAndWsServer(port: number, host: string) {
     const app = express();
     app.use(express.json());
 
@@ -121,9 +114,13 @@ class McpProxyServer {
       console.error(`[HTTP] Method not allowed: ${req.method}`);
     });
 
-    app.listen(port, () => {
-      console.error(`HTTP MCP server listening on http://localhost:${port}/:instanceId/mcp`);
+    this.httpServer = app.listen(port, host, () => {
+      console.error(`HTTP MCP server listening on http://${host}:${port}/:instanceId/mcp`);
     });
+
+    // Create WebSocket server attached to the HTTP server
+    this.wss = new WebSocketServer({ server: this.httpServer });
+    this.setupWebSocket();
   }
 
   // Helper to deduplicate transport creation logic
@@ -155,7 +152,7 @@ class McpProxyServer {
   private setupWebSocket() {
     if (!this.wss) return;
     this.wss.on('connection', (ws, req) => {
-      // Parse instanceId from URL: ws://localhost:3003/instanceId
+      // Parse instanceId from URL: ws://localhost:3033/instanceId
       const url = req.url || '/';
       const instanceId = url.substring(1) || 'default'; // handle / or /default
 

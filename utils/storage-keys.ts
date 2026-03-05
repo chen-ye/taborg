@@ -15,6 +15,8 @@ export const StorageKeys = {
     OPENAI_CUSTOM_MODEL_ID: 'openaiCustomModelId',
     PROVIDER_ORDER: 'provider-order',
     MCP_ENABLED: 'mcp-enabled',
+    MCP_HOST: 'mcp-host',
+    MCP_PORT: 'mcp-port',
   },
   Local: {
     TAB_SUGGESTIONS: 'tab-suggestions',

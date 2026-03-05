@@ -300,6 +300,8 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   private autoCategorizationMode = new SettingState<AutoCategorizationMode>('initial');
   private chromeAIAvailable = new Signal.State(false);
   private mcpInstanceId = new SettingState<string>('');
+  private mcpHost = new SettingState<string>('localhost');
+  private mcpPort = new SettingState<string>('3033');
 
   // UI State for expansion
   @state() private expandedProviders: Set<string> = new Set();
@@ -360,6 +362,8 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
       StorageKeys.Sync.PROVIDER_ORDER,
       StorageKeys.Sync.LLM_STRATEGY_OVERRIDE,
       StorageKeys.Sync.AUTO_CATEGORIZATION_MODE,
+      StorageKeys.Sync.MCP_HOST,
+      StorageKeys.Sync.MCP_PORT,
       StorageKeys.Local.MCP_INSTANCE_ID,
     ]);
 
@@ -427,6 +431,15 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
     } else {
       this.predefinedGroups.original.set('');
       this.predefinedGroups.current.set('');
+    }
+
+    if (result[StorageKeys.Sync.MCP_HOST]) {
+      this.mcpHost.original.set(result[StorageKeys.Sync.MCP_HOST] as string);
+      this.mcpHost.current.set(result[StorageKeys.Sync.MCP_HOST] as string);
+    }
+    if (result[StorageKeys.Sync.MCP_PORT]) {
+      this.mcpPort.original.set(result[StorageKeys.Sync.MCP_PORT] as string);
+      this.mcpPort.current.set(result[StorageKeys.Sync.MCP_PORT] as string);
     }
 
     // Load instance ID or fetch default
@@ -504,6 +517,14 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   // Custom save for instance ID
   private async saveMcpInstanceId(id: string) {
     await chrome.storage.local.set({ [StorageKeys.Local.MCP_INSTANCE_ID]: id });
+  }
+
+  private async saveMcpHost(host: string) {
+    await chrome.storage.sync.set({ [StorageKeys.Sync.MCP_HOST]: host });
+  }
+
+  private async saveMcpPort(port: string) {
+    await chrome.storage.sync.set({ [StorageKeys.Sync.MCP_PORT]: port });
   }
 
   private async saveProviderOrder(order: ProviderSetting[]) {
@@ -1088,6 +1109,21 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
              id: 'mcp-instance-id-input',
              helpText: 'Unique ID for this browser profile (defaults to email)',
            })}
+
+           <div style="display: flex; gap: var(--sl-spacing-medium);">
+             ${this.renderStringSetting('Bridge Host', this.mcpHost, this.saveMcpHost.bind(this), {
+               placeholder: 'localhost',
+               id: 'mcp-host-input',
+             })}
+             <sl-input
+               style="width: 100px;"
+               label="Port"
+               type="number"
+               .value=${this.mcpPort.current.get()}
+               @sl-input=${(e: Event) => this.mcpPort.update((e.target as SlInput).value)}
+               @sl-blur=${() => this.mcpPort.save(this.saveMcpPort.bind(this))}
+             ></sl-input>
+           </div>
 
           ${this.mcpError ? html`<div style="color: var(--sl-color-danger-600); font-size: var(--sl-font-size-small);">${this.mcpError}</div>` : ''}
         </sl-card>

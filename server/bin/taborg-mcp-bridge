@@ -1,2 +1,3 @@
 #!/bin/bash
+export PORT=3033 HOST=localhost
 "/Users/cye/.fnm/node-versions/v24.11.1/installation/bin/node" "/Volumes/Projects/public/taborg/server/src/index.ts" "$@"

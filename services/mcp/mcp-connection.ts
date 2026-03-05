@@ -111,7 +111,9 @@ export class McpConnectionService {
         this.setEnabled(enabled);
       }
 
-      if (changes[StorageKeys.Local.MCP_INSTANCE_ID]) {
+      if (changes[StorageKeys.Local.MCP_INSTANCE_ID] || 
+          changes[StorageKeys.Sync.MCP_HOST] || 
+          changes[StorageKeys.Sync.MCP_PORT]) {
         if (this.isEnabled) {
           this.retryConnection();
         }
@@ -164,7 +166,12 @@ export class McpConnectionService {
     try {
       const instanceId = await McpConnectionService.getPersistedInstanceId();
       this.currentInstanceId = instanceId;
-      this.ws = new WebSocket(`ws://localhost:3003/${instanceId}`);
+
+      const settings = await chrome.storage.sync.get([StorageKeys.Sync.MCP_HOST, StorageKeys.Sync.MCP_PORT]);
+      const host = settings[StorageKeys.Sync.MCP_HOST] || 'localhost';
+      const port = settings[StorageKeys.Sync.MCP_PORT] || '3033';
+
+      this.ws = new WebSocket(`ws://${host}:${port}/${instanceId}`);
 
       this.ws.onopen = () => {
         console.log('MCP: Connected');

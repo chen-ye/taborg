@@ -20,10 +20,29 @@ const wrapperPath = isWindows
 
 // Create the wrapper script
 const scriptPath = path.resolve(serverDir, 'src/index.ts');
+
+const command = process.argv[2];
+const isDisable = command === 'disable';
+
+// Parse optional arguments: --port=3033 --host=localhost
+const args = process.argv.slice(isDisable ? 3 : 2).reduce((acc: Record<string, string>, arg) => {
+  if (arg.startsWith('--')) {
+    const [key, value] = arg.slice(2).split('=');
+    acc[key] = value;
+  }
+  return acc;
+}, {});
+
+const PORT = args['port'] || '3033';
+const HOST = args['host'] || 'localhost';
+
+const envVars = `PORT=${PORT} HOST=${HOST}`;
+const envVarsWindows = `set PORT=${PORT} && set HOST=${HOST}`;
+
 if (isWindows) {
-  fs.writeFileSync(wrapperPath, `@echo off\n"${process.execPath}" "${scriptPath}" %*`);
+  fs.writeFileSync(wrapperPath, `@echo off\n${envVarsWindows} && "${process.execPath}" "${scriptPath}" %*`);
 } else {
-  fs.writeFileSync(wrapperPath, `#!/bin/bash\n"${process.execPath}" "${scriptPath}" "$@"`);
+  fs.writeFileSync(wrapperPath, `#!/bin/bash\nexport ${envVars}\n"${process.execPath}" "${scriptPath}" "$@"`);
   fs.chmodSync(wrapperPath, '755');
 }
 
@@ -35,11 +54,6 @@ const taborgAutoLauncher = new AutoLaunch({
   },
 });
 
-// Since auto-launch is limited in how it handles arguments for Launch Agents,
-// we'll manually fix the plist if needed, or better, use a simpler command.
-// For now, let's just use the node path and see.
-
-
 async function setup() {
   const isEnabled = await taborgAutoLauncher.isEnabled();
   if (!isEnabled) {
@@ -50,7 +64,10 @@ async function setup() {
       console.error('Failed to enable startup script:', err);
     }
   } else {
-    console.log('TabOrg MCP Bridge is already enabled on startup.');
+    // We re-enable it to update the wrapper if it already exists
+    // (auto-launch enable is idempotent usually, but we want to make sure wrapper is updated)
+    await taborgAutoLauncher.enable();
+    console.log('TabOrg MCP Bridge startup registration updated.');
   }
 }
 
@@ -68,9 +85,7 @@ async function disable() {
   }
 }
 
-const command = process.argv[2];
-
-if (command === 'disable') {
+if (isDisable) {
   disable();
 } else {
   setup();
