@@ -13,6 +13,10 @@ import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 
+/**
+ * The primary UI component for displaying and managing the hierarchical view of browser windows, tab groups, and tabs.
+ * Supports multi-selection, drag-and-drop organization, and reactive updates via Signals.
+ */
 @customElement('tab-tree')
 export class TabTree extends SignalWatcher(LitElement) {
   static styles = css`

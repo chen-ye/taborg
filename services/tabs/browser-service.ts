@@ -41,7 +41,15 @@ function hasId<T extends { id?: number }>(item: T): item is T & { id: number } {
   return item.id !== undefined;
 }
 
+/**
+ * Service for interacting with the Chrome browser's tabs, groups, and windows.
+ * Provides a simplified, promise-based API over the standard chrome.* APIs.
+ */
 export class BrowserService {
+  /**
+   * Retrieves a list of tabs matching the specified query.
+   * Maps standard chrome.tabs.Tab objects to TabInfo.
+   */
   async getTabs(query: chrome.tabs.QueryInfo = {}): Promise<TabInfo[]> {
     const tabs = await chrome.tabs.query(query);
     return tabs.filter(hasId).map((t) => ({
@@ -170,6 +178,9 @@ export class BrowserService {
     await chrome.windows.update(tab.windowId, { focused: true });
   }
 
+  /**
+   * Updates properties of an existing tab group (e.g., title, color).
+   */
   async updateGroup(groupId: number, updateInfo: chrome.tabGroups.UpdateProperties) {
     await chrome.tabGroups.update(groupId, updateInfo);
   }

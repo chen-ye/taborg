@@ -309,7 +309,7 @@ After reading the resources, analyze the tabs and:
 2. Prefer using existing group names if they fit well
 3. If no existing group fits, create a new short, descriptive group name (e.g., "Dev", "News", "Social")
 
-Then use the 'taborg_group_tabs' tool to organize tabs, or 'taborg_update_suggestions' to provide suggestions to the user.`;
+Then use the 'taborg_group_tabs' tool to organize tabs, 'taborg_rename_group' to rename existing groups, or 'taborg_update_suggestions' to provide suggestions to the user.`;
 
       return {
         description: 'Instructions for organizing browser tabs into groups',
@@ -730,6 +730,46 @@ function initializeMcpTools() {
           },
         ],
       };
+    },
+  );
+
+  mcpService.registerTool(
+    {
+      name: 'taborg_rename_group',
+      description:
+        'Rename an existing tab group. Since the tool operates on group IDs, you should explain to the user what you are doing before executing the tool.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          groupId: { type: 'number', description: 'The ID of the group to rename' },
+          title: { type: 'string', description: 'The new title for the group' },
+        },
+        required: ['groupId', 'title'],
+      },
+    },
+    async (args) => {
+      const typedArgs = args as { groupId: number; title: string };
+      try {
+        await browserService.updateGroup(typedArgs.groupId, { title: typedArgs.title });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ success: true, groupId: typedArgs.groupId, title: typedArgs.title }, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: `Error renaming group: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
     },
   );
 

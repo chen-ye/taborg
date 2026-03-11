@@ -35,6 +35,10 @@ export interface GetPromptResult {
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
 
+/**
+ * Manages the connection between the Chrome Extension and the local MCP bridge server.
+ * Handles WebSocket lifecycle, reconnection logic, and registration of MCP tools, resources, and prompts.
+ */
 export class McpConnectionService {
   private ws: WebSocket | null = null;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;

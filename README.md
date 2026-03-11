@@ -186,6 +186,8 @@ your browser tabs.
 
 ## Development
 
+For detailed information on project architecture, state management, and how to extend MCP capabilities, see [DEVELOPMENT.md](./DEVELOPMENT.md).
+
 ### Prerequisites
 
 - Node.js (v18+)

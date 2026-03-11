@@ -12,6 +12,10 @@ import { BatchedLLMStrategy, StandardLLMStrategy } from './strategies';
 
 const DEFAULT_PROVIDER_ORDER: LLMProvider[] = ['gemini', 'openai', 'openai-custom', 'chrome-ai'];
 
+/**
+ * Orchestrates LLM interactions across multiple providers (Gemini, OpenAI, Chrome AI).
+ * Handles provider failover, strategy selection (standard vs batched), and configuration management.
+ */
 export class LLMManager implements LLMService {
   private providerOrder: ProviderSetting[] = [];
   private modelConfig: LLMModelConfig = {};
