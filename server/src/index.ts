@@ -55,7 +55,7 @@ class McpProxyServer {
 
   private setupHttpAndWsServer(port: number, host: string) {
     const app = express();
-    app.use(express.json());
+    // Do not use express.json() so that the raw request stream can be read by getRequestListener
 
     // Handle all MCP requests at /:instanceId/mcp endpoint
     app.all('/:instanceId/mcp', async (req, res) => {
@@ -221,11 +221,9 @@ class McpProxyServer {
         const transport = this.transports.get(sessionId);
         if (transport) {
           const restoredMessage = { ...message, id: originalId };
-          try {
-            transport.send(restoredMessage);
-          } catch (e) {
+          transport.send(restoredMessage).catch(e => {
             console.error(`Failed to send response to session ${sessionId}:`, e);
-          }
+          });
         } else {
           console.error(`Session ${sessionId} not found for response ${originalId}`);
         }

@@ -323,6 +323,14 @@ export class McpConnectionService {
           result: { resources: resourcesList },
         });
       }
+    } else if (message.method === 'resources/templates/list') {
+      if (id !== undefined) {
+        this.sendMessage({
+          jsonrpc: '2.0',
+          id,
+          result: { resourceTemplates: [] },
+        });
+      }
     } else if (message.method === 'resources/read' && id !== undefined) {
       const request = message as JSONRPCRequest;
       const params = (request.params as { uri: string }) || { uri: '' };
