@@ -329,18 +329,25 @@ function initializeMcpResources(instanceId: string) {
     {
       uri: `taborg://${instanceId}/tabs`,
       name: 'Open Tabs',
-      description: 'List of all open browser tabs with their IDs, titles, URLs, and group information',
+      description:
+        'List of all open browser tabs with their IDs, titles, URLs, last accessed timestamps, first accessed timestamps, opener tab IDs, and group information',
       mimeType: 'application/json',
     },
     async () => {
       const tabs = await browserService.getTabs({});
-      const tabData = tabs.map((t) => ({
-        id: t.id,
-        title: t.title,
-        url: t.url,
-        windowId: t.windowId,
-        groupId: t.groupId,
-      }));
+      const tabData = tabs.map((t) => {
+        const tabObj: any = {
+          id: t.id,
+          title: t.title || '',
+          url: t.url,
+          windowId: t.windowId,
+        };
+        if (t.groupId !== -1) tabObj.groupId = t.groupId;
+        if (t.lastAccessed !== undefined) tabObj.lastAccessed = t.lastAccessed;
+        if (t.openerTabId !== undefined) tabObj.openerTabId = t.openerTabId;
+        if (t.firstAccessed !== undefined) tabObj.firstAccessed = t.firstAccessed;
+        return tabObj;
+      });
       return [
         { uri: `taborg://${instanceId}/tabs`, mimeType: 'application/json', text: JSON.stringify(tabData, null, 2) },
       ];
@@ -392,29 +399,84 @@ function initializeMcpTools() {
   mcpService.registerTool(
     {
       name: 'taborg_list_tabs',
-      description: 'List all open tabs, optionally filtered by window or group',
+      description:
+        'List open tabs with metadata, optionally filtered by window, group, time ranges, or case-insensitive glob/substring titles and URLs.',
       annotations: { readOnlyHint: true },
       inputSchema: {
         type: 'object',
         properties: {
           windowId: { type: 'number', description: 'Filter by window ID' },
           groupId: { type: 'number', description: 'Filter by group ID' },
+          ungroupedOnly: { type: 'boolean', description: 'If true, returns only tabs with groupId === -1' },
+          excludeGroupIds: { type: 'array', items: { type: 'number' }, description: 'Group IDs to exclude' },
+          titleQuery: { 
+            type: 'string', 
+            description: 'Title case-insensitive substring or glob filter (e.g. "*github*" or "ai"). * matches zero/more chars, ? matches exactly one.' 
+          },
+          urlQuery: { 
+            type: 'string', 
+            description: 'URL case-insensitive substring or glob filter (e.g. "*.github.com*" or "hiring"). * matches zero/more chars, ? matches exactly one.' 
+          },
+          lastAccessedBefore: {
+            type: 'number',
+            description: 'Filter tabs last accessed before epoch ms. Fails open (includes tabs without timestamp).'
+          },
+          lastAccessedAfter: {
+            type: 'number',
+            description: 'Filter tabs last accessed after epoch ms. Fails open (includes tabs without timestamp).'
+          },
+          firstAccessedBefore: {
+            type: 'number',
+            description: 'Filter tabs first accessed before epoch ms. Fails open (includes tabs without timestamp).'
+          },
+          firstAccessedAfter: {
+            type: 'number',
+            description: 'Filter tabs first accessed after epoch ms. Fails open (includes tabs without timestamp).'
+          },
         },
       },
     },
     async (args) => {
-      const typedArgs = args as { windowId?: number; groupId?: number };
-      const queryInfo: chrome.tabs.QueryInfo = {};
-      if (typedArgs.windowId) queryInfo.windowId = typedArgs.windowId;
-      if (typedArgs.groupId) queryInfo.groupId = typedArgs.groupId;
+      const typedArgs = args as {
+        windowId?: number;
+        groupId?: number;
+        ungroupedOnly?: boolean;
+        excludeGroupIds?: number[];
+        titleQuery?: string;
+        urlQuery?: string;
+        lastAccessedBefore?: number;
+        lastAccessedAfter?: number;
+        firstAccessedBefore?: number;
+        firstAccessedAfter?: number;
+      };
+      const queryInfo: any = {};
+      if (typedArgs.windowId !== undefined) queryInfo.windowId = typedArgs.windowId;
+      if (typedArgs.groupId !== undefined) queryInfo.groupId = typedArgs.groupId;
+      if (typedArgs.ungroupedOnly !== undefined) queryInfo.ungroupedOnly = typedArgs.ungroupedOnly;
+      if (typedArgs.excludeGroupIds !== undefined) queryInfo.excludeGroupIds = typedArgs.excludeGroupIds;
+      if (typedArgs.titleQuery !== undefined) queryInfo.titleQuery = typedArgs.titleQuery;
+      if (typedArgs.urlQuery !== undefined) queryInfo.urlQuery = typedArgs.urlQuery;
+      if (typedArgs.lastAccessedBefore !== undefined) queryInfo.lastAccessedBefore = typedArgs.lastAccessedBefore;
+      if (typedArgs.lastAccessedAfter !== undefined) queryInfo.lastAccessedAfter = typedArgs.lastAccessedAfter;
+      if (typedArgs.firstAccessedBefore !== undefined) queryInfo.firstAccessedBefore = typedArgs.firstAccessedBefore;
+      if (typedArgs.firstAccessedAfter !== undefined) queryInfo.firstAccessedAfter = typedArgs.firstAccessedAfter;
+
       const tabs = await browserService.getTabs(queryInfo);
-      const result = tabs.map((t) => ({
-        id: t.id,
-        title: t.title,
-        url: t.url,
-        windowId: t.windowId,
-        groupId: t.groupId,
-      }));
+      const result = tabs.map((t) => {
+        const tabObj: any = {
+          id: t.id,
+          title: t.title || '',
+          url: t.url,
+          windowId: t.windowId,
+          index: t.index,
+        };
+        if (t.groupId !== -1) tabObj.groupId = t.groupId;
+        if (t.active) tabObj.active = true;
+        if (t.lastAccessed !== undefined) tabObj.lastAccessed = t.lastAccessed;
+        if (t.openerTabId !== undefined) tabObj.openerTabId = t.openerTabId;
+        if (t.firstAccessed !== undefined) tabObj.firstAccessed = t.firstAccessed;
+        return tabObj;
+      });
       return {
         content: [
           {
@@ -459,7 +521,7 @@ function initializeMcpTools() {
     {
       name: 'taborg_group_tabs',
       description:
-        'Group specific tabs together. Since the tool operates on tab IDs and group IDs, you should explain to the user what you are doing before executing the tool.',
+        'Group specific tabs together. If tabs are from multiple windows, they will be moved to the window of the first tab in the list (or the window of the existing group if groupId is specified). Since the tool operates on tab IDs and group IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -800,6 +862,68 @@ function initializeMcpTools() {
       };
     },
   );
+
+  mcpService.registerTool(
+    {
+      name: 'taborg_get_tab_chains',
+      description:
+        'Find ungrouped tabs physically adjacent to (same window, nearby indices) or historically spawned from (via openerTabId relationship) a set of focal tabs or groups',
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          focalTabIds: { type: 'array', items: { type: 'number' }, description: 'Target tab IDs to search around' },
+          groupIds: { type: 'array', items: { type: 'number' }, description: 'Target group IDs to search around' },
+          maxDistance: { type: 'number', description: 'Surrounding structural offset index (default: 3)' },
+        },
+      },
+    },
+    async (args) => {
+      const typedArgs = args as {
+        focalTabIds?: number[];
+        groupIds?: number[];
+        maxDistance?: number;
+      };
+      const result = await browserService.getTabChains(
+        typedArgs.focalTabIds || [],
+        typedArgs.groupIds || [],
+        typedArgs.maxDistance ?? 3,
+      );
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  mcpService.registerTool(
+    {
+      name: 'taborg_get_summary_statistics',
+      description:
+        'Retrieve summary statistics of all open tabs, including counts and min/max/mean inactive age (time elapsed since last accessed) grouped by tab group and by unique domain',
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    async () => {
+      const stats = await browserService.getSummaryStatistics();
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(stats, null, 2),
+          },
+        ],
+      };
+    },
+  );
 }
 
 export default defineBackground(main);
+

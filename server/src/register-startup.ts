@@ -1,8 +1,8 @@
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AutoLaunch from 'auto-launch';
-
-import fs from 'node:fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../../');
@@ -14,7 +14,7 @@ if (!fs.existsSync(binDir)) {
 }
 
 const isWindows = process.platform === 'win32';
-const wrapperPath = isWindows 
+const wrapperPath = isWindows
   ? path.resolve(binDir, 'taborg-mcp-bridge.cmd')
   : path.resolve(binDir, 'taborg-mcp-bridge');
 
@@ -40,9 +40,39 @@ const envVars = `PORT=${PORT} HOST=${HOST}`;
 const envVarsWindows = `set PORT=${PORT} && set HOST=${HOST}`;
 
 if (isWindows) {
-  fs.writeFileSync(wrapperPath, `@echo off\n${envVarsWindows} && "${process.execPath}" "${scriptPath}" %*`);
+  const windowsContent = `@echo off\r\n${envVarsWindows}\r\nwhere node >nul 2>nul\r\nif %ERRORLEVEL% equ 0 (\r\n  node "${scriptPath}" %*\r\n) else (\r\n  "${process.execPath}" "${scriptPath}" %*\r\n)\r\n`;
+  fs.writeFileSync(wrapperPath, windowsContent);
 } else {
-  fs.writeFileSync(wrapperPath, `#!/bin/bash\nexport ${envVars}\n"${process.execPath}" "${scriptPath}" "$@"`);
+  const unixContent = `#!/bin/bash
+export ${envVars}
+
+# Ensure PATH includes common node version managers (fnm, nvm, volta, asdf) and system/homebrew paths
+export PATH="$HOME/.fnm/aliases/default/bin:$HOME/.fnm/current/bin:$HOME/.volta/bin:$HOME/.asdf/shims:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
+
+if command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env --use-on-cd false 2>/dev/null)"
+fi
+
+NODE_BIN="$(command -v node 2>/dev/null)"
+
+if [ -z "$NODE_BIN" ] || [ ! -x "$NODE_BIN" ]; then
+  if [ -x "/opt/homebrew/bin/node" ]; then
+    NODE_BIN="/opt/homebrew/bin/node"
+  elif [ -x "/usr/local/bin/node" ]; then
+    NODE_BIN="/usr/local/bin/node"
+  elif [ -x "${process.execPath}" ]; then
+    NODE_BIN="${process.execPath}"
+  fi
+fi
+
+if [ -z "$NODE_BIN" ]; then
+  echo "Error: Node.js executable not found." >&2
+  exit 1
+fi
+
+exec "$NODE_BIN" "${scriptPath}" "$@"
+`;
+  fs.writeFileSync(wrapperPath, unixContent);
   fs.chmodSync(wrapperPath, '755');
 }
 
@@ -69,9 +99,40 @@ async function setup() {
     await taborgAutoLauncher.enable();
     console.log('TabOrg MCP Bridge startup registration updated.');
   }
+
+  if (process.platform === 'darwin') {
+    try {
+      const plistPath = path.resolve(process.env.HOME || '', 'Library/LaunchAgents/taborg-mcp-bridge.plist');
+      if (fs.existsSync(plistPath)) {
+        try {
+          execSync(`launchctl unload "${plistPath}" 2>/dev/null`);
+        } catch {
+          // Ignore if not loaded
+        }
+        execSync(`launchctl load "${plistPath}"`);
+        console.log('Reloaded launchctl agent for taborg-mcp-bridge.');
+      }
+    } catch (err) {
+      console.error('Failed to reload launchctl agent:', err);
+    }
+  }
 }
 
 async function disable() {
+  if (process.platform === 'darwin') {
+    try {
+      const plistPath = path.resolve(process.env.HOME || '', 'Library/LaunchAgents/taborg-mcp-bridge.plist');
+      if (fs.existsSync(plistPath)) {
+        try {
+          execSync(`launchctl unload "${plistPath}" 2>/dev/null`);
+        } catch {
+          // Ignore
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
   const isEnabled = await taborgAutoLauncher.isEnabled();
   if (isEnabled) {
     try {

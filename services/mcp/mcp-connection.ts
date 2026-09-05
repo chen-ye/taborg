@@ -115,9 +115,11 @@ export class McpConnectionService {
         this.setEnabled(enabled);
       }
 
-      if (changes[StorageKeys.Local.MCP_INSTANCE_ID] || 
-          changes[StorageKeys.Sync.MCP_HOST] || 
-          changes[StorageKeys.Sync.MCP_PORT]) {
+      if (
+        changes[StorageKeys.Local.MCP_INSTANCE_ID] ||
+        changes[StorageKeys.Sync.MCP_HOST] ||
+        changes[StorageKeys.Sync.MCP_PORT]
+      ) {
         if (this.isEnabled) {
           this.retryConnection();
         }

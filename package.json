@@ -1,6 +1,6 @@
 {
   "name": "taborg",
-  "packageManager": "yarn@4.10.3",
+  "packageManager": "yarn@4.15.0",
   "description": "manifest.json description",
   "private": true,
   "workspaces": [

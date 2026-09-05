@@ -64,6 +64,27 @@ Resources provide read-only context to LLMs.
 2. Register the resource in `initializeMcpResources()` within `entrypoints/background.ts`.
 3. Use the `taborg://${instanceId}/<resource_name>` URI pattern.
 
+## Advanced MCP Capabilities
+
+### 1. Transparent Suspended URL Decoding
+TabOrg automatically parses and decodes suspended URLs (e.g. from the Marvellous Suspender or other tab-suspension extensions) inside `browserService.getTabs()`. External LLM agents and frontend views seamlessly read the target webpage addresses (`https://...`) instead of internal extension schemas, ensuring accurate classification and deduplication.
+
+### 2. Specialized Filters in `taborg_list_tabs`
+Listing massive numbers of tabs (over 1,000) causes performance issues and consumes significant token context. The `taborg_list_tabs` tool provides high-performance native filters:
+- `ungroupedOnly` (boolean): Returns only tabs that do not belong to any group (`groupId === -1`).
+- `excludeGroupIds` (array of numbers): Ignores tabs belonging to specified groups.
+- `titleQuery` (string): Filters tabs by title using case-insensitive substring matching or simple glob wildcards (e.g., `*github*` or `Dev*`).
+- `urlQuery` (string): Filters tabs by URL using case-insensitive substring matching or simple glob wildcards (e.g., `*.github.com*` or `*google*`).
+- `lastAccessedBefore` / `lastAccessedAfter` (number): Filters tabs based on their last accessed epoch timestamp (in milliseconds). **Fails open**: always includes tabs that do not have this timestamp property populated.
+- `firstAccessedBefore` / `firstAccessedAfter` (number): Filters tabs based on their first accessed epoch timestamp (in milliseconds). **Fails open**: always includes tabs that do not have this timestamp property populated.
+
+### 3. Structural Proximity & Adjacency Finder
+The `taborg_get_tab_chains` tool dynamically discovers ungrouped tabs associated with a set of focal tabs or groups based on:
+- **Physical Proximity:** Same window, within standard index offsets (default: $\pm 3$).
+- **Historical Context:** Parent-child navigation links tracked via `openerTabId`.
+
+---
+
 ## Development Commands
 
 - `yarn dev`: Start WXT dev server (Chrome with HMR).

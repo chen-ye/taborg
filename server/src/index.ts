@@ -221,7 +221,7 @@ class McpProxyServer {
         const transport = this.transports.get(sessionId);
         if (transport) {
           const restoredMessage = { ...message, id: originalId };
-          transport.send(restoredMessage).catch(e => {
+          transport.send(restoredMessage).catch((e) => {
             console.error(`Failed to send response to session ${sessionId}:`, e);
           });
         } else {

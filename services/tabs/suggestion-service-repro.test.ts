@@ -27,7 +27,9 @@ describe('SuggestionService Repro', () => {
               changes[key] = { oldValue, newValue: value };
             }
             // Trigger listeners
-            storageListeners.forEach((l) => l(changes, 'local'));
+            storageListeners.forEach((l) => {
+              l(changes, 'local');
+            });
             return Promise.resolve();
           }),
         },
@@ -84,7 +86,9 @@ describe('SuggestionService Repro', () => {
         newValue: { 'https://external.com/': ['Group C'] },
       },
     };
-    storageListeners.forEach((l) => l(changes, 'local'));
+    storageListeners.forEach((l) => {
+      l(changes, 'local');
+    });
 
     expect(callback).toHaveBeenCalledWith({
       'https://external.com/': ['Group C'],
@@ -102,7 +106,9 @@ describe('SuggestionService Repro', () => {
         newValue: 'b',
       },
     };
-    storageListeners.forEach((l) => l(changes, 'local'));
+    storageListeners.forEach((l) => {
+      l(changes, 'local');
+    });
 
     expect(callback).not.toHaveBeenCalled();
   });

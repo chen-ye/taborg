@@ -26,6 +26,7 @@ export const StorageKeys = {
     VIEW_OPTIONS: 'view-options',
     FOLLOW_MODE: 'follow-mode',
     MCP_INSTANCE_ID: 'mcp-instance-id',
+    FIRST_ACCESSED: 'first-accessed',
   },
   Session: {
     PROCESSING_TABS: 'processing-tabs',
