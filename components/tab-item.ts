@@ -104,6 +104,12 @@ export class TabItem extends SignalWatcher(LitElement) {
       color: var(--sl-color-neutral-700);
     }
 
+    .pinned-icon {
+      font-size: var(--sl-font-size-x-small);
+      color: var(--sl-color-neutral-500);
+      flex-shrink: 0;
+    }
+
     group-tag {
       cursor: pointer;
     }
@@ -211,14 +217,14 @@ export class TabItem extends SignalWatcher(LitElement) {
   @state() private hasDropdownOpened = false;
 
   render() {
-    const suggestedGroups = this.tab.url ? tabStore.suggestionsUrlMap.get(this.tab.url) : undefined;
+    const suggestedGroups = this.tab.url ? tabStore.suggestionsUrlMap.get().get(normalizeUrl(this.tab.url)) : undefined;
     const viewMode = tabStore.viewOptions.get().viewMode;
 
     const hasSuggestions = suggestedGroups && suggestedGroups.length > 0;
 
     return html`
       <div
-        class="tab-row ${this.tab.active ? 'active' : ''} ${viewMode} ${
+        class="tab-row ${this.tab.active ? 'active' : ''} ${this.tab.pinned ? 'pinned' : ''} ${viewMode} ${
           hasSuggestions ? 'has-suggestions' : ''
         } ${tabStore.processingTabIds.get().has(this.tab.id) ? 'processing' : ''}"
         @click=${this.focusTab}
@@ -234,7 +240,7 @@ export class TabItem extends SignalWatcher(LitElement) {
               ? html`<img class="favicon" src="${this.tab.favIconUrl}" />`
               : html`<div class="favicon" style="background: #ccc"></div>`
           }
-
+          ${this.tab.pinned ? html`<sl-icon name="pin-angle-fill" class="pinned-icon" title="Pinned tab"></sl-icon>` : ''}
           <span class="title" title="${this.tab.title}">${this.tab.title}</span>
         </div>
 

@@ -1,0 +1,8 @@
+{
+  "track_id": "split_openai_providers_20260208",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-02-08T10:35:00Z",
+  "updated_at": "2026-02-08T10:35:00Z",
+  "description": "split the openai provider and the openai-compatible custom provider into two different providers, using @ai-sdk/openai-compatible for the latter. move the baseurl configurability to the OpenAI (custom) provider"
+}

@@ -32,3 +32,8 @@ server/dist
 playwright-report/
 test-results/
 
+# Local scratch files
+organize.cjs
+tabs.json
+
+

@@ -1,0 +1,28 @@
+#!/bin/bash
+export PORT=3033 HOST=localhost
+
+# Ensure PATH includes common node version managers (fnm, nvm, volta, asdf) and system/homebrew paths
+export PATH="$HOME/.fnm/aliases/default/bin:$HOME/.fnm/current/bin:$HOME/.volta/bin:$HOME/.asdf/shims:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
+
+if command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env --use-on-cd false 2>/dev/null)"
+fi
+
+NODE_BIN="$(command -v node 2>/dev/null)"
+
+if [ -z "$NODE_BIN" ] || [ ! -x "$NODE_BIN" ]; then
+  if [ -x "/opt/homebrew/bin/node" ]; then
+    NODE_BIN="/opt/homebrew/bin/node"
+  elif [ -x "/usr/local/bin/node" ]; then
+    NODE_BIN="/usr/local/bin/node"
+  elif [ -x "/opt/homebrew/Cellar/node/26.7.0/bin/node" ]; then
+    NODE_BIN="/opt/homebrew/Cellar/node/26.7.0/bin/node"
+  fi
+fi
+
+if [ -z "$NODE_BIN" ]; then
+  echo "Error: Node.js executable not found." >&2
+  exit 1
+fi
+
+exec "$NODE_BIN" "/Volumes/Projects/public/taborg/server/src/index.ts" "$@"

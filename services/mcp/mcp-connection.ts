@@ -7,6 +7,7 @@ import type {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Signal } from 'signal-polyfill';
+import { StorageKeys } from '../../utils/storage-keys.js';
 
 // A resource content item returned when reading a resource
 export interface ResourceContent {
@@ -34,6 +35,10 @@ export interface GetPromptResult {
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
 
+/**
+ * Manages the connection between the Chrome Extension and the local MCP bridge server.
+ * Handles WebSocket lifecycle, reconnection logic, and registration of MCP tools, resources, and prompts.
+ */
 export class McpConnectionService {
   private ws: WebSocket | null = null;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -105,12 +110,16 @@ export class McpConnectionService {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'sync') return;
 
-      if (changes['mcp-enabled']) {
-        const enabled = changes['mcp-enabled'].newValue as boolean;
+      if (changes[StorageKeys.Sync.MCP_ENABLED]) {
+        const enabled = changes[StorageKeys.Sync.MCP_ENABLED].newValue as boolean;
         this.setEnabled(enabled);
       }
 
-      if (changes['mcp-instance-id']) {
+      if (
+        changes[StorageKeys.Local.MCP_INSTANCE_ID] ||
+        changes[StorageKeys.Sync.MCP_HOST] ||
+        changes[StorageKeys.Sync.MCP_PORT]
+      ) {
         if (this.isEnabled) {
           this.retryConnection();
         }
@@ -142,8 +151,8 @@ export class McpConnectionService {
 
   public static async getPersistedInstanceId(): Promise<string> {
     try {
-      const storedSettings = await chrome.storage.local.get('mcp-instance-id');
-      const instanceId = storedSettings['mcp-instance-id'] as string;
+      const storedSettings = await chrome.storage.local.get(StorageKeys.Local.MCP_INSTANCE_ID);
+      const instanceId = storedSettings[StorageKeys.Local.MCP_INSTANCE_ID] as string;
       if (instanceId) return instanceId;
 
       const userInfo = await chrome.identity.getProfileUserInfo();
@@ -163,7 +172,12 @@ export class McpConnectionService {
     try {
       const instanceId = await McpConnectionService.getPersistedInstanceId();
       this.currentInstanceId = instanceId;
-      this.ws = new WebSocket(`ws://localhost:3003/${instanceId}`);
+
+      const settings = await chrome.storage.sync.get([StorageKeys.Sync.MCP_HOST, StorageKeys.Sync.MCP_PORT]);
+      const host = settings[StorageKeys.Sync.MCP_HOST] || 'localhost';
+      const port = settings[StorageKeys.Sync.MCP_PORT] || '3033';
+
+      this.ws = new WebSocket(`ws://${host}:${port}/${instanceId}`);
 
       this.ws.onopen = () => {
         console.log('MCP: Connected');
@@ -309,6 +323,14 @@ export class McpConnectionService {
           jsonrpc: '2.0',
           id,
           result: { resources: resourcesList },
+        });
+      }
+    } else if (message.method === 'resources/templates/list') {
+      if (id !== undefined) {
+        this.sendMessage({
+          jsonrpc: '2.0',
+          id,
+          result: { resourceTemplates: [] },
         });
       }
     } else if (message.method === 'resources/read' && id !== undefined) {

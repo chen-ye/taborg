@@ -8,6 +8,14 @@ freely while providing AI-assisted suggestions for grouping and organization via
 Google Gemini. It also includes a local Model Context Protocol (MCP) server to
 allow external LLMs to interact with browser tabs.
 
+## Developer Documentation
+
+For detailed information on project architecture, state management, and how to extend MCP capabilities, see [DEVELOPMENT.md](./DEVELOPMENT.md).
+
+### Documentation Mandate
+- **Always** keep `README.md` and `DEVELOPMENT.md` up to date as development proceeds.
+- When adding new MCP tools, resources, or significant architectural changes, ensure they are documented in `DEVELOPMENT.md`.
+
 ## Tech Stack
 
 - **Extension Framework:** [WXT](https://wxt.dev/)

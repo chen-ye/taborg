@@ -26,4 +26,5 @@ TabOrg is a Chrome extension for granular, incremental tab management. It is des
 
 ## Privacy & Security
 - **Local-First AI:** Default to on-device processing using Chrome's built-in Gemini Nano for immediate functionality and privacy.
-- **Explicit Consent:** Remote LLM integration (Google Gemini API) requires a user-provided API key, and the MCP bridge must be manually started by the user.
+- **Flexible LLM Integration:** Support for Google Gemini API and any OpenAI-compatible API (including local models like Ollama) with dynamic retrieval of available models and configurable selection.
+- **Explicit Consent:** Remote LLM integration requires a user-provided API key (or custom endpoint), and the MCP bridge must be manually started by the user.

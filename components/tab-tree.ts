@@ -13,6 +13,10 @@ import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 
+/**
+ * The primary UI component for displaying and managing the hierarchical view of browser windows, tab groups, and tabs.
+ * Supports multi-selection, drag-and-drop organization, and reactive updates via Signals.
+ */
 @customElement('tab-tree')
 export class TabTree extends SignalWatcher(LitElement) {
   static styles = css`
@@ -191,6 +195,16 @@ export class TabTree extends SignalWatcher(LitElement) {
     if (tabStore.followMode.get()) {
       const activeTabId = tabStore.activeTabId.get();
       if (activeTabId) {
+        // Auto-expand the window if it's collapsed
+        const tab = tabStore.allTabsById.get().get(activeTabId);
+        if (tab && tabStore.collapsedWindowIds.has(tab.windowId)) {
+          tabStore.setWindowCollapsed(tab.windowId, false);
+          // Wait for the update to happen before scrolling?
+          // Since we changed a signal (collapsedWindowIds), a re-render is triggered.
+          // The next 'updated' call will handle the scroll (because now it's not collapsed).
+          return;
+        }
+
         // Find the tree item for the active tab
         const treeItem = this.shadowRoot?.querySelector(`sl-tree-item[data-id="${activeTabId}"][data-type="tab"]`);
         if (treeItem) {

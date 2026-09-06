@@ -14,8 +14,11 @@
 - **Biome:** Fast formatter and linter for maintaining code quality.
 
 ## AI & Data
-- **Google Gemini (@google/genai):** Remote LLM integration for advanced task analysis and suggestion generation.
+- **Vercel AI SDK (ai):** Unified interface for interacting with various LLM providers.
+- **Google Gemini (@ai-sdk/google):** Remote LLM integration for advanced task analysis.
+- **OpenAI (@ai-sdk/openai):** Support for OpenAI and OpenAI-compatible APIs (e.g., Ollama, LocalAI).
 - **Chrome Built-in AI (Prompt API):** On-device Gemini Nano integration for privacy-first, low-latency AI tasks.
+- **Zod:** Schema validation for structured AI outputs.
 - **@lit-labs/signals:** Reactive state management for efficient UI updates based on tab and window changes.
 
 ## Testing & Verification
