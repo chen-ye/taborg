@@ -33,6 +33,15 @@ export interface WindowInfo {
   name?: string;
 }
 
+export interface CreateTabOptions {
+  url?: string;
+  windowId?: number;
+  index?: number;
+  active?: boolean;
+  pinned?: boolean;
+  groupId?: number;
+}
+
 import { StorageKeys } from '../../utils/storage-keys.js';
 export function assertNonEmptyArray<T>(arr: T[]): asserts arr is [T, ...T[]] {
   if (arr.length === 0) {
@@ -368,6 +377,28 @@ export class BrowserService {
     } else {
       await chrome.tabs.remove(tabIds);
     }
+  }
+
+  async createTab(options: CreateTabOptions): Promise<TabInfo> {
+    const { groupId, ...createProps } = options;
+    const tab = await chrome.tabs.create({
+      active: false,
+      ...createProps,
+    });
+    if (tab.id !== undefined && groupId !== undefined && groupId !== -1) {
+      await chrome.tabs.group({ tabIds: [tab.id], groupId });
+    }
+    return this.getTab(tab.id ?? -1);
+  }
+
+  async createTabs(tabs: CreateTabOptions[]): Promise<TabInfo[]> {
+    assertNonEmptyArray(tabs);
+    const created: TabInfo[] = [];
+    for (const tabOpts of tabs) {
+      const tabInfo = await this.createTab(tabOpts);
+      created.push(tabInfo);
+    }
+    return created;
   }
 
   async focusTab(tabId: number) {

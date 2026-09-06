@@ -1,7 +1,7 @@
 import { llmManager } from '../services/ai/llm-manager.js';
 import { listCustomModels, listGoogleModels, listOpenAIModels } from '../services/ai/providers.js';
 import { McpConnectionService, mcpService } from '../services/mcp/mcp-connection.js';
-import { browserService, type GetTabsQuery, type TabInfo } from '../services/tabs/browser-service.js';
+import { browserService, type CreateTabOptions, type GetTabsQuery, type TabInfo } from '../services/tabs/browser-service.js';
 import { processingStateService } from '../services/tabs/processing-state-service.js';
 import { suggestionService } from '../services/tabs/suggestion-service.js';
 import type { AutoCategorizationMode, LLMModelConfig, LLMProvider } from '../types/llm-types.js';
@@ -936,6 +936,49 @@ function initializeMcpTools() {
           {
             type: 'text',
             text: JSON.stringify(stats, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  mcpService.registerTool(
+    {
+      name: 'taborg_create_tabs',
+      description:
+        'Create one or more new browser tabs, optionally targeting a window, group, or setting pinned status.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          tabs: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                url: { type: 'string', description: 'URL to open in the tab' },
+                windowId: { type: 'number', description: 'Target window ID' },
+                groupId: { type: 'number', description: 'Optional tab group ID to add the new tab to' },
+                pinned: { type: 'boolean', description: 'Whether the tab should be pinned' },
+                active: { type: 'boolean', description: 'Whether the tab should become active (default: false)' },
+              },
+              required: ['url'],
+            },
+            description: 'Array of tabs to create',
+          },
+        },
+        required: ['tabs'],
+      },
+    },
+    async (args) => {
+      const typedArgs = args as {
+        tabs: CreateTabOptions[];
+      };
+      const result = await browserService.createTabs(typedArgs.tabs);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
           },
         ],
       };

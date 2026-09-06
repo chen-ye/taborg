@@ -324,4 +324,67 @@ describe('BrowserService - Tooling Enhancements', () => {
       expect(googleDomain?.count).toBe(1);
     });
   });
+
+  describe('createTab and createTabs', () => {
+    it('should create a tab and assign to group if groupId is provided', async () => {
+      const mockCreatedTab = {
+        id: 999,
+        url: 'https://example.com/new',
+        title: 'New Tab',
+        windowId: 1,
+        groupId: 42,
+        index: 5,
+        active: false,
+        pinned: false,
+      };
+
+      (chrome.tabs as any).create = vi.fn().mockResolvedValue({ id: 999, windowId: 1 });
+      (chrome.tabs as any).group = vi.fn().mockResolvedValue(42);
+      (chrome.tabs as any).get = vi.fn().mockResolvedValue(mockCreatedTab);
+
+      const service = new BrowserService();
+      const tab = await service.createTab({
+        url: 'https://example.com/new',
+        windowId: 1,
+        groupId: 42,
+      });
+
+      expect(chrome.tabs.create).toHaveBeenCalledWith({
+        url: 'https://example.com/new',
+        windowId: 1,
+        active: false,
+      });
+      expect(chrome.tabs.group).toHaveBeenCalledWith({
+        tabIds: [999],
+        groupId: 42,
+      });
+      expect(tab.id).toBe(999);
+      expect(tab.groupId).toBe(42);
+    });
+
+    it('should batch create multiple tabs', async () => {
+      const mockTab1 = { id: 101, url: 'https://a.com', windowId: 1, groupId: -1, index: 0, active: false };
+      const mockTab2 = { id: 102, url: 'https://b.com', windowId: 1, groupId: -1, index: 1, active: false };
+
+      (chrome.tabs as any).create = vi
+        .fn()
+        .mockResolvedValueOnce({ id: 101, windowId: 1 })
+        .mockResolvedValueOnce({ id: 102, windowId: 1 });
+      (chrome.tabs as any).get = vi
+        .fn()
+        .mockResolvedValueOnce(mockTab1)
+        .mockResolvedValueOnce(mockTab2);
+
+      const service = new BrowserService();
+      const tabs = await service.createTabs([
+        { url: 'https://a.com', windowId: 1 },
+        { url: 'https://b.com', windowId: 1 },
+      ]);
+
+      expect(tabs).toHaveLength(2);
+      expect(tabs[0].id).toBe(101);
+      expect(tabs[1].id).toBe(102);
+    });
+  });
 });
+

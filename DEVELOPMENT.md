@@ -86,6 +86,9 @@ The `taborg_get_tab_chains` tool dynamically discovers ungrouped tabs associated
 - **Physical Proximity:** Same window, within standard index offsets (default: $\pm 3$).
 - **Historical Context:** Parent-child navigation links tracked via `openerTabId`.
 
+### 4. Tab Creation & Batch Spawning (`taborg_create_tabs`)
+The `taborg_create_tabs` tool enables creating one or more new tabs programmatically. It accepts an array of tab definitions with options for `url`, `windowId`, `groupId` (automatically grouping the tab upon creation), `pinned`, and `active` (defaults to `false` for non-intrusive background tab creation).
+
 ---
 
 ## Development Commands
