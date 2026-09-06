@@ -72,11 +72,14 @@ TabOrg automatically parses and decodes suspended URLs (e.g. from the Marvellous
 ### 2. Specialized Filters in `taborg_list_tabs`
 Listing massive numbers of tabs (over 1,000) causes performance issues and consumes significant token context. The `taborg_list_tabs` tool provides high-performance native filters:
 - `ungroupedOnly` (boolean): Returns only tabs that do not belong to any group (`groupId === -1`).
+- `pinned` (boolean): Filters tabs by pinned status (`true` or `false`).
 - `excludeGroupIds` (array of numbers): Ignores tabs belonging to specified groups.
 - `titleQuery` (string): Filters tabs by title using case-insensitive substring matching or simple glob wildcards (e.g., `*github*` or `Dev*`).
 - `urlQuery` (string): Filters tabs by URL using case-insensitive substring matching or simple glob wildcards (e.g., `*.github.com*` or `*google*`).
 - `lastAccessedBefore` / `lastAccessedAfter` (number): Filters tabs based on their last accessed epoch timestamp (in milliseconds). **Fails open**: always includes tabs that do not have this timestamp property populated.
 - `firstAccessedBefore` / `firstAccessedAfter` (number): Filters tabs based on their first accessed epoch timestamp (in milliseconds). **Fails open**: always includes tabs that do not have this timestamp property populated.
+
+Additionally, each returned tab object exposes `pinned: true` when pinned (mirroring the `active: true` pattern), allowing external LLMs and callers to distinguish pinned tabs from unorganized ungrouped tabs.
 
 ### 3. Structural Proximity & Adjacency Finder
 The `taborg_get_tab_chains` tool dynamically discovers ungrouped tabs associated with a set of focal tabs or groups based on:

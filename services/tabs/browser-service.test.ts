@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
-import { BrowserService, getRealUrl } from './browser-service';
 import { StorageKeys } from '../../utils/storage-keys';
+import { BrowserService, getRealUrl } from './browser-service';
 
 describe('BrowserService - firstAccessed', () => {
   const listeners: Record<string, ((...args: any[]) => void)[]> = {};
@@ -218,6 +218,34 @@ describe('BrowserService - Tooling Enhancements', () => {
       const afterTabs = await service.getTabs({ lastAccessedAfter: 1500 });
       expect(afterTabs.map((t) => t.id).sort()).toEqual([2, 3]);
     });
+
+    it('should map pinned state correctly in getTabs and getTab', async () => {
+      const tabs = [
+        { id: 1, title: 'Pinned Tab', url: 'https://pinned.com', groupId: -1, pinned: true },
+        { id: 2, title: 'Unpinned Tab', url: 'https://unpinned.com', groupId: -1, pinned: false },
+        { id: 3, title: 'Default Tab', url: 'https://default.com', groupId: -1 },
+      ];
+      (chrome.tabs as any).query.mockResolvedValue(tabs);
+      (chrome.tabs as any).get.mockImplementation(async (id: number) => tabs.find((t) => t.id === id));
+
+      const result = await service.getTabs();
+      expect(result).toHaveLength(3);
+      expect(result[0].pinned).toBe(true);
+      expect(result[1].pinned).toBe(false);
+      expect(result[2].pinned).toBe(false);
+
+      const singlePinned = await service.getTab(1);
+      expect(singlePinned.pinned).toBe(true);
+
+      const singleUnpinned = await service.getTab(2);
+      expect(singleUnpinned.pinned).toBe(false);
+    });
+
+    it('should pass pinned filter to chrome.tabs.query', async () => {
+      (chrome.tabs as any).query.mockResolvedValue([]);
+      await service.getTabs({ pinned: true });
+      expect((chrome.tabs as any).query).toHaveBeenCalledWith(expect.objectContaining({ pinned: true }));
+    });
   });
 
   describe('getTabChains proximity and parent-child tracking', () => {
@@ -256,9 +284,7 @@ describe('BrowserService - Tooling Enhancements', () => {
         { id: 2, title: 'GitHub Issue', url: 'https://github.com/google/wxt', groupId: 10, lastAccessed: now - 15000 },
         { id: 3, title: 'Google Search', url: 'https://google.com/search', groupId: -1, lastAccessed: now - 30000 },
       ];
-      const groups = [
-        { id: 10, title: 'Development', color: 'blue', windowId: 1, collapsed: false }
-      ];
+      const groups = [{ id: 10, title: 'Development', color: 'blue', windowId: 1, collapsed: false }];
 
       (chrome.tabs as any).query.mockResolvedValue(tabs);
       (chrome as any).tabGroups = {
@@ -268,11 +294,10 @@ describe('BrowserService - Tooling Enhancements', () => {
       const stats = await service.getSummaryStatistics();
       expect(stats.totalTabs).toBe(3);
 
-
       // Verify group statistics
       expect(stats.byGroup).toHaveLength(2);
-      
-      const devGroup = stats.byGroup.find(g => g.groupId === 10);
+
+      const devGroup = stats.byGroup.find((g) => g.groupId === 10);
       expect(devGroup).toBeDefined();
       expect(devGroup?.groupTitle).toBe('Development');
       expect(devGroup?.count).toBe(2);
@@ -280,7 +305,7 @@ describe('BrowserService - Tooling Enhancements', () => {
       expect(devGroup?.stats.maxAgeMs).toBeGreaterThanOrEqual(14900);
       expect(devGroup?.stats.meanAgeMs).toBeCloseTo(10000, -2);
 
-      const ungrouped = stats.byGroup.find(g => g.groupId === -1);
+      const ungrouped = stats.byGroup.find((g) => g.groupId === -1);
       expect(ungrouped).toBeDefined();
       expect(ungrouped?.groupTitle).toBe('Ungrouped');
       expect(ungrouped?.count).toBe(1);
@@ -288,16 +313,15 @@ describe('BrowserService - Tooling Enhancements', () => {
 
       // Verify domain statistics
       expect(stats.byDomain).toHaveLength(2);
-      
-      const githubDomain = stats.byDomain.find(d => d.domain === 'github.com');
+
+      const githubDomain = stats.byDomain.find((d) => d.domain === 'github.com');
       expect(githubDomain).toBeDefined();
       expect(githubDomain?.count).toBe(2);
       expect(githubDomain?.stats.minAgeMs).toBeGreaterThanOrEqual(4900);
 
-      const googleDomain = stats.byDomain.find(d => d.domain === 'google.com');
+      const googleDomain = stats.byDomain.find((d) => d.domain === 'google.com');
       expect(googleDomain).toBeDefined();
       expect(googleDomain?.count).toBe(1);
     });
   });
 });
-

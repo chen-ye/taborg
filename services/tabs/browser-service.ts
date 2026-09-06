@@ -6,6 +6,7 @@ export interface TabInfo {
   groupId: number;
   index: number;
   active: boolean;
+  pinned: boolean;
   favIconUrl?: string;
   lastAccessed?: number;
   openerTabId?: number;
@@ -212,6 +213,7 @@ export class BrowserService {
       groupId: t.groupId,
       index: t.index,
       active: t.active,
+      pinned: t.pinned ?? false,
       favIconUrl: t.favIconUrl,
       lastAccessed: t.lastAccessed,
       openerTabId: t.openerTabId,
@@ -302,6 +304,7 @@ export class BrowserService {
       groupId: t.groupId,
       index: t.index,
       active: t.active,
+      pinned: t.pinned ?? false,
       favIconUrl: t.favIconUrl,
       lastAccessed: t.lastAccessed,
       openerTabId: t.openerTabId,
@@ -467,7 +470,7 @@ export class BrowserService {
         .filter((age): age is number => age !== null && age >= 0);
 
       const stats = calculateStats(ages);
-      const title = gid === -1 ? 'Ungrouped' : (groupMap.get(gid) || `Group ${gid}`);
+      const title = gid === -1 ? 'Ungrouped' : groupMap.get(gid) || `Group ${gid}`;
       byGroup.push({
         groupId: gid,
         groupTitle: title,
@@ -501,7 +504,6 @@ export class BrowserService {
         domain,
         count: dTabs.length,
         stats,
-
       });
     }
 
@@ -562,4 +564,3 @@ function getTabDomain(urlStr: string): string {
 }
 
 export const browserService = new BrowserService();
-

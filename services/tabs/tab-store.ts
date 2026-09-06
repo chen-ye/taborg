@@ -17,6 +17,7 @@ export interface TabNode {
   groupId: number;
   windowId: number;
   active: boolean;
+  pinned: boolean;
   selected: boolean; // Added for reactive collections
   suggestedGroups?: string[]; // Added for reactive collections
 }
@@ -368,6 +369,7 @@ export class TabStore {
         groupId: t.groupId,
         windowId: t.windowId,
         active: t.active || false,
+        pinned: t.pinned || false,
         selected: this.selectedTabIds.has(t.id), // Added
         suggestedGroups, // Added
       };

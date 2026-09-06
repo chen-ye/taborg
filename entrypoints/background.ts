@@ -1,7 +1,7 @@
 import { llmManager } from '../services/ai/llm-manager.js';
 import { listCustomModels, listGoogleModels, listOpenAIModels } from '../services/ai/providers.js';
 import { McpConnectionService, mcpService } from '../services/mcp/mcp-connection.js';
-import { browserService, type TabInfo } from '../services/tabs/browser-service.js';
+import { browserService, type GetTabsQuery, type TabInfo } from '../services/tabs/browser-service.js';
 import { processingStateService } from '../services/tabs/processing-state-service.js';
 import { suggestionService } from '../services/tabs/suggestion-service.js';
 import type { AutoCategorizationMode, LLMModelConfig, LLMProvider } from '../types/llm-types.js';
@@ -408,30 +408,33 @@ function initializeMcpTools() {
           windowId: { type: 'number', description: 'Filter by window ID' },
           groupId: { type: 'number', description: 'Filter by group ID' },
           ungroupedOnly: { type: 'boolean', description: 'If true, returns only tabs with groupId === -1' },
+          pinned: { type: 'boolean', description: 'Filter tabs by pinned status' },
           excludeGroupIds: { type: 'array', items: { type: 'number' }, description: 'Group IDs to exclude' },
-          titleQuery: { 
-            type: 'string', 
-            description: 'Title case-insensitive substring or glob filter (e.g. "*github*" or "ai"). * matches zero/more chars, ? matches exactly one.' 
+          titleQuery: {
+            type: 'string',
+            description:
+              'Title case-insensitive substring or glob filter (e.g. "*github*" or "ai"). * matches zero/more chars, ? matches exactly one.',
           },
-          urlQuery: { 
-            type: 'string', 
-            description: 'URL case-insensitive substring or glob filter (e.g. "*.github.com*" or "hiring"). * matches zero/more chars, ? matches exactly one.' 
+          urlQuery: {
+            type: 'string',
+            description:
+              'URL case-insensitive substring or glob filter (e.g. "*.github.com*" or "hiring"). * matches zero/more chars, ? matches exactly one.',
           },
           lastAccessedBefore: {
             type: 'number',
-            description: 'Filter tabs last accessed before epoch ms. Fails open (includes tabs without timestamp).'
+            description: 'Filter tabs last accessed before epoch ms. Fails open (includes tabs without timestamp).',
           },
           lastAccessedAfter: {
             type: 'number',
-            description: 'Filter tabs last accessed after epoch ms. Fails open (includes tabs without timestamp).'
+            description: 'Filter tabs last accessed after epoch ms. Fails open (includes tabs without timestamp).',
           },
           firstAccessedBefore: {
             type: 'number',
-            description: 'Filter tabs first accessed before epoch ms. Fails open (includes tabs without timestamp).'
+            description: 'Filter tabs first accessed before epoch ms. Fails open (includes tabs without timestamp).',
           },
           firstAccessedAfter: {
             type: 'number',
-            description: 'Filter tabs first accessed after epoch ms. Fails open (includes tabs without timestamp).'
+            description: 'Filter tabs first accessed after epoch ms. Fails open (includes tabs without timestamp).',
           },
         },
       },
@@ -441,6 +444,7 @@ function initializeMcpTools() {
         windowId?: number;
         groupId?: number;
         ungroupedOnly?: boolean;
+        pinned?: boolean;
         excludeGroupIds?: number[];
         titleQuery?: string;
         urlQuery?: string;
@@ -449,10 +453,11 @@ function initializeMcpTools() {
         firstAccessedBefore?: number;
         firstAccessedAfter?: number;
       };
-      const queryInfo: any = {};
+      const queryInfo: GetTabsQuery = {};
       if (typedArgs.windowId !== undefined) queryInfo.windowId = typedArgs.windowId;
       if (typedArgs.groupId !== undefined) queryInfo.groupId = typedArgs.groupId;
       if (typedArgs.ungroupedOnly !== undefined) queryInfo.ungroupedOnly = typedArgs.ungroupedOnly;
+      if (typedArgs.pinned !== undefined) queryInfo.pinned = typedArgs.pinned;
       if (typedArgs.excludeGroupIds !== undefined) queryInfo.excludeGroupIds = typedArgs.excludeGroupIds;
       if (typedArgs.titleQuery !== undefined) queryInfo.titleQuery = typedArgs.titleQuery;
       if (typedArgs.urlQuery !== undefined) queryInfo.urlQuery = typedArgs.urlQuery;
@@ -463,7 +468,19 @@ function initializeMcpTools() {
 
       const tabs = await browserService.getTabs(queryInfo);
       const result = tabs.map((t) => {
-        const tabObj: any = {
+        const tabObj: {
+          id: number;
+          title: string;
+          url: string;
+          windowId: number;
+          index: number;
+          groupId?: number;
+          active?: boolean;
+          pinned?: boolean;
+          lastAccessed?: number;
+          openerTabId?: number;
+          firstAccessed?: number;
+        } = {
           id: t.id,
           title: t.title || '',
           url: t.url,
@@ -472,6 +489,7 @@ function initializeMcpTools() {
         };
         if (t.groupId !== -1) tabObj.groupId = t.groupId;
         if (t.active) tabObj.active = true;
+        if (t.pinned) tabObj.pinned = true;
         if (t.lastAccessed !== undefined) tabObj.lastAccessed = t.lastAccessed;
         if (t.openerTabId !== undefined) tabObj.openerTabId = t.openerTabId;
         if (t.firstAccessed !== undefined) tabObj.firstAccessed = t.firstAccessed;
@@ -926,4 +944,3 @@ function initializeMcpTools() {
 }
 
 export default defineBackground(main);
-
