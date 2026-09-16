@@ -341,7 +341,7 @@ function initializeMcpResources(instanceId: string) {
     async () => {
       const tabs = await browserService.getTabs({});
       const tabData = tabs.map((t) => {
-        const tabObj: any = {
+        const tabObj: Record<string, unknown> = {
           id: t.id,
           title: t.title || '',
           url: t.url,

@@ -693,7 +693,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   }
 
   private async fetchModels(provider: string) {
-    let config: any = {};
+    let config: Record<string, string | undefined> = {};
     if (provider === 'gemini') {
       this.geminiLoading = true;
       this.geminiError = null;
@@ -806,9 +806,11 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
   // Drag and Drop Handlers
   private handleDragStart(e: DragEvent, index: number) {
     this.draggingIndex = index;
-    e.dataTransfer!.effectAllowed = 'move';
-    // Required for Firefox
-    e.dataTransfer!.setData('text/plain', String(index));
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      // Required for Firefox
+      e.dataTransfer.setData('text/plain', String(index));
+    }
     (e.target as HTMLElement).classList.add('dragging');
   }
 

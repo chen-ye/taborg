@@ -102,7 +102,8 @@ export class LLMManager implements LLMService {
         configChanged = true;
       }
 
-      const configKeys: (keyof LLMModelConfig)[] = [
+      type StringConfigKey = Exclude<keyof LLMModelConfig, 'strategyOverride'>;
+      const configKeys: StringConfigKey[] = [
         'geminiApiKey',
         'geminiModelId',
         'openaiBaseUrl',
@@ -115,7 +116,7 @@ export class LLMManager implements LLMService {
 
       for (const key of configKeys) {
         if (changes[key]) {
-          this.modelConfig[key] = changes[key].newValue as any;
+          this.modelConfig[key] = changes[key].newValue as string;
           configChanged = true;
         }
       }
@@ -126,20 +127,13 @@ export class LLMManager implements LLMService {
     }
   };
 
-  private createConfigHash(provider: LLMProvider): string {
-    return JSON.stringify({
-      provider,
-      ...this.modelConfig,
-    });
-  }
-
   private async getService(provider: LLMProvider): Promise<LLMService> {
     await this.settingsPromise;
 
     // Check cache
-    if (this.serviceCache.has(provider)) {
-      // In a real implementation we'd check hash per provider, simplifed here
-      return this.serviceCache.get(provider)!;
+    const cachedService = this.serviceCache.get(provider);
+    if (cachedService) {
+      return cachedService;
     }
 
     if (provider === CHROME_AI_PROVIDER_ID) {

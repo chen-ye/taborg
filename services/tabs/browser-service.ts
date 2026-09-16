@@ -71,7 +71,7 @@ export function getRealUrl(url: string): string {
 
 export function globToRegex(glob: string): RegExp {
   const escaped = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-  const regexStr = '^' + escaped.replace(/\*/g, '.*').replace(/\?/g, '.') + '$';
+  const regexStr = `^${escaped.replace(/\*/g, '.*').replace(/\?/g, '.')}$`;
   return new RegExp(regexStr, 'i');
 }
 

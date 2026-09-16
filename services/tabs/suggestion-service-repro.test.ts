@@ -115,7 +115,7 @@ describe('SuggestionService Repro', () => {
 
   it('should recover from failures in the queue', async () => {
     // 1. Force a failure
-    mockStorage['poison'] = true;
+    mockStorage.poison = true;
     // We need to inject a failure. since we can't easily change the mock implementation mid-flight for just one call without complex setup,
     // let's try to make the first op fail by mocking local.get to throw once.
 

@@ -115,7 +115,7 @@ describe('Background Script', () => {
     vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
 
     // Use implementation to call onProgress
-    (llmManager.categorizeTabs as any).mockImplementation(async (tabs: any, groups: any, onProgress: any) => {
+    (llmManager.categorizeTabs as any).mockImplementation(async (_tabs: any, _groups: any, onProgress: any) => {
       const result = new Map([[tabId, ['Search']]]);
       if (onProgress) await onProgress(result);
       return result;
@@ -172,7 +172,7 @@ describe('Background Script', () => {
 
     vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
 
-    (llmManager.categorizeTabs as any).mockImplementation(async (tabs: any, groups: any, onProgress: any) => {
+    (llmManager.categorizeTabs as any).mockImplementation(async (_tabs: any, _groups: any, onProgress: any) => {
       const result = new Map([[tabId, ['News']]]);
       if (onProgress) await onProgress(result);
       return result;
@@ -214,7 +214,7 @@ describe('Background Script', () => {
     };
     vi.mocked(chrome.tabs.get).mockResolvedValue(tab as any);
 
-    (llmManager.categorizeTabs as any).mockImplementation(async (tabs: any, groups: any, onProgress: any) => {
+    (llmManager.categorizeTabs as any).mockImplementation(async (_tabs: any, _groups: any, onProgress: any) => {
       const result = new Map([[tabId, ['B']]]);
       if (onProgress) await onProgress(result);
       return result;
