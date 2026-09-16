@@ -1,7 +1,12 @@
 import { llmManager } from '../services/ai/llm-manager.js';
 import { listCustomModels, listGoogleModels, listOpenAIModels } from '../services/ai/providers.js';
 import { McpConnectionService, mcpService } from '../services/mcp/mcp-connection.js';
-import { browserService, type CreateTabOptions, type GetTabsQuery, type TabInfo } from '../services/tabs/browser-service.js';
+import {
+  browserService,
+  type CreateTabOptions,
+  type GetTabsQuery,
+  type TabInfo,
+} from '../services/tabs/browser-service.js';
 import { processingStateService } from '../services/tabs/processing-state-service.js';
 import { suggestionService } from '../services/tabs/suggestion-service.js';
 import type { AutoCategorizationMode, LLMModelConfig, LLMProvider } from '../types/llm-types.js';

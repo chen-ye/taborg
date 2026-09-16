@@ -370,10 +370,7 @@ describe('BrowserService - Tooling Enhancements', () => {
         .fn()
         .mockResolvedValueOnce({ id: 101, windowId: 1 })
         .mockResolvedValueOnce({ id: 102, windowId: 1 });
-      (chrome.tabs as any).get = vi
-        .fn()
-        .mockResolvedValueOnce(mockTab1)
-        .mockResolvedValueOnce(mockTab2);
+      (chrome.tabs as any).get = vi.fn().mockResolvedValueOnce(mockTab1).mockResolvedValueOnce(mockTab2);
 
       const service = new BrowserService();
       const tabs = await service.createTabs([
@@ -387,4 +384,3 @@ describe('BrowserService - Tooling Enhancements', () => {
     });
   });
 });
-
