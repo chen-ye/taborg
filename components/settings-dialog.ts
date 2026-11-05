@@ -407,7 +407,7 @@ export class SettingsDialog extends SignalWatcher(LitElement) {
         { id: 'gemini', enabled: true },
         { id: 'openai', enabled: false },
         { id: 'openai-custom', enabled: false },
-        { id: 'chrome-ai', enabled: false },
+        { id: 'chrome-ai', enabled: true },
       ];
       this.providerOrder.original.set(defaultOrder);
       this.providerOrder.current.set(defaultOrder);

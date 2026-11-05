@@ -52,9 +52,10 @@ export class LLMManager implements LLMService {
       } else {
         // Initialize from legacy settings
         const active: LLMProvider = (result[StorageKeys.Sync.ACTIVE_LLM_PROVIDER] as LLMProvider) || 'gemini';
+        const fallback = result[StorageKeys.Sync.LLM_FALLBACK_ENABLED] !== false;
         this.providerOrder = DEFAULT_PROVIDER_ORDER.map((id) => ({
           id,
-          enabled: id === active,
+          enabled: id === active || (fallback && id === 'chrome-ai'),
         }));
 
         // Ensure active is first if it exists in defaults, otherwise just respect the default order with active enabled

@@ -12,11 +12,24 @@ test.describe('Settings Dialog', () => {
     const dialog = page.locator('sl-dialog[label="Settings"]');
     await expect(dialog).toBeVisible();
 
-    // Check for new fields
+    // Open Google Gemini accordion and check fields
+    const geminiSummary = page.locator('.provider-summary', { hasText: 'Google Gemini' });
+    await geminiSummary.click();
     await expect(page.locator('#gemini-model-input')).toBeVisible();
-    await expect(page.locator('#openai-url-input')).toBeVisible();
+
+    // Open OpenAI accordion and check fields
+    const openaiSummary = page
+      .locator('.provider-details', { hasText: 'OpenAI' })
+      .filter({ hasNotText: 'OpenAI Compatible' })
+      .locator('.provider-summary');
+    await openaiSummary.click();
     await expect(page.locator('#openai-key-input')).toBeVisible();
     await expect(page.locator('#openai-model-input')).toBeVisible();
+
+    // Open OpenAI Compatible (Local) accordion and check fields
+    const customSummary = page.locator('.provider-summary', { hasText: 'OpenAI Compatible (Local)' });
+    await customSummary.click();
+    await expect(page.locator('#openai-custom-url-input')).toBeVisible();
 
     // Test entering a value and blurring (which triggers save)
     const modelInput = page.locator('#gemini-model-input');

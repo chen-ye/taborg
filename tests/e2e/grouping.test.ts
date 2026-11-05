@@ -14,20 +14,9 @@ test.describe('Tab Grouping and AI Suggestions', () => {
     await expect(autosuggestButton).toBeVisible();
     await autosuggestButton.click();
 
-    // 2. Wait for suggestions to appear on a tab-item
-    // Since we are using mocks in unit tests, in E2E we rely on the built-in AI
-    // or the configured API key. In a test environment, we might need to mock
-    // the LLM response if we want a deterministic E2E test,
-    // but for now let's check for the "processing" state or the appearance of tags.
-
-    const firstTab = page.locator('tab-item').first();
-
-    // Check if it enters processing state (shimmer animation)
-    // await expect(firstTab.locator('.tab-row')).toHaveClass(/processing/);
-
-    // Wait for a suggestion tag to appear (group-tag inside .suggestions)
-    const suggestionTag = firstTab.locator('.suggestions group-tag', { hasText: 'Search' });
-    // Increase timeout as AI can be slow (even mock needs time to trigger)
+    // 2. Wait for suggestions to appear on the Google tab
+    const googleTabItem = page.locator('tab-item', { hasText: 'Google' });
+    const suggestionTag = googleTabItem.locator('.suggestions group-tag', { hasText: 'Search' });
     await expect(suggestionTag).toBeVisible({ timeout: 10000 });
 
     const groupName = await suggestionTag.textContent();

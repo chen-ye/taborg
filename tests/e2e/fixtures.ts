@@ -99,6 +99,10 @@ export const test = base.extend<{
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
 
+    await background.evaluate(async () => {
+      await chrome.storage.local.set({ __e2e_mock_ai__: true });
+    });
+
     // Extract ID from the worker URL (chrome-extension://<id>/...)
     const extensionId = background.url().split('/')[2];
     await use(extensionId);
