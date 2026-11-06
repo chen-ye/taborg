@@ -102,7 +102,7 @@ When building or invoking MCP tools that manipulate tabs and groups, keep the fo
 3. **Group Boundary Semantics on `chrome.tabs.move()` (`taborg_move_tabs_relative`)**:
    Chrome models tab groups as contiguous index ranges. Moving an ungrouped tab to `firstTabInGroup.index` (`position: 'before'`) places the tab immediately to the left of the group header (outside the group) unless it already belongs to that group. `BrowserService.moveTabsRelative()` assigns moved tabs to `targetTab.groupId` first before moving them to `refreshedTarget.index`, ensuring tabs moved `"before"` the first tab of a group stay inside the group at position 1.
 4. **Pinned Tabs Have `groupId === -1`**:
-   In Chrome, pinned tabs cannot belong to a group and always report `groupId: -1`. When querying unorganized tabs via `taborg_list_tabs`, always combine `ungroupedOnly: true` with `pinned: false`—passing a pinned tab ID to `chrome.tabs.group()` will forcibly unpin it.
+   In Chrome, pinned tabs cannot belong to a group and always report `groupId: -1` (passing a pinned tab ID to `chrome.tabs.group()` will forcibly unpin it). `BrowserService.getTabs({ ungroupedOnly: true })` automatically excludes pinned tabs unless `pinned: true` is explicitly specified.
 5. **Cross-Profile Google Account Indices (`/u/1/`, `?authuser=1`)**:
    When migrating Google Workspace, Gemini, or NotebookLM URLs across browser profiles (e.g., from a Work profile where a personal account is `/u/1/` to a Personal profile where that account is `/u/0/`), strip `/u/\d+` and `authuser=\d+` query parameters to prevent `accounts.google.com/v3/signin/confirmidentifier` redirect loops.
 

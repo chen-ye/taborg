@@ -230,7 +230,7 @@ export class BrowserService {
     }));
 
     if (ungroupedOnly) {
-      mapped = mapped.filter((t) => t.groupId === -1);
+      mapped = mapped.filter((t) => t.groupId === -1 && (chromeQuery.pinned !== undefined || !t.pinned));
     }
 
     if (excludeGroupIds && excludeGroupIds.length > 0) {

@@ -415,7 +415,7 @@ function initializeMcpTools() {
           ungroupedOnly: {
             type: 'boolean',
             description:
-              'If true, returns only tabs with groupId === -1. Note: pinned tabs also have groupId === -1 in Chrome; pair with pinned: false to query unpinned unorganized tabs.',
+              'If true, returns only unpinned tabs with groupId === -1 (unless pinned: true is also specified).',
           },
           pinned: { type: 'boolean', description: 'Filter tabs by pinned status' },
           excludeGroupIds: { type: 'array', items: { type: 'number' }, description: 'Group IDs to exclude' },

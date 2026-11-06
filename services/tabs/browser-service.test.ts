@@ -145,10 +145,11 @@ describe('BrowserService - Tooling Enhancements', () => {
   });
 
   describe('getTabs advanced filters', () => {
-    it('should support ungroupedOnly filter', async () => {
+    it('should support ungroupedOnly filter and exclude pinned tabs by default', async () => {
       const tabs = [
-        { id: 1, title: 'Tab 1', url: 'https://a.com', groupId: -1 },
-        { id: 2, title: 'Tab 2', url: 'https://b.com', groupId: 10 },
+        { id: 1, title: 'Tab 1', url: 'https://a.com', groupId: -1, pinned: false },
+        { id: 2, title: 'Tab 2', url: 'https://b.com', groupId: 10, pinned: false },
+        { id: 3, title: 'Pinned Tab', url: 'https://c.com', groupId: -1, pinned: true },
       ];
       (chrome.tabs as any).query.mockResolvedValue(tabs);
 
