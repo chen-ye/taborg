@@ -22,11 +22,11 @@ test.describe('Sidepanel Hierarchy View', () => {
 
     await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
 
-    const firstTab = page.locator('tab-item').first();
-    const tabTitle = await firstTab.locator('.title').textContent();
-    const checkbox = firstTab.locator('sl-checkbox');
+    const firstTreeItem = page.locator('sl-tree-item[data-type="tab"]').first();
+    const tabTitle = await firstTreeItem.locator('tab-item .title').textContent();
+    const checkbox = firstTreeItem.locator('sl-checkbox');
 
-    await checkbox.click();
+    await checkbox.click({ force: true });
 
     // Open the "Selected" pane at the bottom
     const selectedDetails = page.locator('sl-details', { hasText: 'Selected' });

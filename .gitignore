@@ -27,8 +27,14 @@ web-ext.config.ts
 .yarn/install-state.gz
 
 server/dist
+server/bin
 
 # Playwright
 playwright-report/
 test-results/
 
+# Local scratch files
+organize.cjs
+tabs.json
+
+.omo

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
+import type { TabNode, WindowNode } from './tab-store';
 
 // Mock chrome.tabGroups and other missing listeners
 const mockListeners = {
@@ -100,7 +101,7 @@ describe('TabStore', () => {
       retries++;
     }
 
-    expect(store.suggestionsUrlMap.get('https://test.com/')).toEqual(['Group A']);
+    expect(store.suggestionsUrlMap.get().get('https://test.com/')).toEqual(['Group A']);
   });
 
   it('should toggle tab selection', async () => {
@@ -131,6 +132,46 @@ describe('TabStore', () => {
 
     expect(tabStore.selectedTabIds.has(mockTab.id)).toBe(true);
     expect(tabStore.selectedTabIds.size).toBe(1);
+  });
+
+  it('should preserve pinned state in TabNode', async () => {
+    const windows = await fakeBrowser.windows.getAll();
+    const window = windows[0];
+
+    const mockTabs = [
+      {
+        id: 101,
+        windowId: window.id,
+        url: 'https://pinned.com/',
+        title: 'Pinned Tab',
+        active: false,
+        groupId: -1,
+        pinned: true,
+        index: 0,
+      },
+      {
+        id: 102,
+        windowId: window.id,
+        url: 'https://unpinned.com/',
+        title: 'Unpinned Tab',
+        active: false,
+        groupId: -1,
+        pinned: false,
+        index: 1,
+      },
+    ];
+
+    (globalThis as any).chrome.tabs.query = vi.fn().mockResolvedValue(mockTabs);
+    await tabStore.fetchAll();
+
+    const windowsList = [...tabStore.windows] as WindowNode[];
+    const targetWin = windowsList.find((w: WindowNode) => w.id === window.id);
+    const tabs: TabNode[] = targetWin?.tabs || [];
+    const pinnedTab = tabs.find((t: TabNode) => t.id === 101);
+    const unpinnedTab = tabs.find((t: TabNode) => t.id === 102);
+
+    expect(pinnedTab?.pinned).toBe(true);
+    expect(unpinnedTab?.pinned).toBe(false);
   });
 
   it('should move tab to window', async () => {

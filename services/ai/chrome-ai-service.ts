@@ -16,6 +16,10 @@ export class ChromeAIService implements LLMService {
   }
 
   async isAvailable(): Promise<boolean> {
+    try {
+      const mock = await chrome.storage?.local?.get('__e2e_mock_ai__');
+      if (mock?.__e2e_mock_ai__) return true;
+    } catch {}
     // We check availability via the offscreen document
     try {
       const response = (await chrome.runtime.sendMessage({
@@ -28,7 +32,39 @@ export class ChromeAIService implements LLMService {
     }
   }
 
+  private generateMockResponse(prompt: string): string {
+    let tabIds: number[] = [];
+    try {
+      if (prompt.includes('Input Tabs:')) {
+        const jsonPart = prompt.split('Input Tabs:')[1].split('Existing Groups:')[0].trim();
+        const tabs = JSON.parse(jsonPart);
+        tabIds = tabs.map((t: { id: number }) => t.id);
+      } else if (prompt.includes('- ID:')) {
+        const matches = prompt.matchAll(/- ID: (\d+),/g);
+        tabIds = Array.from(matches).map((m) => Number(m[1]));
+      }
+    } catch (_e) {}
+
+    if (tabIds.length === 0) {
+      tabIds = [101, 102, 103, 104];
+    }
+
+    const suggestions = tabIds.map((id) => ({
+      tabId: id,
+      groupNames: prompt.includes('google.com') || prompt.includes('Google') ? ['Search'] : ['General'],
+    }));
+
+    return JSON.stringify({ suggestions });
+  }
+
   private async promptProxy(prompt: string, systemPrompt?: string, schema?: JsonSchema): Promise<string> {
+    try {
+      const mock = await chrome.storage?.local?.get('__e2e_mock_ai__');
+      if (mock?.__e2e_mock_ai__) {
+        return this.generateMockResponse(prompt);
+      }
+    } catch {}
+
     const response = (await chrome.runtime.sendMessage({
       type: MessageTypes.EXECUTE_AI_PROMPT,
       prompt,
