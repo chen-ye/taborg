@@ -217,7 +217,7 @@ export class BrowserService {
     let mapped = tabs.filter(hasId).map((t) => ({
       id: t.id,
       title: t.title || '',
-      url: getRealUrl(t.url || ''),
+      url: getRealUrl(t.url || t.pendingUrl || ''),
       windowId: t.windowId,
       groupId: t.groupId,
       index: t.index,
@@ -308,7 +308,7 @@ export class BrowserService {
     return {
       id: t.id ?? tabId,
       title: t.title || '',
-      url: getRealUrl(t.url || ''),
+      url: getRealUrl(t.url || t.pendingUrl || ''),
       windowId: t.windowId,
       groupId: t.groupId,
       index: t.index,
@@ -347,10 +347,34 @@ export class BrowserService {
       targetWindowId = firstTab.windowId;
     }
 
-    // Move all tabs to the end of the target window to safely preserve order without breaking group continuity
-    await chrome.tabs.move(tabIds, { windowId: targetWindowId, index: -1 });
+    // Only move tabs that are in a different window to the target window so we preserve existing intra-window/group ordering
+    const tabsToMove: number[] = [];
+    const tabsToGroup: number[] = [];
 
-    const newGroupId = await chrome.tabs.group({ tabIds, groupId });
+    for (const id of tabIds) {
+      try {
+        const t = await this.getTab(id);
+        if (t.windowId !== targetWindowId) {
+          tabsToMove.push(id);
+        }
+        if (!groupId || t.groupId !== groupId) {
+          tabsToGroup.push(id);
+        }
+      } catch {
+        tabsToMove.push(id);
+        tabsToGroup.push(id);
+      }
+    }
+
+    if (tabsToMove.length > 0) {
+      await chrome.tabs.move(tabsToMove, { windowId: targetWindowId, index: -1 });
+    }
+
+    let newGroupId = groupId as number;
+    if (tabsToGroup.length > 0) {
+      assertNonEmptyArray(tabsToGroup);
+      newGroupId = await chrome.tabs.group({ tabIds: tabsToGroup, groupId });
+    }
 
     if (createGroupTitle) {
       await chrome.tabGroups.update(newGroupId, { title: createGroupTitle });
@@ -369,6 +393,25 @@ export class BrowserService {
 
   async moveTabs(tabIds: number[], windowId: number, index: number = -1) {
     await chrome.tabs.move(tabIds, { windowId, index });
+  }
+
+  async moveTabsRelative(tabIds: number[], targetTabId: number, position: 'before' | 'after') {
+    assertNonEmptyArray(tabIds);
+    const targetTab = await this.getTab(targetTabId);
+
+    // If the target tab is inside a group, ensure moved tabs belong to that group first
+    // so moving "before" the first tab of a group places them inside the group boundary rather than outside it
+    if (targetTab.groupId !== undefined && targetTab.groupId !== -1) {
+      await chrome.tabs.group({ tabIds, groupId: targetTab.groupId });
+    }
+
+    const refreshedTarget = await this.getTab(targetTabId);
+    let index = refreshedTarget.index;
+    if (position === 'after') {
+      index += 1;
+    }
+
+    await chrome.tabs.move(tabIds, { windowId: refreshedTarget.windowId, index });
   }
 
   async closeTabs(tabIds: number | number[]) {

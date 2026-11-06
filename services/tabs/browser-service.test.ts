@@ -382,5 +382,78 @@ describe('BrowserService - Tooling Enhancements', () => {
       expect(tabs[0].id).toBe(101);
       expect(tabs[1].id).toBe(102);
     });
+
+    it('should fall back to pendingUrl when url is not yet committed on newly created tabs', async () => {
+      const pendingTab = {
+        id: 501,
+        url: '',
+        pendingUrl: 'https://pending.example.com/path',
+        title: '',
+        windowId: 1,
+        groupId: -1,
+        index: 0,
+        active: false,
+      };
+      (chrome.tabs as any).get = vi.fn().mockResolvedValue(pendingTab);
+      (chrome.tabs as any).query = vi.fn().mockResolvedValue([pendingTab]);
+
+      const service = new BrowserService();
+      const single = await service.getTab(501);
+      expect(single.url).toBe('https://pending.example.com/path');
+
+      const list = await service.getTabs();
+      expect(list[0].url).toBe('https://pending.example.com/path');
+    });
+  });
+
+  describe('groupTabs and moveTabsRelative ordering semantics', () => {
+    it('should only move tabs from other windows and skip re-grouping tabs already in the target group', async () => {
+      const tabAlreadyInGroup = { id: 10, url: 'https://a.com', windowId: 1, groupId: 50, index: 0, active: false };
+      const tabSameWindowUngrouped = {
+        id: 11,
+        url: 'https://b.com',
+        windowId: 1,
+        groupId: -1,
+        index: 1,
+        active: false,
+      };
+      const tabOtherWindow = { id: 12, url: 'https://c.com', windowId: 2, groupId: -1, index: 0, active: false };
+
+      (chrome as any).tabGroups = {
+        get: vi.fn().mockResolvedValue({ id: 50, title: 'Dev', color: 'blue', windowId: 1, collapsed: false }),
+        update: vi.fn(),
+      };
+      (chrome.tabs as any).get = vi.fn().mockImplementation(async (id: number) => {
+        if (id === 10) return tabAlreadyInGroup;
+        if (id === 11) return tabSameWindowUngrouped;
+        if (id === 12) return tabOtherWindow;
+        throw new Error('Not found');
+      });
+      (chrome.tabs as any).move = vi.fn().mockResolvedValue([]);
+      (chrome.tabs as any).group = vi.fn().mockResolvedValue(50);
+
+      const service = new BrowserService();
+      await service.groupTabs([10, 11, 12], 50);
+
+      // Only tab 12 (from window 2) should be moved to window 1 index -1
+      expect(chrome.tabs.move).toHaveBeenCalledTimes(1);
+      expect(chrome.tabs.move).toHaveBeenCalledWith([12], { windowId: 1, index: -1 });
+
+      // Only tabs 11 and 12 (not already in group 50) should be passed to chrome.tabs.group
+      expect(chrome.tabs.group).toHaveBeenCalledWith({ tabIds: [11, 12], groupId: 50 });
+    });
+
+    it('should preserve group membership when moving tabs before the first tab of a group', async () => {
+      const targetTab = { id: 20, url: 'https://first.com', windowId: 1, groupId: 77, index: 5, active: false };
+      (chrome.tabs as any).get = vi.fn().mockResolvedValue(targetTab);
+      (chrome.tabs as any).group = vi.fn().mockResolvedValue(77);
+      (chrome.tabs as any).move = vi.fn().mockResolvedValue([]);
+
+      const service = new BrowserService();
+      await service.moveTabsRelative([21, 22], 20, 'before');
+
+      expect(chrome.tabs.group).toHaveBeenCalledWith({ tabIds: [21, 22], groupId: 77 });
+      expect(chrome.tabs.move).toHaveBeenCalledWith([21, 22], { windowId: 1, index: 5 });
+    });
   });
 });

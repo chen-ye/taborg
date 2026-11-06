@@ -412,7 +412,11 @@ function initializeMcpTools() {
         properties: {
           windowId: { type: 'number', description: 'Filter by window ID' },
           groupId: { type: 'number', description: 'Filter by group ID' },
-          ungroupedOnly: { type: 'boolean', description: 'If true, returns only tabs with groupId === -1' },
+          ungroupedOnly: {
+            type: 'boolean',
+            description:
+              'If true, returns only tabs with groupId === -1. Note: pinned tabs also have groupId === -1 in Chrome; pair with pinned: false to query unpinned unorganized tabs.',
+          },
           pinned: { type: 'boolean', description: 'Filter tabs by pinned status' },
           excludeGroupIds: { type: 'array', items: { type: 'number' }, description: 'Group IDs to exclude' },
           titleQuery: {
@@ -622,7 +626,7 @@ function initializeMcpTools() {
     {
       name: 'taborg_move_tabs_relative',
       description:
-        'Move tabs relative to another tab. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
+        'Move tabs relative to another tab. If the target tab belongs to a group, moved tabs are automatically added to that group so moving before the first tab of a group keeps them inside the group. Since the tool operates on tab IDs, you should explain to the user what you are doing before executing the tool.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -635,13 +639,7 @@ function initializeMcpTools() {
     },
     async (args) => {
       const typedArgs = args as { tabIds: number[]; targetTabId: number; position: 'before' | 'after' };
-      const targetTab = await browserService.getTab(typedArgs.targetTabId);
-      let index = targetTab.index;
-      if (typedArgs.position === 'after') {
-        index += 1;
-      }
-
-      await browserService.moveTabs(typedArgs.tabIds, targetTab.windowId, index);
+      await browserService.moveTabsRelative(typedArgs.tabIds, typedArgs.targetTabId, typedArgs.position);
       return {
         content: [
           {
